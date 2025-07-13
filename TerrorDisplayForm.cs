@@ -23,8 +23,8 @@ namespace ToNStatTool
 		private void InitializeComponent()
 		{
 			this.Text = "Terror Display - ToN Stat Tool";
-			this.Size = new Size(450, 180);
-			this.MinimumSize = new Size(450, 180);
+			this.Size = new Size(450, 170);
+			this.MinimumSize = new Size(450, 170);
 			this.StartPosition = FormStartPosition.Manual;
 			this.Location = new Point(Screen.PrimaryScreen.WorkingArea.Width - this.Width, 0);
 			this.FormBorderStyle = FormBorderStyle.Sizable;

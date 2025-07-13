@@ -80,7 +80,7 @@ namespace ToNStatTool
 			// スタン状態アイコンの設定
 			UpdateStunStatusIcon();
 
-			// テラーアイコンの設定（プレースホルダー）
+			// テラーアイコンの設定（TerrorImageManagerを使用）
 			SetTerrorIcon();
 		}
 
@@ -122,22 +122,35 @@ namespace ToNStatTool
 
 		private void SetTerrorIcon()
 		{
-			// プレースホルダーアイコンを生成
-			Bitmap icon = new Bitmap(100, 100);
-			using (Graphics g = Graphics.FromImage(icon))
+			// TerrorImageManagerを使用してテラー画像を取得
+			try
 			{
-				g.FillRectangle(Brushes.DarkGray, 0, 0, 100, 100);
-
-				// テラー名の最初の文字を大きく表示
-				string initial = string.IsNullOrEmpty(TerrorData.Name) ? "?" : TerrorData.Name.Substring(0, 1).ToUpper();
-				using (Font font = new Font("Arial", 36, FontStyle.Bold))
+				var terrorImage = TerrorImageManager.GetTerrorImage(TerrorData.Name, 100, 100);
+				if (terrorImage == null)
 				{
-					var textSize = g.MeasureString(initial, font);
-					g.DrawString(initial, font, Brushes.White,
-						(100 - textSize.Width) / 2, (100 - textSize.Height) / 2);
+					throw new Exception("テラー画像取得失敗");
 				}
+				iconPictureBox.Image = terrorImage;
 			}
-			iconPictureBox.Image = icon;
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"テラー画像の設定エラー: {TerrorData.Name} - {ex.Message}");
+
+				// エラーの場合はプレースホルダーを生成
+				Bitmap icon = new Bitmap(100, 100);
+				using (Graphics g = Graphics.FromImage(icon))
+				{
+					g.FillRectangle(Brushes.DarkGray, 0, 0, 100, 100);
+					string initial = string.IsNullOrEmpty(TerrorData.Name) ? "?" : TerrorData.Name.Substring(0, 1).ToUpper();
+					using (Font font = new Font("Arial", 36, FontStyle.Bold))
+					{
+						var textSize = g.MeasureString(initial, font);
+						g.DrawString(initial, font, Brushes.White,
+							(100 - textSize.Width) / 2, (100 - textSize.Height) / 2);
+					}
+				}
+				iconPictureBox.Image = icon;
+			}
 		}
 
 		private Color ColorFromUInt(uint color)
@@ -150,8 +163,19 @@ namespace ToNStatTool
 			if (disposing)
 			{
 				toolTip?.Dispose();
-				iconPictureBox?.Image?.Dispose();
-				stunStatusIcon?.Image?.Dispose();
+
+				// 画像を明示的に解放
+				if (iconPictureBox?.Image != null)
+				{
+					iconPictureBox.Image.Dispose();
+					iconPictureBox.Image = null;
+				}
+
+				if (stunStatusIcon?.Image != null)
+				{
+					stunStatusIcon.Image.Dispose();
+					stunStatusIcon.Image = null;
+				}
 			}
 			base.Dispose(disposing);
 		}
@@ -169,7 +193,7 @@ namespace ToNStatTool
 
 		public CompactTerrorControl(TerrorInfo terror)
 		{
-			this.Size = new Size(130, 90);
+			this.Size = new Size(130, 110);
 			this.BorderStyle = BorderStyle.FixedSingle;
 			this.BackColor = Color.White;
 			this.Margin = new Padding(5);
@@ -187,7 +211,7 @@ namespace ToNStatTool
 			// テラーアイコン（中央）
 			iconBox = new PictureBox();
 			iconBox.Location = new Point(30, 8);
-			iconBox.Size = new Size(70, 50);
+			iconBox.Size = new Size(70, 70);
 			iconBox.SizeMode = PictureBoxSizeMode.StretchImage;
 			iconBox.BorderStyle = BorderStyle.FixedSingle;
 			iconBox.BackColor = Color.LightGray;
@@ -196,8 +220,8 @@ namespace ToNStatTool
 
 			// 名前ラベル（下部）
 			nameLabel = new Label();
-			nameLabel.Location = new Point(3, 62);
-			nameLabel.Size = new Size(124, 25);
+			nameLabel.Location = new Point(3, 82);
+			nameLabel.Size = new Size(124, 45);
 			nameLabel.TextAlign = ContentAlignment.TopCenter;
 			nameLabel.Font = new Font("Meiryo UI", 8, FontStyle.Bold);
 			string displayName = terror.DisplayName ?? terror.Name;
@@ -261,19 +285,35 @@ namespace ToNStatTool
 
 		private void SetTerrorIcon(string name)
 		{
-			Bitmap icon = new Bitmap(70, 50);
-			using (Graphics g = Graphics.FromImage(icon))
+			// TerrorImageManagerを使用してテラー画像を取得
+			try
 			{
-				g.FillRectangle(Brushes.DarkGray, 0, 0, 70, 50);
-				string initial = string.IsNullOrEmpty(name) ? "?" : name.Substring(0, 1).ToUpper();
-				using (Font font = new Font("Arial", 20, FontStyle.Bold))
+				var terrorImage = TerrorImageManager.GetTerrorImage(name, 100, 100);
+				if (terrorImage == null)
 				{
-					var textSize = g.MeasureString(initial, font);
-					g.DrawString(initial, font, Brushes.White,
-						(70 - textSize.Width) / 2, (50 - textSize.Height) / 2);
+					throw new Exception("テラー画像取得失敗");
 				}
+				iconBox.Image = terrorImage;
 			}
-			iconBox.Image = icon;
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"コンパクトテラー画像の設定エラー: {name} - {ex.Message}");
+
+				// エラーの場合はプレースホルダーを生成
+				Bitmap icon = new Bitmap(100, 100);
+				using (Graphics g = Graphics.FromImage(icon))
+				{
+					g.FillRectangle(Brushes.DarkGray, 0, 0, 70, 50);
+					string initial = string.IsNullOrEmpty(name) ? "?" : name.Substring(0, 1).ToUpper();
+					using (Font font = new Font("Arial", 20, FontStyle.Bold))
+					{
+						var textSize = g.MeasureString(initial, font);
+						g.DrawString(initial, font, Brushes.White,
+							(70 - textSize.Width) / 2, (50 - textSize.Height) / 2);
+					}
+				}
+				iconBox.Image = icon;
+			}
 		}
 
 		private Color ColorFromUInt(uint color)
@@ -286,8 +326,19 @@ namespace ToNStatTool
 			if (disposing)
 			{
 				toolTip?.Dispose();
-				iconBox?.Image?.Dispose();
-				stunIcon?.Image?.Dispose();
+
+				// 画像を明示的に解放
+				if (iconBox?.Image != null)
+				{
+					iconBox.Image.Dispose();
+					iconBox.Image = null;
+				}
+
+				if (stunIcon?.Image != null)
+				{
+					stunIcon.Image.Dispose();
+					stunIcon.Image = null;
+				}
 			}
 			base.Dispose(disposing);
 		}

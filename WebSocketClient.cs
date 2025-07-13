@@ -212,53 +212,69 @@ namespace ToNStatTool
 
 		private void ProcessConnectedEvent(JObject jsonData)
 		{
-			LocalPlayerName = jsonData["DisplayName"]?.ToString() ?? "Unknown";
-			LocalPlayerUserId = jsonData["UserID"]?.ToString() ?? "";
-
-			// 既存のプレイヤーデータをクリア（接続時にリセット）
-			Players.Clear();
-
-			Players[LocalPlayerUserId] = new PlayerInfo
+			try
 			{
-				Name = LocalPlayerName,
-				UserId = LocalPlayerUserId,
-				IsLocal = true,
-				IsAlive = true,
-				LastSeen = DateTime.Now
-			};
+				LocalPlayerName = SanitizePlayerName(jsonData["DisplayName"]?.ToString() ?? "Unknown");
+				LocalPlayerUserId = jsonData["UserID"]?.ToString() ?? "";
 
-			OnConnected?.Invoke(LocalPlayerName);
-
-			// バッファされたイベントを処理
-			if (jsonData["Args"] is JArray args)
-			{
-				System.Diagnostics.Debug.WriteLine($"[CONNECTED] バッファされたイベント数: {args.Count}");
-
-				// PLAYER_JOINイベントを先に処理
-				foreach (var arg in args)
+				// 空の名前の場合の処理
+				if (string.IsNullOrWhiteSpace(LocalPlayerName))
 				{
-					if (arg is JObject argObj)
+					LocalPlayerName = $"You_{LocalPlayerUserId.Substring(0, Math.Min(8, LocalPlayerUserId.Length))}";
+				}
+
+				System.Diagnostics.Debug.WriteLine($"[CONNECTED] ローカルプレイヤー: '{LocalPlayerName}', ID: '{LocalPlayerUserId}'");
+
+				// 既存のプレイヤーデータをクリア（接続時にリセット）
+				Players.Clear();
+
+				Players[LocalPlayerUserId] = new PlayerInfo
+				{
+					Name = LocalPlayerName,
+					UserId = LocalPlayerUserId,
+					IsLocal = true,
+					IsAlive = true,
+					LastSeen = DateTime.Now
+				};
+
+				OnConnected?.Invoke(LocalPlayerName);
+
+				// バッファされたイベントを処理
+				if (jsonData["Args"] is JArray args)
+				{
+					System.Diagnostics.Debug.WriteLine($"[CONNECTED] バッファされたイベント数: {args.Count}");
+
+					// PLAYER_JOINイベントを先に処理
+					foreach (var arg in args)
 					{
-						string eventType = argObj["Type"]?.ToString() ?? argObj["TYPE"]?.ToString() ?? "";
-						if (eventType.ToUpper() == "PLAYER_JOIN")
+						if (arg is JObject argObj)
 						{
-							ProcessGameData(argObj);
+							string eventType = argObj["Type"]?.ToString() ?? argObj["TYPE"]?.ToString() ?? "";
+							if (eventType.ToUpper() == "PLAYER_JOIN")
+							{
+								ProcessGameData(argObj);
+							}
+						}
+					}
+
+					// その後、他のイベントを処理
+					foreach (var arg in args)
+					{
+						if (arg is JObject argObj)
+						{
+							string eventType = argObj["Type"]?.ToString() ?? argObj["TYPE"]?.ToString() ?? "";
+							if (eventType.ToUpper() != "PLAYER_JOIN")
+							{
+								ProcessGameData(argObj);
+							}
 						}
 					}
 				}
-
-				// その後、他のイベントを処理
-				foreach (var arg in args)
-				{
-					if (arg is JObject argObj)
-					{
-						string eventType = argObj["Type"]?.ToString() ?? argObj["TYPE"]?.ToString() ?? "";
-						if (eventType.ToUpper() != "PLAYER_JOIN")
-						{
-							ProcessGameData(argObj);
-						}
-					}
-				}
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[CONNECTED] エラー: {ex.Message}");
+				AddGameEvent("ERROR", null, $"接続処理エラー: {ex.Message}");
 			}
 		}
 
@@ -548,57 +564,121 @@ namespace ToNStatTool
 
 		private void ProcessPlayerJoinEvent(JObject jsonData)
 		{
-			string playerName = jsonData["Value"]?.ToString() ?? "Unknown";
-			string playerId = jsonData["ID"]?.ToString() ?? playerName;
-
-			// 既に存在するプレイヤーの場合はLastSeenを更新するだけ
-			if (Players.ContainsKey(playerId))
+			try
 			{
-				Players[playerId].LastSeen = DateTime.Now;
-				System.Diagnostics.Debug.WriteLine($"プレイヤー更新: {playerName}");
-				return;
+				string playerName = jsonData["Value"]?.ToString() ?? "Unknown";
+				string playerId = jsonData["ID"]?.ToString() ?? playerName;
+
+				// プレイヤー名のサニタイズと検証
+				playerName = SanitizePlayerName(playerName);
+
+				// 空の名前やnullの場合の処理
+				if (string.IsNullOrWhiteSpace(playerName))
+				{
+					playerName = $"Player_{playerId.Substring(0, Math.Min(8, playerId.Length))}";
+				}
+
+				System.Diagnostics.Debug.WriteLine($"[PLAYER_JOIN] 名前: '{playerName}', ID: '{playerId}'");
+
+				// 既に存在するプレイヤーの場合はLastSeenを更新するだけ
+				if (Players.ContainsKey(playerId))
+				{
+					Players[playerId].LastSeen = DateTime.Now;
+					Players[playerId].Name = playerName; // 名前も更新
+					System.Diagnostics.Debug.WriteLine($"プレイヤー更新: {playerName}");
+					return;
+				}
+
+				bool initialAliveState = !isRoundActive;
+
+				Players[playerId] = new PlayerInfo
+				{
+					Name = playerName,
+					UserId = playerId,
+					IsLocal = false,
+					IsAlive = initialAliveState,
+					LastSeen = DateTime.Now
+				};
+
+				System.Diagnostics.Debug.WriteLine($"プレイヤー参加: {playerName} - ラウンド中: {isRoundActive} - 初期状態: {(initialAliveState ? "生存" : "死亡")}");
 			}
-
-			bool initialAliveState = !isRoundActive;
-
-			Players[playerId] = new PlayerInfo
+			catch (Exception ex)
 			{
-				Name = playerName,
-				UserId = playerId,
-				IsLocal = false,
-				IsAlive = initialAliveState,
-				LastSeen = DateTime.Now
-			};
-
-			System.Diagnostics.Debug.WriteLine($"プレイヤー参加: {playerName} - ラウンド中: {isRoundActive} - 初期状態: {(initialAliveState ? "生存" : "死亡")}");
+				System.Diagnostics.Debug.WriteLine($"[PLAYER_JOIN] エラー: {ex.Message}");
+				AddGameEvent("ERROR", null, $"プレイヤー参加処理エラー: {ex.Message}");
+			}
 		}
-
 		private void ProcessPlayerLeaveEvent(JObject jsonData)
 		{
-			string playerName = jsonData["Value"]?.ToString() ?? "Unknown";
-
-			var playerToRemove = Players.FirstOrDefault(p => p.Value.Name == playerName);
-			if (playerToRemove.Key != null)
+			try
 			{
-				Players.Remove(playerToRemove.Key);
+				string playerName = jsonData["Value"]?.ToString() ?? "Unknown";
+				playerName = SanitizePlayerName(playerName);
+
+				System.Diagnostics.Debug.WriteLine($"[PLAYER_LEAVE] 名前: '{playerName}'");
+
+				// 名前またはIDで検索
+				var playerToRemove = Players.FirstOrDefault(p =>
+					p.Value.Name == playerName ||
+					p.Key == playerName ||
+					p.Value.Name.Contains(playerName) ||
+					playerName.Contains(p.Value.Name));
+
+				if (playerToRemove.Key != null)
+				{
+					System.Diagnostics.Debug.WriteLine($"プレイヤー退出: {Players[playerToRemove.Key].Name}");
+					Players.Remove(playerToRemove.Key);
+				}
+				else
+				{
+					System.Diagnostics.Debug.WriteLine($"退出プレイヤーが見つかりません: '{playerName}'");
+				}
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[PLAYER_LEAVE] エラー: {ex.Message}");
+				AddGameEvent("ERROR", null, $"プレイヤー退出処理エラー: {ex.Message}");
 			}
 		}
 
 		private void ProcessDeathEvent(JObject jsonData)
 		{
-			string playerName = jsonData["Name"]?.ToString() ?? "Unknown";
-			string message = jsonData["Message"]?.ToString() ?? "";
+			try
+			{
+				string playerName = jsonData["Name"]?.ToString() ?? "Unknown";
+				string message = jsonData["Message"]?.ToString() ?? "";
 
-			var player = Players.Values.FirstOrDefault(p => p.Name == playerName);
-			if (player != null)
-			{
-				player.IsAlive = false;
-				player.LastSeen = DateTime.Now;
-				System.Diagnostics.Debug.WriteLine($"[DEATH] プレイヤー死亡: {playerName} - メッセージ: {message}");
+				playerName = SanitizePlayerName(playerName);
+
+				System.Diagnostics.Debug.WriteLine($"[DEATH] 名前: '{playerName}', メッセージ: '{message}'");
+
+				// より柔軟な検索
+				var player = Players.Values.FirstOrDefault(p =>
+					p.Name == playerName ||
+					p.Name.Contains(playerName) ||
+					playerName.Contains(p.Name) ||
+					NormalizePlayerName(p.Name) == NormalizePlayerName(playerName));
+
+				if (player != null)
+				{
+					player.IsAlive = false;
+					player.LastSeen = DateTime.Now;
+					System.Diagnostics.Debug.WriteLine($"[DEATH] プレイヤー死亡: {player.Name} - メッセージ: {message}");
+				}
+				else
+				{
+					System.Diagnostics.Debug.WriteLine($"[DEATH] 警告: プレイヤー '{playerName}' が見つかりません");
+					System.Diagnostics.Debug.WriteLine($"[DEATH] 現在のプレイヤー一覧:");
+					foreach (var p in Players.Values)
+					{
+						System.Diagnostics.Debug.WriteLine($"  - '{p.Name}' (ID: {p.UserId})");
+					}
+				}
 			}
-			else
+			catch (Exception ex)
 			{
-				System.Diagnostics.Debug.WriteLine($"[DEATH] 警告: プレイヤー '{playerName}' が見つかりません");
+				System.Diagnostics.Debug.WriteLine($"[DEATH] エラー: {ex.Message}");
+				AddGameEvent("ERROR", null, $"死亡処理エラー: {ex.Message}");
 			}
 		}
 
@@ -705,6 +785,74 @@ namespace ToNStatTool
 					System.Diagnostics.Debug.WriteLine($"古いプレイヤーを削除: {Players[playerId].Name}");
 					Players.Remove(playerId);
 				}
+			}
+		}
+		/// <summary>
+		/// プレイヤー名をサニタイズする
+		/// </summary>
+		private string SanitizePlayerName(string playerName)
+		{
+			if (string.IsNullOrEmpty(playerName))
+				return "Unknown";
+
+			try
+			{
+				// 制御文字を除去
+				var sanitized = new StringBuilder();
+				foreach (char c in playerName)
+				{
+					// 印刷可能文字、日本語、中国語、韓国語、絵文字などを許可
+					if (char.IsControl(c))
+					{
+						continue; // 制御文字はスキップ
+					}
+
+					sanitized.Append(c);
+				}
+
+				string result = sanitized.ToString().Trim();
+
+				// 空になった場合は"Unknown"を返す
+				if (string.IsNullOrWhiteSpace(result))
+				{
+					return "Unknown";
+				}
+
+				// 長すぎる名前は切り詰める
+				if (result.Length > 50)
+				{
+					result = result.Substring(0, 47) + "...";
+				}
+
+				return result;
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"プレイヤー名サニタイズエラー: {ex.Message}");
+				return "Unknown";
+			}
+		}
+
+		/// <summary>
+		/// プレイヤー名を正規化する（比較用）
+		/// </summary>
+		private string NormalizePlayerName(string playerName)
+		{
+			if (string.IsNullOrEmpty(playerName))
+				return "";
+
+			try
+			{
+				return playerName
+					.Trim()
+					.ToLowerInvariant()
+					.Replace(" ", "")
+					.Replace("_", "")
+					.Replace("-", "");
+			}
+			catch
+			{
+				return playerName ?? "";
 			}
 		}
 	}

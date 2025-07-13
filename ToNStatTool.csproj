@@ -58,6 +58,7 @@
     <Compile Include="TerrorDisplayForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="TerrorImageManager.cs" />
     <Compile Include="TerrorStunType.cs" />
     <Compile Include="ToNStatTool.cs">
       <SubType>Form</SubType>
@@ -90,6 +91,579 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\,D%40%3bQ7Y.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\[CENSORED].png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\_.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Aku_Ball.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Akumii_Kari.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\All_Around_Helper.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Alternates.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Ambush.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\An_Arbiter.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Angry_Munci.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Ao_Oni.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Apathy.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Apocalypse_Bird.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Apocrean_Harvester.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Arkus.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Army_In_Black.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Arrival.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Astrum_Aureus.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Atrached.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Bacteria.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Bad_Batter.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Baldi.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Bed_Mecha.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Beyond.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Beyond_Plush.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\BFF.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Big_Bird.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Bigger_Boot.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Black_Sun.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Bliss.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\bravera.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Cartoon_Cat.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Charlotte.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Chomper.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Christian_Brutal_Sniper.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Clockey.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Comedy.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Convict_Squad.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Corrupted_Toys.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Cubors_Revenge.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Decayed_Sponge.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Deleted.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Demented_Spongebob.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Dev_Bytes.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Dev_Maulers.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Dog_Mimic.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Dont_Touch_Me.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\DoomBox.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Dr._Tox.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Eggmans_Announcement.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Evil_Purple_Foxy.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Express_Train_To_Hell.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Feddys.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\FOX_Squad.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Fusion_Pilot.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Garten_Goers.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Ghost_Girl.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\GIGABYTE.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Glaggle_Gang.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Haket.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Harvest.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Hell_Bell.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\HER.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Herobrine.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\HoovyDundy.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Horseless_Headless_Horsemann.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Huggy.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\HungryHomeInvader.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Hush.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Immortal Snail.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Imposter.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Ink_Demon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Interloper.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Joy.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Judas.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Judgement_Bird.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Karol_Corpse.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Killer_Fish.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Killer_Rabbit.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\lain.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Legs.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Living_Shadow.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Lords_Signal.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Luigi_and_Luigi_Dolls.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Lunatic_Cultist.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Malicious_Twins.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Manti.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Maul_A_Child.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Miros_Birds.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Mirror.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\MissingNo.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Mona_and_The_Mountain.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\MopeMope.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\MR.MEGA.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\MX.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Neo_Pilot.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Nextbots.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Nosk.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\OH_NO.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Pale_Association.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Pandora.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Paradise_Bird.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Parhelion.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Parhelions_Victims.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Peepy.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Poly.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Prisoner.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Psychosis.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Punishing_Bird.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Purple_Guy.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Red_Bus.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Red_Fanatic.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Red_Mist_Apparition.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Restless_Creator.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Retep.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Rift_Monsters.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Roblander.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Rush.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\S.O.S.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\S.T.G.M.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Sakuya_Izayoi.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Sakuya_The_Ripper.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Sanic.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Sawrunner.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Scavenger.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Searchlights.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Security.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Seek.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Shadow_Freddy.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Shinto.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Shiteyanyo.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Signus.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Slender.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\sm64.z64.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Smileghost.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Snarbolax.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Something.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Something_Wicked.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Sonic.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Spamton.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Specimen_2.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Specimen_5.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Specimen_8.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Specimen_9.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Specimen_10.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Spongefly_Swarm.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Starved.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Sturm.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Tails_Doll.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\TBH.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\TBH_SPY.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Terror_of_Nowhere.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Teuthida.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\The_Boys.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\The_Guidance.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\The_Jester.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\The_Knight_of_Toren.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\The_LifeBringer.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\The_MeatBallMan.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\The_Observation.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\The_Origin.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\The_Painter.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\The_Plague_Doctor.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\The_Pursuer.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\The_Rat.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\The_Red_Mist.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\The_Swarm.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Those_Olden_Days.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Tiffany.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Time_Ripper.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Tinky_Winky.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Torens_Shadow.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Toy_Enforcer.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Tragedy.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Transportation_Trio_and_The_Drifter.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Tricky.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Try_Not_To_Touch_Me.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\V2.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Virus.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Waldo.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Walpurgisnacht.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Warden.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Wario_Apparition.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Waterwraith.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\WHITEFACE.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\whitenight.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Wild_Yet_Bloodthirsty_Creature.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Wild_Yet_Curious_Creature.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\With_Many_Voices.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Withered_Bonnie.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Yolm.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

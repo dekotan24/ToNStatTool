@@ -491,6 +491,7 @@ namespace ToNStatTool
 			}
 		}
 
+
 		private void UpdatePlayerList()
 		{
 			if (isUpdatingPlayers) return;
@@ -518,21 +519,50 @@ namespace ToNStatTool
 				int totalPlayers = players.Count;
 				int alivePlayers = 0;
 
+				// デバッグ情報を出力
+				System.Diagnostics.Debug.WriteLine($"[UI] プレイヤー一覧更新 - 総数: {totalPlayers}");
+
 				foreach (var player in players.Values.OrderBy(p => p.Name))
 				{
-					var item = new ListViewItem(player.Name);
-					item.SubItems.Add(player.IsAlive ? "生存" : "死亡");
-					item.SubItems.Add(player.UserId == localPlayerUserId ? "自分" : "他人");
+					try
+					{
+						// プレイヤー名の表示用処理
+						string displayName = GetDisplayPlayerName(player.Name);
 
-					if (player.IsAlive)
-						alivePlayers++;
+						var item = new ListViewItem(displayName);
+						item.SubItems.Add(player.IsAlive ? "生存" : "死亡");
+						item.SubItems.Add(player.UserId == localPlayerUserId ? "自分" : "他人");
 
-					if (!player.IsAlive)
-						item.ForeColor = Color.Red;
-					else if (player.UserId == localPlayerUserId)
-						item.ForeColor = Color.Blue;
+						// ツールチップに元の名前を設定（表示名が切り詰められた場合）
+						if (displayName != player.Name)
+						{
+							item.ToolTipText = $"元の名前: {player.Name}";
+						}
 
-					listView.Items.Add(item);
+						if (player.IsAlive)
+							alivePlayers++;
+
+						// 色分け
+						if (!player.IsAlive)
+							item.ForeColor = Color.Red;
+						else if (player.UserId == localPlayerUserId)
+							item.ForeColor = Color.Blue;
+
+						listView.Items.Add(item);
+
+						System.Diagnostics.Debug.WriteLine($"[UI] プレイヤー追加: '{displayName}' (元: '{player.Name}') - {(player.IsAlive ? "生存" : "死亡")}");
+					}
+					catch (Exception ex)
+					{
+						System.Diagnostics.Debug.WriteLine($"[UI] プレイヤー表示エラー: {player.Name} - {ex.Message}");
+
+						// エラーが発生した場合でもリストに追加
+						var errorItem = new ListViewItem($"[表示エラー] {player.UserId}");
+						errorItem.SubItems.Add(player.IsAlive ? "生存" : "死亡");
+						errorItem.SubItems.Add(player.UserId == localPlayerUserId ? "自分" : "他人");
+						errorItem.ForeColor = Color.Orange;
+						listView.Items.Add(errorItem);
+					}
 				}
 
 				labelPlayerCount.Text = $"総人数: {totalPlayers}人 | 生存: {alivePlayers}人";
@@ -546,9 +576,38 @@ namespace ToNStatTool
 
 				listView.EndUpdate();
 			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[UI] プレイヤーリスト更新エラー: {ex.Message}");
+			}
 			finally
 			{
 				isUpdatingPlayers = false;
+			}
+		}
+
+		/// <summary>
+		/// プレイヤー名を表示用に調整する
+		/// </summary>
+		private string GetDisplayPlayerName(string playerName)
+		{
+			if (string.IsNullOrEmpty(playerName))
+				return "Unknown";
+
+			try
+			{
+				// ListView での表示に適した長さに調整
+				if (playerName.Length > 25)
+				{
+					return playerName.Substring(0, 22) + "...";
+				}
+
+				return playerName;
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"プレイヤー名表示処理エラー: {ex.Message}");
+				return "Unknown";
 			}
 		}
 
@@ -730,10 +789,14 @@ namespace ToNStatTool
 			uiUpdateTimer?.Stop();
 			uiUpdateTimer?.Dispose();
 
+			// テラーコントロールのリソースを解放
 			foreach (var control in terrorControls)
 			{
 				control.Dispose();
 			}
+
+			// TerrorImageManagerのキャッシュをクリア
+			TerrorImageManager.ClearCache();
 
 			if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
 			{

@@ -46,14 +46,13 @@ namespace ToNStatTool
             {"Corrupted Toys", TerrorStunType.Safe},
             {"Sawrunner", TerrorStunType.Safe},
 			{"Demented Spongebob", TerrorStunType.Safe},
-			{"青鬼", TerrorStunType.Safe},
+			{"Ao Oni", TerrorStunType.Safe},
 			{"Tails Doll", TerrorStunType.Safe},             // 88〜48秒までの40秒間はスタン不可
             {"Black Sun", TerrorStunType.Safe},              // 手下のみ、本体はスタン不可
             {"CENSORED", TerrorStunType.Safe},
 			{"WhiteNight", TerrorStunType.Safe},             // 眷族のみ
             {"Starved", TerrorStunType.Safe},
 			{"The Painter", TerrorStunType.Safe},            // 絵のみ、本体はスタン不可
-            {"ThePainter", TerrorStunType.Safe},             // 絵のみ、本体はスタン不可
             {"with many voices", TerrorStunType.Safe},
 			{"Karol_Corpse", TerrorStunType.Safe},           // 頭が発光してる時はスタン不可
             {"MX", TerrorStunType.Safe},                     // 発狂後スタン不可
@@ -81,7 +80,6 @@ namespace ToNStatTool
 			{"Security", TerrorStunType.Safe},
 			{"The Swarm", TerrorStunType.Safe},
 			{"Shiteyanyo", TerrorStunType.Safe},
-			{"シテヤンヨ", TerrorStunType.Safe},
 			{"Bacteria", TerrorStunType.Safe},
 			{"HoovyDundy", TerrorStunType.Safe},
 			{"Lunatic Cultist", TerrorStunType.Safe},
@@ -94,7 +92,7 @@ namespace ToNStatTool
 			{"Retep", TerrorStunType.Safe},
 			{"Those Olden Days", TerrorStunType.Safe},       // テレビのみ、本体はスタン不可
             {"Olden Days", TerrorStunType.Safe},        // テレビのみ、本体はスタン不可
-            {"スパムトン", TerrorStunType.Safe},
+            {"Spamton", TerrorStunType.Safe},
 			{"Wild Yet Curious Creature", TerrorStunType.Safe},
 			{"Manti", TerrorStunType.Safe},
 			{"Cubor's Revenge", TerrorStunType.Safe},        // オレンジ色のキューブのみ、本体はスタン不可
@@ -112,6 +110,7 @@ namespace ToNStatTool
 			{"ペスト医師", TerrorStunType.Safe},              // ゾンビのみ、本体はスタン不可
             {"Clockey", TerrorStunType.Safe},                // ハァハァって煽ってくるときのみ
             {"Terror of Nowhere", TerrorStunType.Safe},
+            {"Christian Brutal Sniper", TerrorStunType.Safe},
 
             // 以下は元々Safeに分類されていたが、リストに載っていないテラー → Unknown に移動
             {"The LifeBringer", TerrorStunType.Unknown},
