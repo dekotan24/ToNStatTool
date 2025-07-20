@@ -57,7 +57,7 @@ namespace ToNStatTool
 
 			// Form設定
 			this.Text = "ToN Stat Tool - Terror of Nowhere Statistics Tool";
-			this.Size = new Size(1205, 700);
+			this.Size = new Size(1205, 760);
 			this.StartPosition = FormStartPosition.CenterScreen;
 			this.FormBorderStyle = FormBorderStyle.Sizable;
 
@@ -137,12 +137,12 @@ namespace ToNStatTool
 			groupBoxTerrors = new GroupBox();
 			groupBoxTerrors.Text = "現在のテラー";
 			groupBoxTerrors.Location = new Point(10, 50);
-			groupBoxTerrors.Size = new Size(600, 180);
+			groupBoxTerrors.Size = new Size(600, 240);//600 180
 			this.Controls.Add(groupBoxTerrors);
 
 			terrorDisplayPanel = new FlowLayoutPanel();
 			terrorDisplayPanel.Location = new Point(10, 25);
-			terrorDisplayPanel.Size = new Size(580, 145);
+			terrorDisplayPanel.Size = new Size(580, 220);// 580 145
 			terrorDisplayPanel.FlowDirection = FlowDirection.LeftToRight;
 			terrorDisplayPanel.WrapContents = false;
 			terrorDisplayPanel.AutoScroll = false;
@@ -191,7 +191,7 @@ namespace ToNStatTool
 			// プレイヤーリストグループ
 			groupBoxPlayerList = new GroupBox();
 			groupBoxPlayerList.Text = "プレイヤー一覧";
-			groupBoxPlayerList.Location = new Point(10, 240);
+			groupBoxPlayerList.Location = new Point(10, 300);
 			groupBoxPlayerList.Size = new Size(400, 415);
 			this.Controls.Add(groupBoxPlayerList);
 
@@ -225,7 +225,7 @@ namespace ToNStatTool
 			// 統計情報グループ
 			groupBoxStats = new GroupBox();
 			groupBoxStats.Text = "ラウンド統計";
-			groupBoxStats.Location = new Point(420, 240);
+			groupBoxStats.Location = new Point(420, 300);
 			groupBoxStats.Size = new Size(300, 415);
 			this.Controls.Add(groupBoxStats);
 
@@ -242,7 +242,7 @@ namespace ToNStatTool
 			// ラウンドロググループ
 			groupBoxRoundLog = new GroupBox();
 			groupBoxRoundLog.Text = "ラウンドログ";
-			groupBoxRoundLog.Location = new Point(730, 240);
+			groupBoxRoundLog.Location = new Point(730, 300);
 			groupBoxRoundLog.Size = new Size(450, 415);
 			this.Controls.Add(groupBoxRoundLog);
 
@@ -254,8 +254,8 @@ namespace ToNStatTool
 			listViewRoundLog.FullRowSelect = true;
 			listViewRoundLog.GridLines = true;
 
-			listViewRoundLog.Columns.Add("時刻", 50);
-			listViewRoundLog.Columns.Add("ラウンド", 100);
+			listViewRoundLog.Columns.Add("時刻", 45);
+			listViewRoundLog.Columns.Add("ラウンド", 90);
 			listViewRoundLog.Columns.Add("マップ", 120);
 			listViewRoundLog.Columns.Add("テラー", 150);
 
@@ -267,7 +267,7 @@ namespace ToNStatTool
 			// イベントリストグループ
 			var groupBoxEvents = new GroupBox();
 			groupBoxEvents.Text = "最新イベント";
-			groupBoxEvents.Location = new Point(10, 665);
+			groupBoxEvents.Location = new Point(10, 725);
 			groupBoxEvents.Size = new Size(710, 200);
 			this.Controls.Add(groupBoxEvents);
 
@@ -281,7 +281,7 @@ namespace ToNStatTool
 			// 生データ表示
 			var labelRawData = new GroupBox();
 			labelRawData.Text = "受信データ (JSON):";
-			labelRawData.Location = new Point(730, 665);
+			labelRawData.Location = new Point(730, 725);
 			labelRawData.Size = new Size(450, 200);
 			this.Controls.Add(labelRawData);
 

@@ -8,7 +8,7 @@ namespace ToNStatTool
 	public static class TerrorConfiguration
 	{
 		/// <summary>
-		/// テラー名とスタン可否タイプのマッピング辞書
+		/// テラー名とスタン可否タイプのマッピング辞書（JSONデータが無い場合のフォールバック用）
 		/// </summary>
 		public static readonly Dictionary<string, TerrorStunType> StunConfig = new Dictionary<string, TerrorStunType>
 		{
@@ -25,7 +25,7 @@ namespace ToNStatTool
             {"Tricky", TerrorStunType.Forbidden},            // 発狂モードに入りプレイヤーをキルするまで速度が大幅に上昇
             {"V2", TerrorStunType.Forbidden},                // 発狂モードになり加速する
             {"Apathy", TerrorStunType.Forbidden},
-            {"This Killer Does Not Exist", TerrorStunType.Forbidden},	// Apathyと同じ
+			{"This Killer Does Not Exist", TerrorStunType.Forbidden},	// Apathyと同じ
 			{"Try Not To Touch Me", TerrorStunType.Forbidden},
 			{"Nameless", TerrorStunType.Forbidden},
 			{"Rewrite", TerrorStunType.Forbidden},
@@ -44,8 +44,9 @@ namespace ToNStatTool
 
             // スタン推奨/有効 (緑) - メリットあり
             {"Corrupted Toys", TerrorStunType.Safe},
-            {"Sawrunner", TerrorStunType.Safe},
+			{"Sawrunner", TerrorStunType.Safe},
 			{"Demented Spongebob", TerrorStunType.Safe},
+			{"Dog Mimic", TerrorStunType.Safe},
 			{"Ao Oni", TerrorStunType.Safe},
 			{"Tails Doll", TerrorStunType.Safe},             // 88〜48秒までの40秒間はスタン不可
             {"Black Sun", TerrorStunType.Safe},              // 手下のみ、本体はスタン不可
@@ -101,7 +102,7 @@ namespace ToNStatTool
 			{"ToN", TerrorStunType.Safe},
 			{"poly", TerrorStunType.Safe},
 			{"ドッグミミック", TerrorStunType.Safe},          // 開いてるときのみ
-            {"Fox Squad", TerrorStunType.Safe},
+            {"FOX Squad", TerrorStunType.Safe},
 			{"Malicious Twins", TerrorStunType.Safe},
 			{"Parhelion's Victims", TerrorStunType.Safe},    // ミートボールみたいなやつとワームみたいなやつはスタン不可
             {"Bravera", TerrorStunType.Safe},
@@ -110,10 +111,9 @@ namespace ToNStatTool
 			{"ペスト医師", TerrorStunType.Safe},              // ゾンビのみ、本体はスタン不可
             {"Clockey", TerrorStunType.Safe},                // ハァハァって煽ってくるときのみ
             {"Terror of Nowhere", TerrorStunType.Safe},
-            {"Christian Brutal Sniper", TerrorStunType.Safe},
+			{"Christian Brutal Sniper", TerrorStunType.Safe},
 
-            // 以下は元々Safeに分類されていたが、リストに載っていないテラー → Unknown に移動
-            {"The LifeBringer", TerrorStunType.Unknown},
+			{"The LifeBringer", TerrorStunType.Unknown},
 			{"Tragedy", TerrorStunType.Unknown},
 			{"The Observation", TerrorStunType.Unknown},
 			{"S.T.G.M", TerrorStunType.Unknown},
@@ -124,19 +124,30 @@ namespace ToNStatTool
 		};
 
 		/// <summary>
-		/// テラー名からスタン可否タイプを取得する
+		/// テラー名からスタン可否タイプを取得する（JSON優先）
 		/// </summary>
 		public static TerrorStunType GetTerrorStunType(string terrorName)
 		{
-			if (StunConfig.ContainsKey(terrorName))
+			// まずJSONデータから取得を試行
+			var terrorDetail = TerrorJsonLoader.GetTerrorDetail(terrorName);
+			if (terrorDetail != null && terrorDetail.StunType != TerrorStunType.Unknown)
 			{
-				return StunConfig[terrorName];
+				return terrorDetail.StunType;
 			}
 
-			// 設定にない場合は、Convict Squadの特別処理
-			if (terrorName.Contains("Convict Squad"))
+			// JSONにスタン情報がない場合、設定辞書から取得（大文字小文字を区別しない）
+			foreach (var kvp in StunConfig)
 			{
-				if (terrorName.Contains("Yellow"))
+				if (string.Equals(kvp.Key, terrorName, System.StringComparison.OrdinalIgnoreCase))
+				{
+					return kvp.Value;
+				}
+			}
+
+			// Convict Squadの特別処理
+			if (terrorName.IndexOf("Convict Squad", System.StringComparison.OrdinalIgnoreCase) >= 0)
+			{
+				if (terrorName.IndexOf("Yellow", System.StringComparison.OrdinalIgnoreCase) >= 0)
 					return TerrorStunType.Caution;
 				else
 					return TerrorStunType.Forbidden;

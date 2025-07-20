@@ -883,6 +883,16 @@ namespace ToNStatTool.Properties {
         /// <summary>
         ///   型 System.Drawing.Bitmap のローカライズされたリソースを検索します。
         /// </summary>
+        internal static System.Drawing.Bitmap Lone_Agent {
+            get {
+                object obj = ResourceManager.GetObject("Lone_Agent", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   型 System.Drawing.Bitmap のローカライズされたリソースを検索します。
+        /// </summary>
         internal static System.Drawing.Bitmap Lords_Signal {
             get {
                 object obj = ResourceManager.GetObject("Lords_Signal", resourceCulture);
@@ -1913,9 +1923,9 @@ namespace ToNStatTool.Properties {
         /// <summary>
         ///   型 System.Drawing.Bitmap のローカライズされたリソースを検索します。
         /// </summary>
-        internal static System.Drawing.Bitmap whitenight {
+        internal static System.Drawing.Bitmap WhiteNight {
             get {
-                object obj = ResourceManager.GetObject("whitenight", resourceCulture);
+                object obj = ResourceManager.GetObject("WhiteNight", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

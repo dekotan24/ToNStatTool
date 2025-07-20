@@ -298,19 +298,7 @@ namespace ToNStatTool
 					foreach (var nameToken in names)
 					{
 						string terrorName = nameToken.ToString();
-						var splitNames = terrorName.Split(new[] { " & " }, StringSplitOptions.RemoveEmptyEntries);
-
-						foreach (var individualName in splitNames)
-						{
-							var terrorInfo = new TerrorInfo
-							{
-								Name = individualName.Trim(),
-								DisplayName = individualName.Trim(),
-								DisplayColor = jsonData["DisplayColor"]?.ToObject<uint>() ?? 0,
-								StunType = TerrorConfiguration.GetTerrorStunType(individualName.Trim())
-							};
-							CurrentTerrors.Add(terrorInfo);
-						}
+						AddTerrorFromName(terrorName, jsonData);
 					}
 				}
 				else
@@ -318,19 +306,7 @@ namespace ToNStatTool
 					string displayName = jsonData["DisplayName"]?.ToString();
 					if (!string.IsNullOrEmpty(displayName))
 					{
-						var splitNames = displayName.Split(new[] { " & " }, StringSplitOptions.RemoveEmptyEntries);
-
-						foreach (var individualName in splitNames)
-						{
-							var terrorInfo = new TerrorInfo
-							{
-								Name = individualName.Trim(),
-								DisplayName = individualName.Trim(),
-								DisplayColor = jsonData["DisplayColor"]?.ToObject<uint>() ?? 0,
-								StunType = TerrorConfiguration.GetTerrorStunType(individualName.Trim())
-							};
-							CurrentTerrors.Add(terrorInfo);
-						}
+						AddTerrorFromName(displayName, jsonData);
 					}
 				}
 			}
@@ -853,6 +829,42 @@ namespace ToNStatTool
 			catch
 			{
 				return playerName ?? "";
+			}
+		}
+
+		/// <summary>
+		/// テラー名からTerrorInfoを追加する（Mona & The Mountain例外処理付き）
+		/// </summary>
+		private void AddTerrorFromName(string terrorName, JObject jsonData)
+		{
+			// Mona & The Mountainは分割しない
+			if (terrorName == "Mona & The Mountain")
+			{
+				var terrorInfo = new TerrorInfo
+				{
+					Name = terrorName,
+					DisplayName = terrorName,
+					DisplayColor = jsonData["DisplayColor"]?.ToObject<uint>() ?? 0,
+					StunType = TerrorConfiguration.GetTerrorStunType(terrorName)
+				};
+				CurrentTerrors.Add(terrorInfo);
+			}
+			else
+			{
+				// その他のテラーは " & " で分割
+				var splitNames = terrorName.Split(new[] { " & " }, StringSplitOptions.RemoveEmptyEntries);
+
+				foreach (var individualName in splitNames)
+				{
+					var terrorInfo = new TerrorInfo
+					{
+						Name = individualName.Trim(),
+						DisplayName = individualName.Trim(),
+						DisplayColor = jsonData["DisplayColor"]?.ToObject<uint>() ?? 0,
+						StunType = TerrorConfiguration.GetTerrorStunType(individualName.Trim())
+					};
+					CurrentTerrors.Add(terrorInfo);
+				}
 			}
 		}
 	}

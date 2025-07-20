@@ -16,6 +16,7 @@ namespace ToNStatTool
 		{
 			Application.EnableVisualStyles();
 			Application.SetCompatibleTextRenderingDefault(false);
+			TerrorJsonLoader.LoadTerrorData();
 			Application.Run(new ToNStatTool());
 		}
 	}

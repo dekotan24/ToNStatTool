@@ -11,8 +11,6 @@ namespace ToNStatTool
 	public partial class TerrorDisplayForm : Form
 	{
 		private FlowLayoutPanel terrorPanel;
-		private Button buttonTopMost;
-		private bool isTopMost = false;
 		private readonly List<CompactTerrorControl> terrorControls = new List<CompactTerrorControl>();
 
 		public TerrorDisplayForm()

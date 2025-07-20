@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace ToNStatTool
@@ -13,6 +15,9 @@ namespace ToNStatTool
 		private Label nameLabel;
 		private PictureBox stunStatusIcon;
 		private ToolTip toolTip;
+		private FlowLayoutPanel traitsPanel;  // 特性表示パネル（メインフォーム用）
+		private List<PictureBox> traitIcons = new List<PictureBox>();  // 特性アイコン（サブフォーム用）
+
 
 		public TerrorInfo TerrorData { get; private set; }
 
@@ -25,7 +30,7 @@ namespace ToNStatTool
 
 		private void InitializeTerrorControl()
 		{
-			this.Size = new Size(180, 140);
+			this.Size = new Size(180, 200);
 			this.BorderStyle = BorderStyle.FixedSingle;
 			this.BackColor = Color.White;
 
@@ -54,6 +59,15 @@ namespace ToNStatTool
 			stunStatusIcon.Size = new Size(20, 20);
 			stunStatusIcon.SizeMode = PictureBoxSizeMode.CenterImage;
 			this.Controls.Add(stunStatusIcon);
+
+			// メインフォーム用の特性パネル（テキスト表示）
+			traitsPanel = new FlowLayoutPanel();
+			traitsPanel.Location = new Point(5, 135);
+			traitsPanel.Size = new Size(170, 60);
+			traitsPanel.FlowDirection = FlowDirection.TopDown;
+			traitsPanel.AutoScroll = true;
+			traitsPanel.BorderStyle = BorderStyle.None;
+			this.Controls.Add(traitsPanel);
 		}
 
 		private void UpdateDisplay()
@@ -82,6 +96,9 @@ namespace ToNStatTool
 
 			// テラーアイコンの設定（TerrorImageManagerを使用）
 			SetTerrorIcon();
+
+			// 特性情報を表示
+			UpdateTraitsDisplay();
 		}
 
 		private void UpdateStunStatusIcon()
@@ -158,6 +175,67 @@ namespace ToNStatTool
 			return Color.FromArgb((int)(color >> 16) & 0xFF, (int)(color >> 8) & 0xFF, (int)color & 0xFF);
 		}
 
+		private void UpdateTraitsDisplay()
+		{
+			traitsPanel.Controls.Clear();
+
+			// JSONから特性情報を取得
+			var terrorDetail = TerrorJsonLoader.GetTerrorDetail(TerrorData.Name);
+
+			if (terrorDetail.Traits.Count > 0)
+			{
+				int displayCount = Math.Min(terrorDetail.Traits.Count, 5);
+
+				for (int i = 0; i < displayCount; i++)
+				{
+					var trait = terrorDetail.Traits[i];
+
+					var traitLabel = new Label();
+					traitLabel.Text = $"• {trait.TraitType}";
+					traitLabel.Size = new Size(75, 18);
+					traitLabel.Font = new Font("Meiryo UI", 8);
+					traitLabel.ForeColor = GetTraitColor(trait.Category);
+					toolTip.SetToolTip(traitLabel, trait.Description);
+
+					traitsPanel.Controls.Add(traitLabel);
+				}
+
+				if (terrorDetail.Traits.Count > 5)
+				{
+					var moreLabel = new Label();
+					moreLabel.Text = $"他 {terrorDetail.Traits.Count - 5} 個の特性";
+					moreLabel.Size = new Size(75, 18);
+					moreLabel.Font = new Font("Meiryo UI", 7, FontStyle.Italic);
+					moreLabel.ForeColor = Color.Gray;
+
+					// ツールチップに全特性を表示
+					string allTraits = string.Join("\n", terrorDetail.Traits.Select(t => $"• {t.TraitType}: {t.Description}"));
+					toolTip.SetToolTip(moreLabel, allTraits);
+
+					traitsPanel.Controls.Add(moreLabel);
+				}
+			}
+		}
+
+		private Color GetTraitColor(TerrorTraitCategory category)
+		{
+			switch (category)
+			{
+				case TerrorTraitCategory.Movement:
+					return Color.Blue;
+				case TerrorTraitCategory.Attack:
+					return Color.Red;
+				case TerrorTraitCategory.Special:
+					return Color.Purple;
+				case TerrorTraitCategory.Speed:
+					return Color.Orange;
+				case TerrorTraitCategory.Counter:
+					return Color.DarkRed;
+				default:
+					return Color.Black;
+			}
+		}
+
 		protected override void Dispose(bool disposing)
 		{
 			if (disposing)
@@ -190,6 +268,7 @@ namespace ToNStatTool
 		private Label nameLabel;
 		private PictureBox stunIcon;
 		private ToolTip toolTip;
+		private FlowLayoutPanel iconPanel;
 
 		public CompactTerrorControl(TerrorInfo terror)
 		{
@@ -200,13 +279,23 @@ namespace ToNStatTool
 
 			toolTip = new ToolTip();
 
-			// スタン状態アイコン（左上）
+			// スタン状態アイコン（右上）
 			stunIcon = new PictureBox();
-			stunIcon.Location = new Point(3, 3);
+			stunIcon.Location = new Point(111, 3);
 			stunIcon.Size = new Size(16, 16);
 			stunIcon.SizeMode = PictureBoxSizeMode.CenterImage;
 			SetStunIcon(terror.StunType);
 			this.Controls.Add(stunIcon);
+
+			// 特性アイコンパネル（左側、縦並び）
+			iconPanel = new FlowLayoutPanel();
+			iconPanel.Location = new Point(3, 3);
+			iconPanel.Size = new Size(20, 100);
+			iconPanel.FlowDirection = FlowDirection.TopDown;
+			iconPanel.WrapContents = false;
+			iconPanel.BorderStyle = BorderStyle.None;
+			iconPanel.AutoScroll = false;
+			this.Controls.Add(iconPanel);
 
 			// テラーアイコン（中央）
 			iconBox = new PictureBox();
@@ -245,6 +334,9 @@ namespace ToNStatTool
 				var color = ColorFromUInt(terror.DisplayColor);
 				this.BackColor = Color.FromArgb(30, color.R, color.G, color.B);
 			}
+
+			// 特性アイコンを追加
+			AddTraitIcons(terror.Name);
 		}
 
 		private void SetStunIcon(TerrorStunType stunType)
@@ -341,6 +433,31 @@ namespace ToNStatTool
 				}
 			}
 			base.Dispose(disposing);
+		}
+
+		private void AddTraitIcons(string terrorName)
+		{
+			var terrorDetail = TerrorJsonLoader.GetTerrorDetail(terrorName);
+
+			// 最大5個のアイコンを縦に表示
+			int iconCount = Math.Min(terrorDetail.Traits.Count, 5);
+
+			for (int i = 0; i < iconCount; i++)
+			{
+				var trait = terrorDetail.Traits[i];
+
+				var iconBox = new PictureBox();
+				iconBox.Size = new Size(14, 14);
+				iconBox.SizeMode = PictureBoxSizeMode.StretchImage;
+				// 説明付きでアイコンを取得（速度の場合は数値が表示される）
+				iconBox.Image = TerrorTraitIcons.GetTraitIcon(trait.TraitType, trait.Description, 16);
+				iconBox.Margin = new Padding(0, 1, 0, 1); // 縦の間隔を調整
+
+				// ツールチップに説明を設定
+				toolTip.SetToolTip(iconBox, $"{trait.TraitType}: {trait.Description}");
+
+				iconPanel.Controls.Add(iconBox);
+			}
 		}
 	}
 }
