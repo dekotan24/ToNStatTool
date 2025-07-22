@@ -242,7 +242,6 @@ namespace ToNStatTool
 			{
 				toolTip?.Dispose();
 
-				// 画像を明示的に解放
 				if (iconPictureBox?.Image != null)
 				{
 					iconPictureBox.Image.Dispose();
@@ -377,7 +376,6 @@ namespace ToNStatTool
 
 		private void SetTerrorIcon(string name)
 		{
-			// TerrorImageManagerを使用してテラー画像を取得
 			try
 			{
 				var terrorImage = TerrorImageManager.GetTerrorImage(name, 100, 100);
@@ -390,8 +388,6 @@ namespace ToNStatTool
 			catch (Exception ex)
 			{
 				System.Diagnostics.Debug.WriteLine($"コンパクトテラー画像の設定エラー: {name} - {ex.Message}");
-
-				// エラーの場合はプレースホルダーを生成
 				Bitmap icon = new Bitmap(100, 100);
 				using (Graphics g = Graphics.FromImage(icon))
 				{
@@ -419,7 +415,6 @@ namespace ToNStatTool
 			{
 				toolTip?.Dispose();
 
-				// 画像を明示的に解放
 				if (iconBox?.Image != null)
 				{
 					iconBox.Image.Dispose();
@@ -449,9 +444,9 @@ namespace ToNStatTool
 				var iconBox = new PictureBox();
 				iconBox.Size = new Size(14, 14);
 				iconBox.SizeMode = PictureBoxSizeMode.StretchImage;
-				// 説明付きでアイコンを取得（速度の場合は数値が表示される）
+				// 説明付きでアイコンを取得（速度の場合は数値）
 				iconBox.Image = TerrorTraitIcons.GetTraitIcon(trait.TraitType, trait.Description, 16);
-				iconBox.Margin = new Padding(0, 1, 0, 1); // 縦の間隔を調整
+				iconBox.Margin = new Padding(0, 1, 0, 1);
 
 				// ツールチップに説明を設定
 				toolTip.SetToolTip(iconBox, $"{trait.TraitType}: {trait.Description}");
