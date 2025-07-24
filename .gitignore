@@ -78,3 +78,5 @@
 /.vs/ToNStatTool/v17/DocumentLayout.backup.json
 /.vs/ToNStatTool/v17/DocumentLayout.json
 /.vs/ToNStatTool/FileContentIndex/*.vsidx
+/Resources
+*.user
