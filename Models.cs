@@ -22,11 +22,12 @@ namespace ToNStatTool
 	/// </summary>
 	public class PlayerInfo
 	{
-		public string Name { get; set; }
-		public string UserId { get; set; }
-		public bool IsAlive { get; set; } = true;
+		public string Name { get; set; } = "";
+		public string UserId { get; set; } = "";
 		public bool IsLocal { get; set; }
+		public bool IsAlive { get; set; } = true;
 		public DateTime LastSeen { get; set; } = DateTime.Now;
+		public bool IsWarningUser { get; set; } = false;
 	}
 
 	/// <summary>

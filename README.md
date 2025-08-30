@@ -133,7 +133,8 @@ ToNStatTool/
 
 ## 🤝 貢献
 
-バグ報告や機能要望は、GitHubのIssuesでお知らせください。
+-　バグ報告や機能要望は、Issuesでお知らせください。
+-　Pull Requestも歓迎します！
 
 ## 📄 License
 
@@ -153,3 +154,4 @@ See LICENSE file and licenses/ directory for full details.
 
 - Application: Copyright (c) 2025 Ogura Deko All rights reserved.
 - JSON data: Copyright (c) yussy, 2025. All rights reserved.
+- Sound: OtoLogic

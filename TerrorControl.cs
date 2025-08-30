@@ -15,8 +15,8 @@ namespace ToNStatTool
 		private Label nameLabel;
 		private PictureBox stunStatusIcon;
 		private ToolTip toolTip;
-		private FlowLayoutPanel traitsPanel;  // 特性表示パネル（メインフォーム用）
-		private List<PictureBox> traitIcons = new List<PictureBox>();  // 特性アイコン（サブフォーム用）
+		private FlowLayoutPanel traitsPanel;
+		private List<PictureBox> traitIcons = new List<PictureBox>();
 
 
 		public TerrorInfo TerrorData { get; private set; }

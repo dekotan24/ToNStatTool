@@ -81,6 +81,7 @@ namespace ToNStatTool
 			webSocketClient.OnError += OnWebSocketError;
 			webSocketClient.OnTerrorUpdate += OnTerrorUpdate;
 			webSocketClient.OnRoundEnd += OnRoundEnd;
+			webSocketClient.OnWarningUserJoined += OnWarningUserJoined;
 		}
 
 		private void InitializeTimer()
@@ -337,7 +338,6 @@ namespace ToNStatTool
 			}
 		}
 
-		// WebSocket イベントハンドラー
 		private void OnWebSocketConnected(string playerName)
 		{
 			this.Invoke(new Action(() =>
@@ -418,11 +418,50 @@ namespace ToNStatTool
 
 		private void UpdateUI()
 		{
+			try
+			{
+				UpdateGameDataDisplay();
+				UpdatePlayerList();
+				UpdateEventList();
+				UpdateStatsDisplay();
+				UpdateRoundLogDisplay();
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"UI更新エラー: {ex.Message}");
+			}
+		}
+
+		private void UpdateGameDataDisplay()
+		{
 			UpdateGameInfo();
-			UpdatePlayerList();
-			UpdateEventList();
-			// テラー表示は別途OnTerrorUpdateで更新
-			// 統計とログは別途OnRoundEndで更新
+		}
+
+		private void OnWarningUserJoined(string userName)
+		{
+			try
+			{
+				string warningMessage = $"⚠️ 注意: {userName} が参加しました";
+
+				string originalTitle = this.Text;
+				this.Text = $"【警告】{warningMessage} - {originalTitle}";
+
+				var timer = new System.Windows.Forms.Timer();
+				timer.Interval = 5000;
+				timer.Tick += (s, e) =>
+				{
+					this.Text = originalTitle;
+					timer.Stop();
+					timer.Dispose();
+				};
+				timer.Start();
+
+				System.Diagnostics.Debug.WriteLine($"[WARNING_UI] {warningMessage}");
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[WARNING_UI] エラー: {ex.Message}");
+			}
 		}
 
 		private void UpdateGameInfo()
@@ -491,7 +530,6 @@ namespace ToNStatTool
 			}
 		}
 
-
 		private void UpdatePlayerList()
 		{
 			if (isUpdatingPlayers) return;
@@ -518,8 +556,8 @@ namespace ToNStatTool
 
 				int totalPlayers = players.Count;
 				int alivePlayers = 0;
+				int warningPlayers = 0; // 警告対象プレイヤー数
 
-				// デバッグ情報を出力
 				System.Diagnostics.Debug.WriteLine($"[UI] プレイヤー一覧更新 - 総数: {totalPlayers}");
 
 				foreach (var player in players.Values.OrderBy(p => p.Name))
@@ -528,29 +566,52 @@ namespace ToNStatTool
 					{
 						// プレイヤー名の表示用処理
 						string displayName = GetDisplayPlayerName(player.Name);
+						bool isWarningUser = webSocketClient.IsWarningUser(player.Name);
 
 						var item = new ListViewItem(displayName);
 						item.SubItems.Add(player.IsAlive ? "生存" : "死亡");
-						item.SubItems.Add(player.UserId == localPlayerUserId ? "自分" : "他人");
+
+						// 種別列に警告マークを追加
+						string playerType = player.UserId == localPlayerUserId ? "自分" : "他人";
+						if (isWarningUser)
+						{
+							playerType = "⚠️注意";
+							warningPlayers++;
+						}
+						item.SubItems.Add(playerType);
 
 						// ツールチップに元の名前を設定（表示名が切り詰められた場合）
 						if (displayName != player.Name)
 						{
 							item.ToolTipText = $"元の名前: {player.Name}";
 						}
+						if (isWarningUser && string.IsNullOrEmpty(item.ToolTipText))
+						{
+							item.ToolTipText = "警告対象ユーザーです";
+						}
 
 						if (player.IsAlive)
 							alivePlayers++;
 
-						// 色分け
-						if (!player.IsAlive)
-							item.ForeColor = Color.Red;
+						// 色分け（優先順位: 警告 > 死亡 > 自分）
+						if (isWarningUser)
+						{
+							item.ForeColor = Color.DarkOrange; // 警告ユーザーはオレンジ色
+							item.Font = new Font(listView.Font, FontStyle.Bold); // 太字で強調
+						}
+						else if (!player.IsAlive)
+						{
+							item.ForeColor = Color.Red; // 死亡は赤
+						}
 						else if (player.UserId == localPlayerUserId)
-							item.ForeColor = Color.Blue;
+						{
+							item.ForeColor = Color.Blue; // 自分は青
+						}
 
 						listView.Items.Add(item);
 
-						System.Diagnostics.Debug.WriteLine($"[UI] プレイヤー追加: '{displayName}' (元: '{player.Name}') - {(player.IsAlive ? "生存" : "死亡")}");
+						string warningFlag = isWarningUser ? " [警告]" : "";
+						System.Diagnostics.Debug.WriteLine($"[UI] プレイヤー追加: '{displayName}'{warningFlag} - {(player.IsAlive ? "生存" : "死亡")}");
 					}
 					catch (Exception ex)
 					{
@@ -565,7 +626,18 @@ namespace ToNStatTool
 					}
 				}
 
-				labelPlayerCount.Text = $"総人数: {totalPlayers}人 | 生存: {alivePlayers}人";
+				// プレイヤー数表示を更新（警告ユーザー数も表示）
+				string countText = $"総人数: {totalPlayers}人 | 生存: {alivePlayers}人";
+				if (warningPlayers > 0)
+				{
+					countText += $" | ⚠️警告: {warningPlayers}人";
+					labelPlayerCount.ForeColor = Color.DarkOrange; // 警告がある場合は色を変える
+				}
+				else
+				{
+					labelPlayerCount.ForeColor = SystemColors.ControlText; // 通常の色に戻す
+				}
+				labelPlayerCount.Text = countText;
 
 				// 選択状態を復元
 				foreach (int index in selectedIndices)

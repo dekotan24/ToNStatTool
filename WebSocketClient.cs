@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using NAudio.Wave;
 
 namespace ToNStatTool
 {
@@ -26,8 +28,11 @@ namespace ToNStatTool
 		public event Action OnDisconnected;
 		public event Action<string> OnMessageReceived;
 		public event Action<string> OnError;
-		public event Action OnTerrorUpdate;  // テラー更新イベント追加
-		public event Action OnRoundEnd;      // ラウンド終了イベント追加
+		public event Action OnTerrorUpdate;
+		public event Action OnRoundEnd;
+		private HashSet<string> warningUsers = new HashSet<string>();
+		private IWavePlayer waveOutDevice;
+		private AudioFileReader audioFileReader;
 
 		// Properties
 		public bool IsConnected { get; private set; }
@@ -45,7 +50,184 @@ namespace ToNStatTool
 		// Round tracking
 		private RoundLog currentRound = null;
 		private readonly List<string> currentRoundItems = new List<string>();
+		public event Action<string> OnWarningUserJoined;
 		private bool isRoundActive = false;
+
+		public WebSocketClient()
+		{
+			LoadWarningUsers();
+			InitializeWarningSound();
+		}
+
+		/// <summary>
+		/// 警告対象ユーザーリストを読み込む
+		/// </summary>
+		private void LoadWarningUsers()
+		{
+			try
+			{
+				string warningFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "warn_user.txt");
+
+				if (File.Exists(warningFilePath))
+				{
+					var lines = File.ReadAllLines(warningFilePath);
+					warningUsers.Clear();
+
+					foreach (var line in lines)
+					{
+						var username = line.Trim();
+						if (!string.IsNullOrEmpty(username) && !username.StartsWith("#")) // #で始まる行はコメント扱い
+						{
+							warningUsers.Add(username.ToLowerInvariant());
+							System.Diagnostics.Debug.WriteLine($"[WARNING] 警告ユーザー登録: {username}");
+						}
+					}
+
+					System.Diagnostics.Debug.WriteLine($"[WARNING] 警告ユーザー数: {warningUsers.Count}");
+				}
+				else
+				{
+					System.Diagnostics.Debug.WriteLine("[WARNING] warn_user.txtファイルが見つかりません");
+					// ファイルが存在しない場合は空のファイルを作成
+					File.WriteAllText(warningFilePath, "# 警告対象のユーザー名を1行1名で記入してください\n# #で始まる行はコメントです\n");
+				}
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[WARNING] 警告ユーザーリスト読み込みエラー: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// 警告音を初期化
+		/// </summary>
+		private void InitializeWarningSound()
+		{
+			try
+			{
+				string soundFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "warning.mp3");
+
+				if (File.Exists(soundFilePath))
+				{
+					System.Diagnostics.Debug.WriteLine($"[WARNING] 警告音ファイルを確認: {soundFilePath}");
+				}
+				else
+				{
+					System.Diagnostics.Debug.WriteLine("[WARNING] warning.mp3ファイルが見つかりません");
+				}
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[WARNING] 警告音初期化エラー: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// 警告音を再生
+		/// </summary>
+		private void PlayWarningSound()
+		{
+			Task.Run(() =>
+			{
+				try
+				{
+					string soundFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "warning.mp3");
+
+					if (File.Exists(soundFilePath))
+					{
+						PlayMp3File(soundFilePath);
+					}
+					else
+					{
+						// ファイルがない場合はシステム音を使用
+						System.Media.SystemSounds.Exclamation.Play();
+						System.Diagnostics.Debug.WriteLine("[WARNING] warning.mp3が見つからないためシステム音を使用");
+					}
+				}
+				catch (Exception ex)
+				{
+					System.Diagnostics.Debug.WriteLine($"[WARNING] 警告音再生エラー: {ex.Message}");
+					// エラー時はシステム音にフォールバック
+					System.Media.SystemSounds.Exclamation.Play();
+				}
+			});
+		}
+
+		/// <summary>
+		/// NAudioを使用してMP3ファイルを再生
+		/// </summary>
+		private void PlayMp3File(string filePath)
+		{
+			try
+			{
+				// 既に再生中の場合は停止
+				StopCurrentPlayback();
+
+				// NAudioを使用してMP3を再生
+				audioFileReader = new AudioFileReader(filePath);
+				waveOutDevice = new WaveOutEvent();
+				waveOutDevice.Init(audioFileReader);
+
+				// 再生完了時のイベントハンドラ
+				waveOutDevice.PlaybackStopped += (sender, e) =>
+				{
+					StopCurrentPlayback();
+				};
+
+				waveOutDevice.Play();
+				System.Diagnostics.Debug.WriteLine($"[WARNING] MP3再生開始: {filePath}");
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[WARNING] NAudio MP3再生エラー: {ex.Message}");
+
+				// NAudioで失敗した場合はシステム音にフォールバック
+				System.Media.SystemSounds.Exclamation.Play();
+
+				// リソースをクリーンアップ
+				StopCurrentPlayback();
+			}
+		}
+		
+		/// <summary>
+		 /// 現在の再生を停止してリソースを解放
+		 /// </summary>
+		private void StopCurrentPlayback()
+		{
+			try
+			{
+				waveOutDevice?.Stop();
+				waveOutDevice?.Dispose();
+				waveOutDevice = null;
+
+				audioFileReader?.Dispose();
+				audioFileReader = null;
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[WARNING] 再生停止エラー: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// ユーザーが警告対象かチェック
+		/// </summary>
+		public bool IsWarningUser(string playerName)
+		{
+			if (string.IsNullOrEmpty(playerName) || warningUsers.Count == 0)
+				return false;
+
+			var normalizedName = playerName.ToLowerInvariant().Trim();
+			return warningUsers.Contains(normalizedName);
+		}
+
+		/// <summary>
+		/// 警告ユーザーリストを再読み込み
+		/// </summary>
+		public void ReloadWarningUsers()
+		{
+			LoadWarningUsers();
+		}
 
 		public async Task ConnectAsync(string url)
 		{
@@ -71,6 +253,9 @@ namespace ToNStatTool
 		{
 			try
 			{
+				// 音声リソースを先に解放
+				StopCurrentPlayback();
+
 				if (webSocket != null)
 				{
 					cancellationTokenSource?.Cancel();
@@ -556,6 +741,17 @@ namespace ToNStatTool
 
 				System.Diagnostics.Debug.WriteLine($"[PLAYER_JOIN] 名前: '{playerName}', ID: '{playerId}'");
 
+				// 警告ユーザーチェック
+				if (IsWarningUser(playerName))
+				{
+					System.Diagnostics.Debug.WriteLine($"[WARNING] 警告対象ユーザーが参加: {playerName}");
+					PlayWarningSound();
+					OnWarningUserJoined?.Invoke(playerName);
+
+					// イベントログにも記録
+					AddGameEvent("WARNING", jsonData, $"警告: {playerName} が参加しました");
+				}
+
 				// 既に存在するプレイヤーの場合はLastSeenを更新するだけ
 				if (Players.ContainsKey(playerId))
 				{
@@ -584,6 +780,7 @@ namespace ToNStatTool
 				AddGameEvent("ERROR", null, $"プレイヤー参加処理エラー: {ex.Message}");
 			}
 		}
+
 		private void ProcessPlayerLeaveEvent(JObject jsonData)
 		{
 			try
@@ -729,7 +926,7 @@ namespace ToNStatTool
 			}
 		}
 
-		private string GetGameDataValue(string key, string defaultValue)
+		public string GetGameDataValue(string key, string defaultValue)
 		{
 			if (GameData.ContainsKey(key))
 			{
@@ -748,9 +945,9 @@ namespace ToNStatTool
 					RecentEvents.RemoveRange(0, RecentEvents.Count - MAX_EVENTS);
 				}
 
-				// 古いプレイヤー情報を削除（5分以上見えていない）
+				// 古いプレイヤー情報を削除（60分以上見えていない）
 				// ただし、自分自身は削除しない
-				var cutoffTime = DateTime.Now.AddMinutes(-5);
+				var cutoffTime = DateTime.Now.AddMinutes(-60);
 				var playersToRemove = Players
 					.Where(p => p.Value.LastSeen < cutoffTime && p.Key != LocalPlayerUserId)
 					.Select(p => p.Key)
@@ -763,6 +960,7 @@ namespace ToNStatTool
 				}
 			}
 		}
+
 		/// <summary>
 		/// プレイヤー名をサニタイズする
 		/// </summary>
