@@ -124,7 +124,7 @@
   <data name="Aku_Ball" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Aku_Ball.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="All_Around_Helper" type="System.Resources.ResXFileRef, System.Windows.Forms">
+  <data name="All_Around_Helpers" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\All_Around_Helper.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="Alternates" type="System.Resources.ResXFileRef, System.Windows.Forms">
@@ -412,7 +412,7 @@
   <data name="Pale_Association" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Pale_Association.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="Pandora" type="System.Resources.ResXFileRef, System.Windows.Forms">
+  <data name="PANDORA" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Pandora.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="Paradise_Bird" type="System.Resources.ResXFileRef, System.Windows.Forms">

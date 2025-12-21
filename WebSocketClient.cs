@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using NAudio.Wave;
+using Newtonsoft.Json;
 
 namespace ToNStatTool
 {
@@ -21,7 +22,7 @@ namespace ToNStatTool
 		private readonly object dataLock = new object();
 
 		// Constants
-		private const int MAX_EVENTS = 100;
+		private const int MAX_EVENTS = 500;
 
 		// Events
 		public event Action<string> OnConnected;
@@ -46,6 +47,7 @@ namespace ToNStatTool
 		public Dictionary<string, object> GameData { get; private set; } = new Dictionary<string, object>();
 		public List<RoundLog> RoundLogs { get; private set; } = new List<RoundLog>();
 		public RoundStats RoundStats { get; private set; } = new RoundStats();
+		public TerrorStats TerrorStats { get; private set; } = new TerrorStats();
 
 		// Round tracking
 		private RoundLog currentRound = null;
@@ -258,14 +260,30 @@ namespace ToNStatTool
 
 				if (webSocket != null)
 				{
+					// CancellationTokenSourceを先にキャンセル
 					cancellationTokenSource?.Cancel();
-					if (webSocket.State == WebSocketState.Open)
+
+					// WebSocketの状態をチェックしてから切断処理を実行
+					if (webSocket.State == WebSocketState.Open || webSocket.State == WebSocketState.Connecting)
 					{
-						await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "User disconnected", CancellationToken.None);
+						try
+						{
+							await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "User disconnected", CancellationToken.None);
+						}
+						catch (WebSocketException wsEx)
+						{
+							// WebSocketの状態エラーは無視（すでに切断されている可能性）
+							System.Diagnostics.Debug.WriteLine($"WebSocket切断時の警告: {wsEx.Message}");
+						}
 					}
+
 					webSocket.Dispose();
 					webSocket = null;
 				}
+
+				// CancellationTokenSourceも破棄
+				cancellationTokenSource?.Dispose();
+				cancellationTokenSource = null;
 
 				IsConnected = false;
 				OnDisconnected?.Invoke();
@@ -331,9 +349,14 @@ namespace ToNStatTool
 					ProcessGameData(jsonData);
 				}
 			}
+			catch (JsonReaderException jsonEx)
+			{
+				System.Diagnostics.Debug.WriteLine($"JSON解析エラー: {jsonEx.Message}");
+				System.Diagnostics.Debug.WriteLine($"エラーメッセージ: {message.Substring(0, Math.Min(200, message.Length))}...");
+			}
 			catch (Exception ex)
 			{
-				System.Diagnostics.Debug.WriteLine($"JSON解析エラー: {ex.Message}");
+				System.Diagnostics.Debug.WriteLine($"メッセージ処理エラー: {ex.Message}");
 			}
 		}
 
@@ -341,13 +364,7 @@ namespace ToNStatTool
 		{
 			try
 			{
-				string eventType = jsonData["Type"]?.ToString() ?? jsonData["TYPE"]?.ToString() ?? "UNKNOWN";
-
-				// イベントを記録（STATSを除く）
-				if (eventType.ToUpper() != "STATS")
-				{
-					AddGameEvent(eventType, jsonData);
-				}
+				string eventType = jsonData["Type"]?.ToString() ?? jsonData["TYPE"]?.ToString() ?? "";
 
 				switch (eventType.ToUpper())
 				{
@@ -387,10 +404,27 @@ namespace ToNStatTool
 					case "DEATH":
 						ProcessDeathEvent(jsonData);
 						break;
+					// 新しいイベント処理を追加
+					case "INSTANCE":
+						ProcessInstanceEvent(jsonData);
+						break;
+					case "STATS":
+						ProcessStatsEvent(jsonData);
+						break;
+					case "TRACKER":
+						ProcessTrackerEvent(jsonData);
+						break;
+					default:
+						System.Diagnostics.Debug.WriteLine($"未処理のイベント: {eventType}");
+						break;
 				}
+
+				// イベントログに追加
+				AddGameEvent(eventType, jsonData);
 			}
 			catch (Exception ex)
 			{
+				System.Diagnostics.Debug.WriteLine($"ゲームデータ処理エラー: {ex.Message}");
 				AddGameEvent("ERROR", null, $"データ処理エラー: {ex.Message}");
 			}
 		}
@@ -611,8 +645,23 @@ namespace ToNStatTool
 					RoundStats.RoundTypeCounts[roundTypeKey] = 1;
 				}
 
-				// ラウンドログを最大100件に制限
-				if (RoundLogs.Count > 100)
+				// テラー統計更新
+				string roundTerrorKey = currentRound.TerrorNames;
+				var splitNames = roundTerrorKey.Split(new[] { ", " }, StringSplitOptions.RemoveEmptyEntries);
+				foreach (string terror in splitNames)
+				{
+					if (TerrorStats.TerrorTypeCounts.ContainsKey(terror))
+					{
+						TerrorStats.TerrorTypeCounts[terror]++;
+					}
+					else
+					{
+						TerrorStats.TerrorTypeCounts[terror] = 1;
+					}
+				}
+
+				// ラウンドログを最大999件に制限
+				if (RoundLogs.Count > 999)
 				{
 					RoundLogs.RemoveAt(0);
 				}
@@ -706,6 +755,90 @@ namespace ToNStatTool
 			else
 			{
 				GameData["pageCount"] = $"{pageCount + 1} / 8";
+			}
+		}
+
+		private void ProcessInstanceEvent(JObject jsonData)
+		{
+			try
+			{
+				// インスタンス情報の処理
+				System.Diagnostics.Debug.WriteLine($"[INSTANCE] インスタンス情報を受信");
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[INSTANCE] エラー: {ex.Message}");
+			}
+		}
+
+		private void ProcessStatsEvent(JObject jsonData)
+		{
+			try
+			{
+				// 統計情報の処理
+				System.Diagnostics.Debug.WriteLine($"[STATS] 統計情報を受信");
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[STATS] エラー: {ex.Message}");
+			}
+		}
+
+		private void ProcessTrackerEvent(JObject jsonData)
+		{
+			try
+			{
+				// プレイヤートラッキング情報の処理（これが重要！）
+				var playersData = jsonData["Value"] as JArray;
+				if (playersData != null)
+				{
+					System.Diagnostics.Debug.WriteLine($"[TRACKER] プレイヤー追跡情報を受信: {playersData.Count}人");
+
+					// 既存のプレイヤー情報をクリア
+					Players.Clear();
+
+					foreach (var playerData in playersData)
+					{
+						try
+						{
+							string playerName = playerData["Name"]?.ToString() ?? "Unknown";
+							string userId = playerData["UserId"]?.ToString() ?? Guid.NewGuid().ToString();
+							bool isAlive = playerData["IsAlive"]?.ToObject<bool>() ?? true;
+
+							playerName = SanitizePlayerName(playerName);
+
+							var player = new PlayerInfo
+							{
+								Name = playerName,
+								UserId = userId,
+								IsLocal = userId == LocalPlayerUserId,
+								IsAlive = isAlive,
+								LastSeen = DateTime.Now
+							};
+
+							Players[userId] = player;
+
+							// 警告対象ユーザーかチェック
+							if (IsWarningUser(playerName))
+							{
+								player.IsWarningUser = true;
+								PlayWarningSound();
+								OnWarningUserJoined?.Invoke(playerName);
+								System.Diagnostics.Debug.WriteLine($"[WARNING] 警告対象ユーザーを検出: {playerName}");
+							}
+
+							System.Diagnostics.Debug.WriteLine($"[TRACKER] プレイヤー追加: {playerName} ({(isAlive ? "生存" : "死亡")})");
+						}
+						catch (Exception playerEx)
+						{
+							System.Diagnostics.Debug.WriteLine($"[TRACKER] プレイヤー処理エラー: {playerEx.Message}");
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[TRACKER] エラー: {ex.Message}");
 			}
 		}
 
@@ -1063,6 +1196,22 @@ namespace ToNStatTool
 					};
 					CurrentTerrors.Add(terrorInfo);
 				}
+			}
+		}
+
+		/// <summary>
+		/// 現在ロードしている警告対象ユーザーリストを取得
+		/// </summary>
+		public HashSet<string> GetWarningUsers()
+		{
+			return new HashSet<string>(warningUsers);
+		}
+
+		public Dictionary<string, int> GetTerrorStats()
+		{
+			lock (dataLock)
+			{
+				return new Dictionary<string, int>(RoundStats.TerrorCounts);
 			}
 		}
 	}

@@ -113,9 +113,9 @@ namespace ToNStatTool.Properties {
         /// <summary>
         ///   型 System.Drawing.Bitmap のローカライズされたリソースを検索します。
         /// </summary>
-        internal static System.Drawing.Bitmap All_Around_Helper {
+        internal static System.Drawing.Bitmap All_Around_Helpers {
             get {
-                object obj = ResourceManager.GetObject("All_Around_Helper", resourceCulture);
+                object obj = ResourceManager.GetObject("All_Around_Helpers", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -1073,9 +1073,9 @@ namespace ToNStatTool.Properties {
         /// <summary>
         ///   型 System.Drawing.Bitmap のローカライズされたリソースを検索します。
         /// </summary>
-        internal static System.Drawing.Bitmap Pandora {
+        internal static System.Drawing.Bitmap PANDORA {
             get {
-                object obj = ResourceManager.GetObject("Pandora", resourceCulture);
+                object obj = ResourceManager.GetObject("PANDORA", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

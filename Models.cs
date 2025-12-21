@@ -60,7 +60,18 @@ namespace ToNStatTool
 	public class RoundStats
 	{
 		public Dictionary<string, int> RoundTypeCounts { get; set; } = new Dictionary<string, int>();
+		public Dictionary<string, int> TerrorCounts { get; set; } = new Dictionary<string, int>();
 		public int TotalRounds { get; set; } = 0;
 		public int SurvivedRounds { get; set; } = 0;
+	}
+
+	/// <summary>
+	/// テラー統計情報を保持するクラス
+	/// </summary>
+	public class TerrorStats
+	{
+		public Dictionary<string, int> TerrorTypeCounts { get; set; } = new Dictionary<string, int>();
+		public Dictionary<string, int> TerrorCounts { get; set; } = new Dictionary<string, int>();
+		public int TerrorsMet { get; set; } = 0;
 	}
 }
