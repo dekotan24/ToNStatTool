@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NAudio.MediaFoundation;
+using System;
 using System.Windows.Forms;
 
 namespace ToNStatTool
@@ -18,6 +19,7 @@ namespace ToNStatTool
 			Application.SetCompatibleTextRenderingDefault(false);
 			TerrorJsonLoader.LoadTerrorData();
 			Application.Run(new ToNStatTool());
+			MediaFoundationApi.Startup();
 		}
 	}
 }

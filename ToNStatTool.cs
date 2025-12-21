@@ -28,6 +28,9 @@ namespace ToNStatTool
 		private GroupBox groupBoxRoundInfo;
 		private GroupBox groupBoxPlayerList;
 		private GroupBox groupBoxStats;
+		private TabControl tabControlStats;
+		private TabPage tabPageRounds;
+		private TabPage tabPageTerrors;
 		private GroupBox groupBoxRoundLog;
 		private TextBox textBoxRawData;
 		private ListBox listBoxEvents;
@@ -81,6 +84,7 @@ namespace ToNStatTool
 			webSocketClient.OnError += OnWebSocketError;
 			webSocketClient.OnTerrorUpdate += OnTerrorUpdate;
 			webSocketClient.OnRoundEnd += OnRoundEnd;
+			webSocketClient.OnWarningUserJoined += OnWarningUserJoined;
 		}
 
 		private void InitializeTimer()
@@ -199,12 +203,35 @@ namespace ToNStatTool
 			var labelPlayerCount = new Label();
 			labelPlayerCount.Name = "labelPlayerCount";
 			labelPlayerCount.Location = new Point(10, 25);
-			labelPlayerCount.Size = new Size(375, 20);
+			labelPlayerCount.Size = new Size(300, 20); // 幅を狭めてボタン用スペースを確保
 			labelPlayerCount.Text = "総人数: 0人 | 生存: 0人";
 			labelPlayerCount.Font = new Font("Meiryo UI", 9, FontStyle.Bold);
-			labelPlayerCount.TextAlign = ContentAlignment.MiddleCenter;
+			labelPlayerCount.TextAlign = ContentAlignment.MiddleLeft; // 左寄せに変更
 			groupBoxPlayerList.Controls.Add(labelPlayerCount);
 
+			// 警告対象ユーザー表示ボタン（右上端にアイコンで配置）
+			var buttonShowWarningUsers = new Button();
+			buttonShowWarningUsers.Name = "buttonShowWarningUsers";
+			buttonShowWarningUsers.Location = new Point(325, 20);
+			buttonShowWarningUsers.Size = new Size(30, 25);
+			buttonShowWarningUsers.Text = "👤";
+			buttonShowWarningUsers.Font = new Font("Arial", 12);
+			buttonShowWarningUsers.UseVisualStyleBackColor = true;
+			buttonShowWarningUsers.Click += ButtonShowWarningUsers_Click;
+			groupBoxPlayerList.Controls.Add(buttonShowWarningUsers);
+
+			// 警告ユーザーリスト再読み込みボタン（右上端にアイコンで配置）
+			var buttonReloadWarningUsers = new Button();
+			buttonReloadWarningUsers.Name = "buttonReloadWarningUsers";
+			buttonReloadWarningUsers.Location = new Point(360, 20);
+			buttonReloadWarningUsers.Size = new Size(30, 25);
+			buttonReloadWarningUsers.Text = "🔄";
+			buttonReloadWarningUsers.Font = new Font("Arial", 12);
+			buttonReloadWarningUsers.UseVisualStyleBackColor = true;
+			buttonReloadWarningUsers.Click += ButtonReloadWarningUsers_Click;
+			groupBoxPlayerList.Controls.Add(buttonReloadWarningUsers);
+
+			// リストビュー
 			var listViewPlayers = new ListView();
 			listViewPlayers.Name = "listViewPlayers";
 			listViewPlayers.Location = new Point(10, 50);
@@ -218,6 +245,11 @@ namespace ToNStatTool
 			listViewPlayers.Columns.Add("種別", 80);
 
 			groupBoxPlayerList.Controls.Add(listViewPlayers);
+
+			// ツールチップの設定
+			var toolTip = new ToolTip();
+			toolTip.SetToolTip(buttonShowWarningUsers, "警告対象ユーザー一覧を表示");
+			toolTip.SetToolTip(buttonReloadWarningUsers, "警告対象ユーザーリストを再読み込み");
 		}
 
 		private void CreateStatsControls()
@@ -229,12 +261,56 @@ namespace ToNStatTool
 			groupBoxStats.Size = new Size(300, 415);
 			this.Controls.Add(groupBoxStats);
 
-			var listBoxStats = new ListBox();
-			listBoxStats.Name = "listBoxStats";
-			listBoxStats.Location = new Point(10, 25);
-			listBoxStats.Size = new Size(275, 380);
-			listBoxStats.Font = new Font("Consolas", 9);
-			groupBoxStats.Controls.Add(listBoxStats);
+			tabControlStats = new TabControl();
+			tabControlStats.Text = "ラウンド統計";
+			tabControlStats.Location = new Point(10, 20);
+			tabControlStats.Size = new Size(280, 380);
+			groupBoxStats.Controls.Add(tabControlStats);
+
+			tabPageRounds = new TabPage();
+			tabPageRounds.Text = "ラウンド";
+			tabPageRounds.Location = new Point(0, 0);
+			tabPageRounds.Size = new Size(300, 415);
+			tabControlStats.Controls.Add(tabPageRounds);
+
+			tabPageTerrors = new TabPage();
+			tabPageTerrors.Text = "テラー";
+			tabPageTerrors.Location = new Point(0, 0);
+			tabPageTerrors.Size = new Size(300, 415);
+			tabControlStats.Controls.Add(tabPageTerrors);
+
+			// 総ラウンド数表示ラベル
+			var labelTotalRounds = new Label();
+			labelTotalRounds.Name = "labelTotalRounds";
+			labelTotalRounds.Text = "総ラウンド数: 0";
+			labelTotalRounds.Font = new Font("Meiryo UI", 9, FontStyle.Bold);
+			labelTotalRounds.Location = new Point(5, 5);
+			labelTotalRounds.Size = new Size(260, 20);
+			tabPageRounds.Controls.Add(labelTotalRounds);
+
+			// ラウンド統計ListView
+			var listViewStats = new ListView();
+			listViewStats.Name = "listViewStats";
+			listViewStats.Location = new Point(5, 30);
+			listViewStats.Size = new Size(260, 320);
+			listViewStats.View = View.Details;
+			listViewStats.FullRowSelect = true;
+			listViewStats.GridLines = true;
+			listViewStats.Columns.Add("ラウンド種別", 130);
+			listViewStats.Columns.Add("回数", 50);
+			listViewStats.Columns.Add("確率(%)", 60);
+			tabPageRounds.Controls.Add(listViewStats);
+
+			// テラー統計ListView
+			var listViewStatsTerrors = new ListView();
+			listViewStatsTerrors.Name = "listViewStatsTerrors";
+			listViewStatsTerrors.Dock = DockStyle.Fill;
+			listViewStatsTerrors.View = View.Details;
+			listViewStatsTerrors.FullRowSelect = true;
+			listViewStatsTerrors.GridLines = true;
+			listViewStatsTerrors.Columns.Add("テラー名", 170);
+			listViewStatsTerrors.Columns.Add("遭遇回数", 70);
+			tabPageTerrors.Controls.Add(listViewStatsTerrors);
 		}
 
 		private void CreateRoundLogControls()
@@ -323,6 +399,56 @@ namespace ToNStatTool
 			}
 		}
 
+		private void ButtonShowWarningUsers_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				var warningUsers = webSocketClient.GetWarningUsers();
+
+				if (warningUsers.Count == 0)
+				{
+					MessageBox.Show("現在、警告対象ユーザーは登録されていません。", "警告対象ユーザー", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					return;
+				}
+
+				StringBuilder sb = new StringBuilder();
+				sb.AppendLine($"現在ロードしている警告対象ユーザー ({warningUsers.Count}人):");
+				sb.AppendLine();
+
+				foreach (var user in warningUsers.OrderBy(u => u))
+				{
+					sb.AppendLine($"• {user}");
+				}
+
+				sb.AppendLine();
+				sb.AppendLine("※ warn_user.txt ファイルから読み込まれています");
+
+				MessageBox.Show(sb.ToString(), "警告対象ユーザー一覧", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show($"警告対象ユーザーの表示でエラーが発生しました: {ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+		}
+
+		private void ButtonReloadWarningUsers_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				webSocketClient.ReloadWarningUsers();
+				var warningUsers = webSocketClient.GetWarningUsers();
+
+				MessageBox.Show($"警告対象ユーザーリストを再読み込みしました。\n現在の登録数: {warningUsers.Count}人", "リスト再読み込み", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+				// プレイヤーリストも更新
+				UpdatePlayerList();
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show($"警告対象ユーザーリストの再読み込みでエラーが発生しました: {ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+		}
+
 		private void ButtonTerrorWindow_Click(object sender, EventArgs e)
 		{
 			if (terrorDisplayForm == null || terrorDisplayForm.IsDisposed)
@@ -333,11 +459,10 @@ namespace ToNStatTool
 			}
 			else
 			{
-				terrorDisplayForm.Focus();
+				terrorDisplayForm.Close();
 			}
 		}
 
-		// WebSocket イベントハンドラー
 		private void OnWebSocketConnected(string playerName)
 		{
 			this.Invoke(new Action(() =>
@@ -418,11 +543,50 @@ namespace ToNStatTool
 
 		private void UpdateUI()
 		{
+			try
+			{
+				UpdateGameDataDisplay();
+				UpdatePlayerList();
+				UpdateEventList();
+				UpdateStatsDisplay();
+				UpdateRoundLogDisplay();
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"UI更新エラー: {ex.Message}");
+			}
+		}
+
+		private void UpdateGameDataDisplay()
+		{
 			UpdateGameInfo();
-			UpdatePlayerList();
-			UpdateEventList();
-			// テラー表示は別途OnTerrorUpdateで更新
-			// 統計とログは別途OnRoundEndで更新
+		}
+
+		private void OnWarningUserJoined(string userName)
+		{
+			try
+			{
+				string warningMessage = $"⚠️ 注意: {userName} が参加しました";
+
+				string originalTitle = this.Text;
+				this.Text = $"【警告】{warningMessage} - {originalTitle}";
+
+				var timer = new System.Windows.Forms.Timer();
+				timer.Interval = 5000;
+				timer.Tick += (s, e) =>
+				{
+					this.Text = originalTitle;
+					timer.Stop();
+					timer.Dispose();
+				};
+				timer.Start();
+
+				System.Diagnostics.Debug.WriteLine($"[WARNING_UI] {warningMessage}");
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[WARNING_UI] エラー: {ex.Message}");
+			}
 		}
 
 		private void UpdateGameInfo()
@@ -491,7 +655,6 @@ namespace ToNStatTool
 			}
 		}
 
-
 		private void UpdatePlayerList()
 		{
 			if (isUpdatingPlayers) return;
@@ -518,8 +681,8 @@ namespace ToNStatTool
 
 				int totalPlayers = players.Count;
 				int alivePlayers = 0;
+				int warningPlayers = 0; // 警告対象プレイヤー数
 
-				// デバッグ情報を出力
 				System.Diagnostics.Debug.WriteLine($"[UI] プレイヤー一覧更新 - 総数: {totalPlayers}");
 
 				foreach (var player in players.Values.OrderBy(p => p.Name))
@@ -528,29 +691,52 @@ namespace ToNStatTool
 					{
 						// プレイヤー名の表示用処理
 						string displayName = GetDisplayPlayerName(player.Name);
+						bool isWarningUser = webSocketClient.IsWarningUser(player.Name);
 
 						var item = new ListViewItem(displayName);
 						item.SubItems.Add(player.IsAlive ? "生存" : "死亡");
-						item.SubItems.Add(player.UserId == localPlayerUserId ? "自分" : "他人");
+
+						// 種別列に警告マークを追加
+						string playerType = player.UserId == localPlayerUserId ? "自分" : "他人";
+						if (isWarningUser)
+						{
+							playerType = "⚠️注意";
+							warningPlayers++;
+						}
+						item.SubItems.Add(playerType);
 
 						// ツールチップに元の名前を設定（表示名が切り詰められた場合）
 						if (displayName != player.Name)
 						{
 							item.ToolTipText = $"元の名前: {player.Name}";
 						}
+						if (isWarningUser && string.IsNullOrEmpty(item.ToolTipText))
+						{
+							item.ToolTipText = "警告対象ユーザーです";
+						}
 
 						if (player.IsAlive)
 							alivePlayers++;
 
-						// 色分け
-						if (!player.IsAlive)
-							item.ForeColor = Color.Red;
+						// 色分け（優先順位: 警告 > 死亡 > 自分）
+						if (isWarningUser)
+						{
+							item.ForeColor = Color.DarkOrange; // 警告ユーザーはオレンジ色
+							item.Font = new Font(listView.Font, FontStyle.Bold); // 太字で強調
+						}
+						else if (!player.IsAlive)
+						{
+							item.ForeColor = Color.Red; // 死亡は赤
+						}
 						else if (player.UserId == localPlayerUserId)
-							item.ForeColor = Color.Blue;
+						{
+							item.ForeColor = Color.Blue; // 自分は青
+						}
 
 						listView.Items.Add(item);
 
-						System.Diagnostics.Debug.WriteLine($"[UI] プレイヤー追加: '{displayName}' (元: '{player.Name}') - {(player.IsAlive ? "生存" : "死亡")}");
+						string warningFlag = isWarningUser ? " [警告]" : "";
+						System.Diagnostics.Debug.WriteLine($"[UI] プレイヤー追加: '{displayName}'{warningFlag} - {(player.IsAlive ? "生存" : "死亡")}");
 					}
 					catch (Exception ex)
 					{
@@ -565,7 +751,18 @@ namespace ToNStatTool
 					}
 				}
 
-				labelPlayerCount.Text = $"総人数: {totalPlayers}人 | 生存: {alivePlayers}人";
+				// プレイヤー数表示を更新（警告ユーザー数も表示）
+				string countText = $"総人数: {totalPlayers}人 | 生存: {alivePlayers}人";
+				if (warningPlayers > 0)
+				{
+					countText += $" | ⚠️警告: {warningPlayers}人";
+					labelPlayerCount.ForeColor = Color.DarkOrange; // 警告がある場合は色を変える
+				}
+				else
+				{
+					labelPlayerCount.ForeColor = SystemColors.ControlText; // 通常の色に戻す
+				}
+				labelPlayerCount.Text = countText;
 
 				// 選択状態を復元
 				foreach (int index in selectedIndices)
@@ -651,28 +848,56 @@ namespace ToNStatTool
 
 		private void UpdateStatsDisplay()
 		{
-			var listBox = FindControl("listBoxStats") as ListBox;
-			if (listBox == null) return;
+			// ラウンド統計
+			var labelTotalRounds = FindControl("labelTotalRounds") as Label;
+			var listView = FindControl("listViewStats") as ListView;
 
-			var roundStats = webSocketClient.RoundStats;
-
-			listBox.Items.Clear();
-
-			listBox.Items.Add($"総ラウンド数: {roundStats.TotalRounds}");
-
-			listBox.Items.Add("");
-			listBox.Items.Add("ラウンド種別:");
-
-			if (roundStats.RoundTypeCounts.Count > 0)
+			if (labelTotalRounds != null && listView != null)
 			{
-				foreach (var kvp in roundStats.RoundTypeCounts.OrderByDescending(x => x.Value))
+				var roundStats = webSocketClient.RoundStats;
+
+				// 総ラウンド数表示
+				labelTotalRounds.Text = $"総ラウンド数: {roundStats.TotalRounds}";
+
+				// ListView更新
+				listView.BeginUpdate();
+				listView.Items.Clear();
+
+				if (roundStats.RoundTypeCounts.Count > 0)
 				{
-					listBox.Items.Add($"  {kvp.Key}: {kvp.Value}回");
+					foreach (var kvp in roundStats.RoundTypeCounts.OrderByDescending(x => x.Value))
+					{
+						double percentage = (double)kvp.Value / roundStats.TotalRounds * 100;
+						var item = new ListViewItem(kvp.Key);
+						item.SubItems.Add(kvp.Value.ToString());
+						item.SubItems.Add(percentage.ToString("F1"));
+						listView.Items.Add(item);
+					}
 				}
+
+				listView.EndUpdate();
 			}
-			else
+
+			// テラー統計
+			var listView2 = FindControl("listViewStatsTerrors") as ListView;
+			if (listView2 != null)
 			{
-				listBox.Items.Add("  データなし");
+				var terrorStats = webSocketClient.TerrorStats;
+
+				listView2.BeginUpdate();
+				listView2.Items.Clear();
+
+				if (terrorStats.TerrorTypeCounts.Count > 0)
+				{
+					foreach (var kvp in terrorStats.TerrorTypeCounts.OrderByDescending(x => x.Value))
+					{
+						var item = new ListViewItem(kvp.Key);
+						item.SubItems.Add(kvp.Value.ToString());
+						listView2.Items.Add(item);
+					}
+				}
+
+				listView2.EndUpdate();
 			}
 		}
 
@@ -686,7 +911,7 @@ namespace ToNStatTool
 			listView.BeginUpdate();
 			listView.Items.Clear();
 
-			foreach (var log in roundLogs.OrderByDescending(l => l.Timestamp).Take(50))
+			foreach (var log in roundLogs.OrderByDescending(l => l.Timestamp).Take(1000))
 			{
 				var item = new ListViewItem(log.Timestamp.ToString("HH:mm"));
 				item.SubItems.Add(log.RoundType);
