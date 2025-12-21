@@ -80,3 +80,9 @@
 /.vs/ToNStatTool/FileContentIndex/*.vsidx
 /Resources
 *.user
+/.vs/ToNStatTool/v17/ResourceExplorer
+/obj
+/bin/Debug
+/bin/ToNStatTool.zip
+/ToNStatTool.cs.old
+/bin/ToNStatTool
