@@ -32,6 +32,7 @@ namespace ToNStatTool
 			this.Location = new Point(Screen.PrimaryScreen.WorkingArea.Width - this.Width, 0);
 			this.FormBorderStyle = FormBorderStyle.None;
 			this.TopMost = true;
+			this.Icon = Properties.Resources.AppIcon;
 
 			// テラー表示パネル
 			terrorPanel = new FlowLayoutPanel();

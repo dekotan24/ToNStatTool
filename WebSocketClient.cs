@@ -53,13 +53,22 @@ namespace ToNStatTool
 		private RoundLog currentRound = null;
 		private readonly List<string> currentRoundItems = new List<string>();
 		public event Action<string> OnWarningUserJoined;
+		public event Action<string, bool> OnPlayerJoinLeave; // プレイヤー名, join=true/leave=false
 		private bool isRoundActive = false;
 		private bool wasDeadDuringRound = false; // ラウンド中に死亡したかを追跡
+
+		// Sound settings
+		public SoundSettings SoundSettings { get; private set; } = new SoundSettings();
+		private const string SOUND_SETTINGS_FILE = "sound_settings.json";
+		private const int MAX_ROUND_LOGS = 2000; // ラウンドログの最大保持数
+		private bool isProcessingBufferedEvents = false; // バッファイベント処理中フラグ
+		private readonly object audioLock = new object(); // 音声再生の排他制御用
 
 		public WebSocketClient()
 		{
 			LoadWarningUsers();
 			InitializeWarningSound();
+			LoadSoundSettings();
 		}
 
 		/// <summary>
@@ -161,54 +170,80 @@ namespace ToNStatTool
 		/// </summary>
 		private void PlayMp3File(string filePath)
 		{
-			try
+			lock (audioLock)
 			{
-				// 既に再生中の場合は停止
-				StopCurrentPlayback();
-
-				// NAudioを使用してMP3を再生
-				audioFileReader = new AudioFileReader(filePath);
-				waveOutDevice = new WaveOutEvent();
-				waveOutDevice.Init(audioFileReader);
-
-				// 再生完了時のイベントハンドラ
-				waveOutDevice.PlaybackStopped += (sender, e) =>
+				try
 				{
-					StopCurrentPlayback();
-				};
+					// 既に再生中の場合は停止
+					StopCurrentPlaybackInternal();
 
-				waveOutDevice.Play();
-				System.Diagnostics.Debug.WriteLine($"[WARNING] MP3再生開始: {filePath}");
-			}
-			catch (Exception ex)
-			{
-				System.Diagnostics.Debug.WriteLine($"[WARNING] NAudio MP3再生エラー: {ex.Message}");
+					// NAudioを使用してMP3を再生
+					var newAudioReader = new AudioFileReader(filePath);
+					var newWaveOut = new WaveOutEvent();
+					
+					newWaveOut.Init(newAudioReader);
+					
+					// フィールドに設定
+					audioFileReader = newAudioReader;
+					waveOutDevice = newWaveOut;
 
-				// NAudioで失敗した場合はシステム音にフォールバック
-				System.Media.SystemSounds.Exclamation.Play();
+					// 再生完了時のイベントハンドラ
+					waveOutDevice.PlaybackStopped += (sender, e) =>
+					{
+						Task.Run(() => StopCurrentPlayback());
+					};
 
-				// リソースをクリーンアップ
-				StopCurrentPlayback();
+					waveOutDevice.Play();
+					System.Diagnostics.Debug.WriteLine($"[SOUND] MP3再生開始: {filePath}");
+				}
+				catch (Exception ex)
+				{
+					System.Diagnostics.Debug.WriteLine($"[SOUND] NAudio MP3再生エラー: {ex.Message}");
+
+					// NAudioで失敗した場合はシステム音にフォールバック
+					try
+					{
+						System.Media.SystemSounds.Exclamation.Play();
+					}
+					catch { }
+
+					// リソースをクリーンアップ
+					StopCurrentPlaybackInternal();
+				}
 			}
 		}
 		
 		/// <summary>
-		 /// 現在の再生を停止してリソースを解放
-		 /// </summary>
+		/// 現在の再生を停止してリソースを解放（ロックあり）
+		/// </summary>
 		private void StopCurrentPlayback()
+		{
+			lock (audioLock)
+			{
+				StopCurrentPlaybackInternal();
+			}
+		}
+
+		/// <summary>
+		/// 現在の再生を停止してリソースを解放（内部用、ロックなし）
+		/// </summary>
+		private void StopCurrentPlaybackInternal()
 		{
 			try
 			{
-				waveOutDevice?.Stop();
-				waveOutDevice?.Dispose();
+				var device = waveOutDevice;
+				var reader = audioFileReader;
+				
 				waveOutDevice = null;
-
-				audioFileReader?.Dispose();
 				audioFileReader = null;
+
+				device?.Stop();
+				device?.Dispose();
+				reader?.Dispose();
 			}
 			catch (Exception ex)
 			{
-				System.Diagnostics.Debug.WriteLine($"[WARNING] 再生停止エラー: {ex.Message}");
+				System.Diagnostics.Debug.WriteLine($"[SOUND] 再生停止エラー: {ex.Message}");
 			}
 		}
 
@@ -459,35 +494,44 @@ namespace ToNStatTool
 
 				OnConnected?.Invoke(LocalPlayerName);
 
-				// バッファされたイベントを処理
+				// バッファされたイベントを処理（サウンドを鳴らさない）
 				if (jsonData["Args"] is JArray args)
 				{
 					System.Diagnostics.Debug.WriteLine($"[CONNECTED] バッファされたイベント数: {args.Count}");
 
-					// PLAYER_JOINイベントを先に処理
-					foreach (var arg in args)
+					// バッファイベント処理中フラグを立てる（サウンドを鳴らさない）
+					isProcessingBufferedEvents = true;
+					try
 					{
-						if (arg is JObject argObj)
+						// PLAYER_JOINイベントを先に処理
+						foreach (var arg in args)
 						{
-							string eventType = argObj["Type"]?.ToString() ?? argObj["TYPE"]?.ToString() ?? "";
-							if (eventType.ToUpper() == "PLAYER_JOIN")
+							if (arg is JObject argObj)
 							{
-								ProcessGameData(argObj);
+								string eventType = argObj["Type"]?.ToString() ?? argObj["TYPE"]?.ToString() ?? "";
+								if (eventType.ToUpper() == "PLAYER_JOIN")
+								{
+									ProcessGameData(argObj);
+								}
+							}
+						}
+
+						// その後、他のイベントを処理
+						foreach (var arg in args)
+						{
+							if (arg is JObject argObj)
+							{
+								string eventType = argObj["Type"]?.ToString() ?? argObj["TYPE"]?.ToString() ?? "";
+								if (eventType.ToUpper() != "PLAYER_JOIN")
+								{
+									ProcessGameData(argObj);
+								}
 							}
 						}
 					}
-
-					// その後、他のイベントを処理
-					foreach (var arg in args)
+					finally
 					{
-						if (arg is JObject argObj)
-						{
-							string eventType = argObj["Type"]?.ToString() ?? argObj["TYPE"]?.ToString() ?? "";
-							if (eventType.ToUpper() != "PLAYER_JOIN")
-							{
-								ProcessGameData(argObj);
-							}
-						}
+						isProcessingBufferedEvents = false;
 					}
 				}
 			}
@@ -664,8 +708,8 @@ namespace ToNStatTool
 					}
 				}
 
-				// ラウンドログを最大999件に制限
-				if (RoundLogs.Count > 999)
+				// ラウンドログを最大件数に制限
+				while (RoundLogs.Count > MAX_ROUND_LOGS)
 				{
 					RoundLogs.RemoveAt(0);
 				}
@@ -885,8 +929,8 @@ namespace ToNStatTool
 
 				System.Diagnostics.Debug.WriteLine($"[PLAYER_JOIN] 名前: '{playerName}', ID: '{playerId}'");
 
-				// 警告ユーザーチェック
-				if (IsWarningUser(playerName))
+				// 警告ユーザーチェック（バッファイベント処理中でない場合のみ）
+				if (IsWarningUser(playerName) && !isProcessingBufferedEvents)
 				{
 					System.Diagnostics.Debug.WriteLine($"[WARNING] 警告対象ユーザーが参加: {playerName}");
 					PlayWarningSound();
@@ -913,8 +957,17 @@ namespace ToNStatTool
 					UserId = playerId,
 					IsLocal = false,
 					IsAlive = initialAliveState,
-					LastSeen = DateTime.Now
+					LastSeen = DateTime.Now,
+					JoinedAt = DateTime.Now
 				};
+
+				// バッファイベント処理中でない場合のみJoinサウンドを再生
+				if (!isProcessingBufferedEvents)
+				{
+					PlayJoinLeaveSound(true);
+					// イベントを発火
+					OnPlayerJoinLeave?.Invoke(playerName, true);
+				}
 
 				System.Diagnostics.Debug.WriteLine($"プレイヤー参加: {playerName} - ラウンド中: {isRoundActive} - 初期状態: {(initialAliveState ? "生存" : "死亡")}");
 			}
@@ -943,8 +996,17 @@ namespace ToNStatTool
 
 				if (playerToRemove.Key != null)
 				{
-					System.Diagnostics.Debug.WriteLine($"プレイヤー退出: {Players[playerToRemove.Key].Name}");
+					string removedPlayerName = Players[playerToRemove.Key].Name;
+					System.Diagnostics.Debug.WriteLine($"プレイヤー退出: {removedPlayerName}");
 					Players.Remove(playerToRemove.Key);
+
+					// バッファイベント処理中でない場合のみLeaveサウンドを再生
+					if (!isProcessingBufferedEvents)
+					{
+						PlayJoinLeaveSound(false);
+						// イベントを発火
+						OnPlayerJoinLeave?.Invoke(removedPlayerName, false);
+					}
 				}
 				else
 				{
@@ -1245,5 +1307,156 @@ namespace ToNStatTool
 				System.Diagnostics.Debug.WriteLine("[リセット] ラウンド統計、テラー統計、ラウンドログをリセットしました");
 			}
 		}
+
+		/// <summary>
+		/// サウンド設定を読み込む
+		/// </summary>
+		private void LoadSoundSettings()
+		{
+			try
+			{
+				string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SOUND_SETTINGS_FILE);
+				if (File.Exists(settingsPath))
+				{
+					string json = File.ReadAllText(settingsPath);
+					SoundSettings = JsonConvert.DeserializeObject<SoundSettings>(json) ?? new SoundSettings();
+					System.Diagnostics.Debug.WriteLine("[SOUND] サウンド設定を読み込みました");
+				}
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[SOUND] サウンド設定読み込みエラー: {ex.Message}");
+				SoundSettings = new SoundSettings();
+			}
+		}
+
+		/// <summary>
+		/// サウンド設定を保存する
+		/// </summary>
+		public void SaveSoundSettings()
+		{
+			try
+			{
+				string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SOUND_SETTINGS_FILE);
+				string json = JsonConvert.SerializeObject(SoundSettings, Formatting.Indented);
+				File.WriteAllText(settingsPath, json);
+				System.Diagnostics.Debug.WriteLine("[SOUND] サウンド設定を保存しました");
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[SOUND] サウンド設定保存エラー: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// サウンド設定を更新する
+		/// </summary>
+		public void UpdateSoundSettings(SoundSettings settings)
+		{
+			SoundSettings = settings;
+			SaveSoundSettings();
+		}
+
+		/// <summary>
+		/// Join/Leaveサウンドを再生
+		/// </summary>
+		private void PlayJoinLeaveSound(bool isJoin)
+		{
+			Task.Run(() =>
+			{
+				try
+				{
+					string soundPath = isJoin ? SoundSettings.JoinSoundPath : SoundSettings.LeaveSoundPath;
+					bool isEnabled = isJoin ? SoundSettings.EnableJoinSound : SoundSettings.EnableLeaveSound;
+
+					if (!isEnabled || string.IsNullOrEmpty(soundPath) || !File.Exists(soundPath))
+						return;
+
+					PlayMp3File(soundPath);
+					System.Diagnostics.Debug.WriteLine($"[SOUND] {(isJoin ? "Join" : "Leave")}サウンドを再生: {soundPath}");
+				}
+				catch (Exception ex)
+				{
+					System.Diagnostics.Debug.WriteLine($"[SOUND] サウンド再生エラー: {ex.Message}");
+				}
+			});
+		}
+
+		/// <summary>
+		/// 警告ユーザーを追加する
+		/// </summary>
+		public bool AddWarningUser(string playerName)
+		{
+			try
+			{
+				if (string.IsNullOrWhiteSpace(playerName))
+					return false;
+
+				string normalizedName = playerName.ToLowerInvariant().Trim();
+				
+				// 既に登録済みの場合
+				if (warningUsers.Contains(normalizedName))
+					return false;
+
+				// メモリに追加
+				warningUsers.Add(normalizedName);
+
+				// ファイルに追記
+				string warningFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "warn_user.txt");
+				File.AppendAllText(warningFilePath, $"\n{playerName}");
+
+				System.Diagnostics.Debug.WriteLine($"[WARNING] 警告ユーザーを追加: {playerName}");
+				return true;
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[WARNING] 警告ユーザー追加エラー: {ex.Message}");
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// 警告ユーザーを削除する
+		/// </summary>
+		public bool RemoveWarningUser(string playerName)
+		{
+			try
+			{
+				if (string.IsNullOrWhiteSpace(playerName))
+					return false;
+
+				string normalizedName = playerName.ToLowerInvariant().Trim();
+				
+				if (!warningUsers.Contains(normalizedName))
+					return false;
+
+				// メモリから削除
+				warningUsers.Remove(normalizedName);
+
+				// ファイルを更新
+				string warningFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "warn_user.txt");
+				if (File.Exists(warningFilePath))
+				{
+					var lines = File.ReadAllLines(warningFilePath)
+						.Where(line => {
+							var trimmed = line.Trim();
+							if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#"))
+								return true; // コメントや空行は保持
+							return trimmed.ToLowerInvariant() != normalizedName;
+						})
+						.ToArray();
+					File.WriteAllLines(warningFilePath, lines);
+				}
+
+				System.Diagnostics.Debug.WriteLine($"[WARNING] 警告ユーザーを削除: {playerName}");
+				return true;
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[WARNING] 警告ユーザー削除エラー: {ex.Message}");
+				return false;
+			}
+		}
+
 	}
 }

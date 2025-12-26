@@ -27,7 +27,19 @@ namespace ToNStatTool
 		public bool IsLocal { get; set; }
 		public bool IsAlive { get; set; } = true;
 		public DateTime LastSeen { get; set; } = DateTime.Now;
+		public DateTime JoinedAt { get; set; } = DateTime.Now;
 		public bool IsWarningUser { get; set; } = false;
+	}
+
+	/// <summary>
+	/// サウンド設定を保持するクラス
+	/// </summary>
+	public class SoundSettings
+	{
+		public bool EnableJoinSound { get; set; } = false;
+		public bool EnableLeaveSound { get; set; } = false;
+		public string JoinSoundPath { get; set; } = "";
+		public string LeaveSoundPath { get; set; } = "";
 	}
 
 	/// <summary>

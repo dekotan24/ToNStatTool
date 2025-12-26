@@ -63,6 +63,7 @@ namespace ToNStatTool
 			this.Size = new Size(1205, 760);
 			this.StartPosition = FormStartPosition.CenterScreen;
 			this.FormBorderStyle = FormBorderStyle.Sizable;
+			this.Icon = Properties.Resources.AppIcon;
 
 			CreateConnectionControls();
 			CreateTerrorDisplay();
@@ -129,10 +130,18 @@ namespace ToNStatTool
 			// テラー表示ウィンドウボタン
 			var buttonTerrorWindow = new Button();
 			buttonTerrorWindow.Location = new Point(950, 11);
-			buttonTerrorWindow.Size = new Size(150, 25);
+			buttonTerrorWindow.Size = new Size(130, 25);
 			buttonTerrorWindow.Text = "テラー表示ウィンドウ";
 			buttonTerrorWindow.Click += ButtonTerrorWindow_Click;
 			this.Controls.Add(buttonTerrorWindow);
+
+			// サウンド設定ボタン
+			var buttonSoundSettings = new Button();
+			buttonSoundSettings.Location = new Point(1090, 11);
+			buttonSoundSettings.Size = new Size(90, 25);
+			buttonSoundSettings.Text = "🔊 サウンド設定";
+			buttonSoundSettings.Click += ButtonSoundSettings_Click;
+			this.Controls.Add(buttonSoundSettings);
 		}
 
 		private void CreateTerrorDisplay()
@@ -240,9 +249,10 @@ namespace ToNStatTool
 			listViewPlayers.FullRowSelect = true;
 			listViewPlayers.GridLines = true;
 
-			listViewPlayers.Columns.Add("プレイヤー名", 200);
-			listViewPlayers.Columns.Add("状態", 80);
-			listViewPlayers.Columns.Add("種別", 80);
+			listViewPlayers.Columns.Add("プレイヤー名", 180);
+			listViewPlayers.Columns.Add("状態", 60);
+			listViewPlayers.Columns.Add("種別", 70);
+			listViewPlayers.DoubleClick += ListViewPlayers_DoubleClick;
 
 			groupBoxPlayerList.Controls.Add(listViewPlayers);
 
@@ -413,30 +423,289 @@ namespace ToNStatTool
 			try
 			{
 				var warningUsers = webSocketClient.GetWarningUsers();
-
-				if (warningUsers.Count == 0)
-				{
-					MessageBox.Show("現在、警告対象ユーザーは登録されていません。", "警告対象ユーザー", MessageBoxButtons.OK, MessageBoxIcon.Information);
-					return;
-				}
-
-				StringBuilder sb = new StringBuilder();
-				sb.AppendLine($"現在ロードしている警告対象ユーザー ({warningUsers.Count}人):");
-				sb.AppendLine();
-
-				foreach (var user in warningUsers.OrderBy(u => u))
-				{
-					sb.AppendLine($"• {user}");
-				}
-
-				sb.AppendLine();
-				sb.AppendLine("※ warn_user.txt ファイルから読み込まれています");
-
-				MessageBox.Show(sb.ToString(), "警告対象ユーザー一覧", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				ShowWarningUsersDialog(warningUsers);
 			}
 			catch (Exception ex)
 			{
 				MessageBox.Show($"警告対象ユーザーの表示でエラーが発生しました: {ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+		}
+
+		/// <summary>
+		/// 警告対象ユーザー一覧ダイアログを表示
+		/// </summary>
+		private void ShowWarningUsersDialog(HashSet<string> warningUsers)
+		{
+			using (var dialog = new Form())
+			{
+				dialog.Text = "警告対象ユーザー一覧";
+				dialog.Size = new Size(350, 450);
+				dialog.StartPosition = FormStartPosition.CenterParent;
+				dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+				dialog.MaximizeBox = false;
+				dialog.MinimizeBox = false;
+
+				var label = new Label();
+				label.Text = $"現在ロードしている警告対象ユーザー ({warningUsers.Count}人):";
+				label.Location = new Point(10, 10);
+				label.Size = new Size(320, 20);
+				dialog.Controls.Add(label);
+
+				var listBox = new ListBox();
+				listBox.Location = new Point(10, 35);
+				listBox.Size = new Size(315, 320);
+				listBox.Font = new Font("Meiryo UI", 9);
+				
+				foreach (var user in warningUsers.OrderBy(u => u))
+				{
+					listBox.Items.Add(user);
+				}
+				dialog.Controls.Add(listBox);
+
+				var buttonRemove = new Button();
+				buttonRemove.Text = "選択したユーザーを削除";
+				buttonRemove.Location = new Point(10, 365);
+				buttonRemove.Size = new Size(150, 30);
+				buttonRemove.Click += (s, args) =>
+				{
+					if (listBox.SelectedItem != null)
+					{
+						string selectedUser = listBox.SelectedItem.ToString();
+						if (webSocketClient.RemoveWarningUser(selectedUser))
+						{
+							listBox.Items.Remove(selectedUser);
+							label.Text = $"現在ロードしている警告対象ユーザー ({listBox.Items.Count}人):";
+							UpdatePlayerList();
+						}
+					}
+				};
+				dialog.Controls.Add(buttonRemove);
+
+				var buttonClose = new Button();
+				buttonClose.Text = "閉じる";
+				buttonClose.Location = new Point(235, 365);
+				buttonClose.Size = new Size(90, 30);
+				buttonClose.Click += (s, args) => dialog.Close();
+				dialog.Controls.Add(buttonClose);
+
+				var noteLabel = new Label();
+				noteLabel.Text = "※ warn_user.txt ファイルから読み込まれています";
+				noteLabel.Location = new Point(10, 400);
+				noteLabel.Size = new Size(320, 20);
+				noteLabel.ForeColor = Color.Gray;
+				dialog.Controls.Add(noteLabel);
+
+				dialog.ShowDialog(this);
+			}
+		}
+
+		/// <summary>
+		/// プレイヤーリストをダブルクリックした時のイベントハンドラ
+		/// </summary>
+		private void ListViewPlayers_DoubleClick(object sender, EventArgs e)
+		{
+			try
+			{
+				var listView = sender as ListView;
+				if (listView?.SelectedItems.Count > 0)
+				{
+					string playerName = listView.SelectedItems[0].Text;
+					
+					// 既に警告ユーザーの場合は削除を確認
+					if (webSocketClient.IsWarningUser(playerName))
+					{
+						var result = MessageBox.Show(
+							$"{playerName} は既に警告対象ユーザーです。\n警告リストから削除しますか？",
+							"警告ユーザー削除",
+							MessageBoxButtons.YesNo,
+							MessageBoxIcon.Question);
+
+						if (result == DialogResult.Yes)
+						{
+							if (webSocketClient.RemoveWarningUser(playerName))
+							{
+								MessageBox.Show($"{playerName} を警告リストから削除しました。", "削除完了", MessageBoxButtons.OK, MessageBoxIcon.Information);
+								UpdatePlayerList();
+							}
+						}
+					}
+					else
+					{
+						// 警告ユーザーに追加
+						var result = MessageBox.Show(
+							$"{playerName} を警告対象ユーザーに追加しますか？",
+							"警告ユーザー追加",
+							MessageBoxButtons.YesNo,
+							MessageBoxIcon.Question);
+
+						if (result == DialogResult.Yes)
+						{
+							if (webSocketClient.AddWarningUser(playerName))
+							{
+								MessageBox.Show($"{playerName} を警告リストに追加しました。", "追加完了", MessageBoxButtons.OK, MessageBoxIcon.Information);
+								UpdatePlayerList();
+							}
+							else
+							{
+								MessageBox.Show($"{playerName} は既に警告リストに登録されています。", "情報", MessageBoxButtons.OK, MessageBoxIcon.Information);
+							}
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show($"エラー: {ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+		}
+
+		/// <summary>
+		/// サウンド設定ボタンのクリックイベント
+		/// </summary>
+		private void ButtonSoundSettings_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				ShowSoundSettingsDialog();
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show($"サウンド設定の表示でエラーが発生しました: {ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+		}
+
+		/// <summary>
+		/// サウンド設定ダイアログを表示
+		/// </summary>
+		private void ShowSoundSettingsDialog()
+		{
+			using (var dialog = new Form())
+			{
+				dialog.Text = "サウンド設定";
+				dialog.Size = new Size(450, 280);
+				dialog.StartPosition = FormStartPosition.CenterParent;
+				dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+				dialog.MaximizeBox = false;
+				dialog.MinimizeBox = false;
+
+				var settings = webSocketClient.SoundSettings;
+
+				// Joinサウンド設定
+				var groupJoin = new GroupBox();
+				groupJoin.Text = "プレイヤー参加時のサウンド";
+				groupJoin.Location = new Point(10, 10);
+				groupJoin.Size = new Size(415, 80);
+				dialog.Controls.Add(groupJoin);
+
+				var checkJoinEnabled = new CheckBox();
+				checkJoinEnabled.Text = "有効";
+				checkJoinEnabled.Location = new Point(10, 25);
+				checkJoinEnabled.Size = new Size(60, 20);
+				checkJoinEnabled.Checked = settings.EnableJoinSound;
+				groupJoin.Controls.Add(checkJoinEnabled);
+
+				var textJoinPath = new TextBox();
+				textJoinPath.Location = new Point(75, 23);
+				textJoinPath.Size = new Size(250, 23);
+				textJoinPath.Text = settings.JoinSoundPath;
+				groupJoin.Controls.Add(textJoinPath);
+
+				var buttonJoinBrowse = new Button();
+				buttonJoinBrowse.Text = "参照...";
+				buttonJoinBrowse.Location = new Point(330, 22);
+				buttonJoinBrowse.Size = new Size(70, 25);
+				buttonJoinBrowse.Click += (s, args) =>
+				{
+					using (var ofd = new OpenFileDialog())
+					{
+						ofd.Filter = "音声ファイル|*.mp3;*.wav|MP3ファイル|*.mp3|WAVファイル|*.wav|すべてのファイル|*.*";
+						if (ofd.ShowDialog() == DialogResult.OK)
+						{
+							textJoinPath.Text = ofd.FileName;
+						}
+					}
+				};
+				groupJoin.Controls.Add(buttonJoinBrowse);
+
+				var labelJoinNote = new Label();
+				labelJoinNote.Text = "※ MP3またはWAVファイルを指定してください";
+				labelJoinNote.Location = new Point(75, 50);
+				labelJoinNote.Size = new Size(300, 20);
+				labelJoinNote.ForeColor = Color.Gray;
+				groupJoin.Controls.Add(labelJoinNote);
+
+				// Leaveサウンド設定
+				var groupLeave = new GroupBox();
+				groupLeave.Text = "プレイヤー退出時のサウンド";
+				groupLeave.Location = new Point(10, 100);
+				groupLeave.Size = new Size(415, 80);
+				dialog.Controls.Add(groupLeave);
+
+				var checkLeaveEnabled = new CheckBox();
+				checkLeaveEnabled.Text = "有効";
+				checkLeaveEnabled.Location = new Point(10, 25);
+				checkLeaveEnabled.Size = new Size(60, 20);
+				checkLeaveEnabled.Checked = settings.EnableLeaveSound;
+				groupLeave.Controls.Add(checkLeaveEnabled);
+
+				var textLeavePath = new TextBox();
+				textLeavePath.Location = new Point(75, 23);
+				textLeavePath.Size = new Size(250, 23);
+				textLeavePath.Text = settings.LeaveSoundPath;
+				groupLeave.Controls.Add(textLeavePath);
+
+				var buttonLeaveBrowse = new Button();
+				buttonLeaveBrowse.Text = "参照...";
+				buttonLeaveBrowse.Location = new Point(330, 22);
+				buttonLeaveBrowse.Size = new Size(70, 25);
+				buttonLeaveBrowse.Click += (s, args) =>
+				{
+					using (var ofd = new OpenFileDialog())
+					{
+						ofd.Filter = "音声ファイル|*.mp3;*.wav|MP3ファイル|*.mp3|WAVファイル|*.wav|すべてのファイル|*.*";
+						if (ofd.ShowDialog() == DialogResult.OK)
+						{
+							textLeavePath.Text = ofd.FileName;
+						}
+					}
+				};
+				groupLeave.Controls.Add(buttonLeaveBrowse);
+
+				var labelLeaveNote = new Label();
+				labelLeaveNote.Text = "※ MP3またはWAVファイルを指定してください";
+				labelLeaveNote.Location = new Point(75, 50);
+				labelLeaveNote.Size = new Size(300, 20);
+				labelLeaveNote.ForeColor = Color.Gray;
+				groupLeave.Controls.Add(labelLeaveNote);
+
+				// ボタン
+				var buttonSave = new Button();
+				buttonSave.Text = "保存";
+				buttonSave.Location = new Point(260, 195);
+				buttonSave.Size = new Size(80, 30);
+				buttonSave.Click += (s, args) =>
+				{
+					var newSettings = new SoundSettings
+					{
+						EnableJoinSound = checkJoinEnabled.Checked,
+						JoinSoundPath = textJoinPath.Text,
+						EnableLeaveSound = checkLeaveEnabled.Checked,
+						LeaveSoundPath = textLeavePath.Text
+					};
+					webSocketClient.UpdateSoundSettings(newSettings);
+					MessageBox.Show("サウンド設定を保存しました。", "保存完了", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					dialog.Close();
+				};
+				dialog.Controls.Add(buttonSave);
+
+				var buttonCancel = new Button();
+				buttonCancel.Text = "キャンセル";
+				buttonCancel.Location = new Point(345, 195);
+				buttonCancel.Size = new Size(80, 30);
+				buttonCancel.Click += (s, args) => dialog.Close();
+				dialog.Controls.Add(buttonCancel);
+
+				dialog.ShowDialog(this);
 			}
 		}
 
