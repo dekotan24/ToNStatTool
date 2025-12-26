@@ -285,8 +285,17 @@ namespace ToNStatTool
 			labelTotalRounds.Text = "総ラウンド数: 0";
 			labelTotalRounds.Font = new Font("Meiryo UI", 9, FontStyle.Bold);
 			labelTotalRounds.Location = new Point(5, 5);
-			labelTotalRounds.Size = new Size(260, 20);
+			labelTotalRounds.Size = new Size(180, 20);
 			tabPageRounds.Controls.Add(labelTotalRounds);
+
+			// リセットボタン
+			var buttonResetStats = new Button();
+			buttonResetStats.Name = "buttonResetStats";
+			buttonResetStats.Text = "リセット";
+			buttonResetStats.Location = new Point(190, 3);
+			buttonResetStats.Size = new Size(70, 22);
+			buttonResetStats.Click += ButtonResetStats_Click;
+			tabPageRounds.Controls.Add(buttonResetStats);
 
 			// ラウンド統計ListView
 			var listViewStats = new ListView();
@@ -446,6 +455,34 @@ namespace ToNStatTool
 			catch (Exception ex)
 			{
 				MessageBox.Show($"警告対象ユーザーリストの再読み込みでエラーが発生しました: {ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+		}
+
+		private void ButtonResetStats_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				// 確認ダイアログを表示
+				var result = MessageBox.Show(
+					"ラウンド統計、テラー統計、ラウンドログをすべてリセットします。\n\nこの操作は取り消せません。よろしいですか？",
+					"統計リセットの確認",
+					MessageBoxButtons.YesNo,
+					MessageBoxIcon.Warning);
+
+				if (result == DialogResult.Yes)
+				{
+					webSocketClient.ResetRoundStats();
+
+					// UIを更新
+					UpdateStatsDisplay();
+					UpdateRoundLogDisplay();
+
+					MessageBox.Show("統計をリセットしました。", "リセット完了", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				}
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show($"統計のリセットでエラーが発生しました: {ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
 

@@ -54,6 +54,7 @@ namespace ToNStatTool
 		private readonly List<string> currentRoundItems = new List<string>();
 		public event Action<string> OnWarningUserJoined;
 		private bool isRoundActive = false;
+		private bool wasDeadDuringRound = false; // ラウンド中に死亡したかを追跡
 
 		public WebSocketClient()
 		{
@@ -559,6 +560,7 @@ namespace ToNStatTool
 		private void StartNewRound(string roundType)
 		{
 			currentRoundItems.Clear();
+			wasDeadDuringRound = false; // ラウンド開始時に死亡フラグをリセット
 			currentRound = new RoundLog
 			{
 				Timestamp = DateTime.Now,
@@ -595,30 +597,32 @@ namespace ToNStatTool
 				// アイテムを設定
 				currentRound.Items = currentRoundItems.Count > 0 ? string.Join(", ", currentRoundItems) : "なし";
 
-				// 生存状態を確認
-				bool survived = false;
+				// 生存状態を確認（ラウンド中に一度でも死亡していれば死亡として記録）
+				bool survived = !wasDeadDuringRound;
 
-				// まず自分のプレイヤー情報から生存状態を確認
-				if (!string.IsNullOrEmpty(LocalPlayerUserId) && Players.ContainsKey(LocalPlayerUserId))
+				// フラグが設定されていない場合のフォールバック（従来のロジック）
+				if (!wasDeadDuringRound)
 				{
-					survived = Players[LocalPlayerUserId].IsAlive;
-					System.Diagnostics.Debug.WriteLine($"プレイヤー情報から生存状態を取得: {survived}");
-				}
-				// プレイヤー情報がない場合はGameDataから確認
-				else
-				{
-					string aliveStatus = GetGameDataValue("alive", "");
-					if (!string.IsNullOrEmpty(aliveStatus) && aliveStatus != "-")
+					// プレイヤー情報からも確認
+					if (!string.IsNullOrEmpty(LocalPlayerUserId) && Players.ContainsKey(LocalPlayerUserId))
 					{
-						survived = aliveStatus == "生存";
-						System.Diagnostics.Debug.WriteLine($"ALIVEイベントから生存状態を取得: {aliveStatus}");
+						survived = Players[LocalPlayerUserId].IsAlive;
+						System.Diagnostics.Debug.WriteLine($"プレイヤー情報から生存状態を取得: {survived}");
 					}
+					// GameDataからも確認
 					else
 					{
-						// デフォルトは死亡とみなす
-						survived = false;
-						System.Diagnostics.Debug.WriteLine("生存状態が不明のため、死亡とみなします");
+						string aliveStatus = GetGameDataValue("alive", "");
+						if (!string.IsNullOrEmpty(aliveStatus) && aliveStatus != "-")
+						{
+							survived = aliveStatus == "生存";
+							System.Diagnostics.Debug.WriteLine($"GameDataから生存状態を取得: {aliveStatus}");
+						}
 					}
+				}
+				else
+				{
+					System.Diagnostics.Debug.WriteLine("ラウンド中に死亡したため、死亡として記録します");
 				}
 
 				currentRound.Survived = survived;
@@ -725,6 +729,13 @@ namespace ToNStatTool
 		{
 			bool isAlive = jsonData["Value"]?.ToObject<bool>() ?? false;
 			GameData["alive"] = isAlive ? "生存" : "死亡";
+
+			// ラウンド中に死亡した場合はフラグを立てる
+			if (!isAlive && isRoundActive)
+			{
+				wasDeadDuringRound = true;
+				System.Diagnostics.Debug.WriteLine("[ALIVE] ラウンド中に死亡しました");
+			}
 
 			if (!string.IsNullOrEmpty(LocalPlayerUserId) && Players.ContainsKey(LocalPlayerUserId))
 			{
@@ -1212,6 +1223,26 @@ namespace ToNStatTool
 			lock (dataLock)
 			{
 				return new Dictionary<string, int>(RoundStats.TerrorCounts);
+			}
+		}
+
+		/// <summary>
+		/// ラウンド統計とテラー統計をリセットする
+		/// </summary>
+		public void ResetRoundStats()
+		{
+			lock (dataLock)
+			{
+				// ラウンド統計をリセット（空のリストにする）
+				RoundStats = new RoundStats();
+
+				// テラー統計をリセット（空のリストにする）
+				TerrorStats = new TerrorStats();
+
+				// ラウンドログをクリア
+				RoundLogs.Clear();
+
+				System.Diagnostics.Debug.WriteLine("[リセット] ラウンド統計、テラー統計、ラウンドログをリセットしました");
 			}
 		}
 	}
