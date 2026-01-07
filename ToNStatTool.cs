@@ -499,7 +499,21 @@ namespace ToNStatTool
 			numericSurvivalCount.Minimum = 0;
 			numericSurvivalCount.Maximum = 999;
 			numericSurvivalCount.Value = 0;
-			numericSurvivalCount.ValueChanged += (s, e) => { try { if (webSocketClient?.InstanceState != null) webSocketClient.InstanceState.EstimatedSurvivalCount = (int)numericSurvivalCount.Value; } catch { } };
+			numericSurvivalCount.ValueChanged += (s, e) => {
+				// イベントループ防止：UI更新中は処理しない
+				if (isUpdatingSurvivalCount) return;
+				try
+				{
+					if (webSocketClient?.InstanceState != null)
+					{
+						webSocketClient.InstanceState.EstimatedSurvivalCount = (int)numericSurvivalCount.Value;
+					}
+				}
+				catch (Exception ex)
+				{
+					System.Diagnostics.Debug.WriteLine($"推定生存回数の更新エラー: {ex.Message}");
+				}
+			};
 			groupBoxInstanceState.Controls.Add(numericSurvivalCount);
 
 			// リセットボタン
@@ -1361,8 +1375,11 @@ namespace ToNStatTool
 			}));
 		}
 
+		// UI更新中フラグ（イベントループ防止用）
+		private bool isUpdatingSurvivalCount = false;
+
 		/// <summary>
-		/// 鳥チェックボックスとMoonチェックボックスを更新
+		/// 鳥チェックボックス、Moonチェックボックス、推定生存回数を更新
 		/// </summary>
 		private void UpdateBirdCheckboxes()
 		{
@@ -1395,6 +1412,25 @@ namespace ToNStatTool
 				checkMysticMoon.Checked = instanceState.MysticMoonUnlocked;
 			if (checkSolstice != null && checkSolstice.Checked != instanceState.SolsticeUnlocked)
 				checkSolstice.Checked = instanceState.SolsticeUnlocked;
+
+			// 推定生存回数を更新（イベントループ防止）
+			var numericSurvivalCount = FindControl("numericSurvivalCount") as NumericUpDown;
+			if (numericSurvivalCount != null && !isUpdatingSurvivalCount)
+			{
+				int targetValue = Math.Max(0, Math.Min(999, instanceState.EstimatedSurvivalCount));
+				if ((int)numericSurvivalCount.Value != targetValue)
+				{
+					isUpdatingSurvivalCount = true;
+					try
+					{
+						numericSurvivalCount.Value = targetValue;
+					}
+					finally
+					{
+						isUpdatingSurvivalCount = false;
+					}
+				}
+			}
 		}
 
 		private void OnRoundStart(string roundType)

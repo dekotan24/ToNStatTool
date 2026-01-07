@@ -61,6 +61,7 @@ namespace ToNStatTool
 		private bool isRoundActive = false;
 		private bool wasDeadDuringRound = false; // ラウンド中に死亡したかを追跡
 		private bool isCurrentRoundFirstMoon = false; // 今回のラウンドが初回Moonかどうか
+		private bool wasOverrideInUncertainState = false; // N=1でOverrideが出た（どちらの枠か不明）
 
 		// Sound settings
 		public SoundSettings SoundSettings { get; private set; } = new SoundSettings();
@@ -923,8 +924,13 @@ namespace ToNStatTool
 		{
 			string lower = roundType.ToLower();
 
-			// 生存時の処理
-			if (survived)
+			// インスタンス内の誰かが生存しているかチェック（推定生存回数用）
+			int aliveCount = Players.Values.Count(p => p.IsAlive);
+			bool anyoneSurvived = aliveCount > 0;
+			System.Diagnostics.Debug.WriteLine($"[InstanceState] ラウンド終了時の生存状況: 自分={survived}, インスタンス内生存者={aliveCount}人, anyoneSurvived={anyoneSurvived}");
+
+			// インスタンス内で誰かが生存していればカウントアップ
+			if (anyoneSurvived)
 			{
 				InstanceState.EstimatedSurvivalCount++;
 
@@ -1009,7 +1015,15 @@ namespace ToNStatTool
 			if (IsClassicRoundType(lower))
 			{
 				// Classic: 純粋な通常ラウンド（通常枠のみ出現）
-				if (InstanceState.NormalRoundCount >= 2)
+				if (wasOverrideInUncertainState)
+				{
+					// N=1でOverride後にClassicが来た → 前のOverrideが特殊枠を食ったことが確定
+					// なのでClassicはN=0からの遷移として扱う → N=1
+					InstanceState.NormalRoundCount = 1;
+					wasOverrideInUncertainState = false;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Classic(前のOverrideが特殊枠消費確定): NormalRoundCount=1");
+				}
+				else if (InstanceState.NormalRoundCount >= 2)
 				{
 					// N=2（特殊枠確定）でClassicが出た → 特殊未解放時
 					// 特殊枠は消費されたが特殊が出せないのでClassicが代わりに出た
@@ -1037,6 +1051,8 @@ namespace ToNStatTool
 				// Moonラウンド（Blood Moon/Twilight/Mystic Moon/Solstice）
 				// 初回: Classicを上書きして出現 → Override系と同じ挙動
 				// 2回目以降: 特殊ラウンドの1/20で選出 → 特殊枠を消費
+				wasOverrideInUncertainState = false; // Moonが出たらフラグリセット
+				
 				if (isCurrentRoundFirstMoon)
 				{
 					// 初回Moon → Override系と同じ挙動
@@ -1048,6 +1064,7 @@ namespace ToNStatTool
 					else if (InstanceState.NormalRoundCount == 1)
 					{
 						// N=1で初回Moon → N=1維持（通常枠を上書きした可能性）
+						wasOverrideInUncertainState = true; // 初回MoonもOverride系と同様にフラグを立てる
 						System.Diagnostics.Debug.WriteLine("[InstanceState] 初回Moon(不明): NormalRoundCount=1維持");
 					}
 					else if (InstanceState.NormalRoundCount >= 2)
@@ -1070,17 +1087,20 @@ namespace ToNStatTool
 				{
 					// N=0（通常枠確定） → N=1
 					InstanceState.NormalRoundCount = 1;
+					wasOverrideInUncertainState = false;
 					System.Diagnostics.Debug.WriteLine("[InstanceState] Override系(通常枠確定): NormalRoundCount=1");
 				}
 				else if (InstanceState.NormalRoundCount == 1)
 				{
 					// N=1（通常/特殊どちらか） → N=1維持（どちらで出たか不明）
-					System.Diagnostics.Debug.WriteLine("[InstanceState] Override系(不明): NormalRoundCount=1維持");
+					wasOverrideInUncertainState = true; // 不確定フラグを立てる
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Override系(不明): NormalRoundCount=1維持, 不確定フラグON");
 				}
 				else if (InstanceState.NormalRoundCount >= 2)
 				{
 					// N=2（特殊枠確定） → N=0（特殊枠消費）
 					InstanceState.NormalRoundCount = 0;
+					wasOverrideInUncertainState = false;
 					System.Diagnostics.Debug.WriteLine("[InstanceState] Override系(特殊枠消費): NormalRoundCount=0");
 				}
 			}
@@ -1088,10 +1108,14 @@ namespace ToNStatTool
 			{
 				// 特殊ラウンド → N=0
 				InstanceState.NormalRoundCount = 0;
+				wasOverrideInUncertainState = false;
 				System.Diagnostics.Debug.WriteLine("[InstanceState] 特殊ラウンド: NormalRoundCount=0");
 			}
 
 			InstanceState.LastRoundType = roundType;
+
+			// 状態が変化したのでUIに通知（推定生存回数等の更新用）
+			OnInstanceStateChanged?.Invoke();
 		}
 
 		/// <summary>
