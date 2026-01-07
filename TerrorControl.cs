@@ -273,7 +273,7 @@ namespace ToNStatTool
 		{
 			this.Size = new Size(130, 110);
 			this.BorderStyle = BorderStyle.FixedSingle;
-			this.BackColor = Color.White;
+			this.BackColor = ThemeManager.IsDark ? ThemeManager.Dark.TerrorPanelBackground : Color.White;
 			this.Margin = new Padding(5);
 
 			toolTip = new ToolTip();
@@ -302,7 +302,7 @@ namespace ToNStatTool
 			iconBox.Size = new Size(70, 70);
 			iconBox.SizeMode = PictureBoxSizeMode.StretchImage;
 			iconBox.BorderStyle = BorderStyle.FixedSingle;
-			iconBox.BackColor = Color.LightGray;
+			iconBox.BackColor = ThemeManager.IsDark ? Color.FromArgb(60, 60, 60) : Color.LightGray;
 			SetTerrorIcon(terror.Name);
 			this.Controls.Add(iconBox);
 
@@ -312,6 +312,7 @@ namespace ToNStatTool
 			nameLabel.Size = new Size(124, 45);
 			nameLabel.TextAlign = ContentAlignment.TopCenter;
 			nameLabel.Font = new Font("Meiryo UI", 8, FontStyle.Bold);
+			nameLabel.ForeColor = ThemeManager.IsDark ? Color.White : Color.Black;
 			string displayName = terror.DisplayName ?? terror.Name;
 			if (displayName.Length > 15)
 			{
@@ -327,11 +328,11 @@ namespace ToNStatTool
 			}
 			this.Controls.Add(nameLabel);
 
-			// 背景色設定
+			// 背景色設定（テラーの色がある場合は半透明で適用）
 			if (terror.DisplayColor != 0)
 			{
 				var color = ColorFromUInt(terror.DisplayColor);
-				this.BackColor = Color.FromArgb(30, color.R, color.G, color.B);
+				this.BackColor = Color.FromArgb(ThemeManager.IsDark ? 60 : 30, color.R, color.G, color.B);
 			}
 
 			// 特性アイコンを追加
@@ -407,6 +408,31 @@ namespace ToNStatTool
 		private Color ColorFromUInt(uint color)
 		{
 			return Color.FromArgb((int)(color >> 16) & 0xFF, (int)(color >> 8) & 0xFF, (int)color & 0xFF);
+		}
+
+		/// <summary>
+		/// テーマを適用する
+		/// </summary>
+		public void ApplyTheme()
+		{
+			// コントロール背景
+			this.BackColor = ThemeManager.IsDark 
+				? ThemeManager.Dark.TerrorPanelBackground 
+				: Color.FromArgb(246, 246, 246);
+
+			// 名前ラベル（テーマに応じた文字色）
+			if (nameLabel != null)
+			{
+				nameLabel.ForeColor = ThemeManager.IsDark ? Color.White : Color.Black;
+			}
+
+			// アイコン背景
+			if (iconBox != null)
+			{
+				iconBox.BackColor = ThemeManager.IsDark 
+					? Color.FromArgb(60, 60, 60) 
+					: Color.LightGray;
+			}
 		}
 
 		protected override void Dispose(bool disposing)

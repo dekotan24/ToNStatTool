@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -7,18 +7,120 @@ using System.Text.RegularExpressions;
 namespace ToNStatTool
 {
 	/// <summary>
-	/// テラー特性のアイコンを管理するクラス
+	/// テラー特性のアイコンを管理するクラス（テーマ対応版）
 	/// </summary>
 	public static class TerrorTraitIcons
 	{
 		private static readonly Dictionary<string, Image> iconCache = new Dictionary<string, Image>();
+		private static AppTheme lastCachedTheme = AppTheme.Light;
+
+		#region テーマ対応色取得メソッド
+
+		/// <summary>
+		/// 赤系の色を取得（追跡、視界ダメージ、停止、カウンター）
+		/// </summary>
+		private static Color GetRedColor()
+		{
+			return ThemeManager.IsDark ? Color.Red : Color.DarkRed;
+		}
+
+		/// <summary>
+		/// 暗い赤色を取得（即死）
+		/// </summary>
+		private static Color GetDarkRedColor()
+		{
+			return ThemeManager.IsDark ? Color.DarkRed : Color.Maroon;
+		}
+
+		/// <summary>
+		/// 青系の色を取得（徘徊、複数）
+		/// </summary>
+		private static Color GetBlueColor()
+		{
+			return ThemeManager.IsDark ? Color.Cyan : Color.SteelBlue;
+		}
+
+		/// <summary>
+		/// シアン色を取得（テレポート）
+		/// </summary>
+		private static Color GetCyanColor()
+		{
+			return ThemeManager.IsDark ? Color.Cyan : Color.Teal;
+		}
+
+		/// <summary>
+		/// 緑系の色を取得（召喚）
+		/// </summary>
+		private static Color GetGreenColor()
+		{
+			return ThemeManager.IsDark ? Color.LimeGreen : Color.DarkGreen;
+		}
+
+		/// <summary>
+		/// 紫系の色を取得（壁貫通、変身）
+		/// </summary>
+		private static Color GetPurpleColor()
+		{
+			return ThemeManager.IsDark ? Color.MediumPurple : Color.DarkMagenta;
+		}
+
+		/// <summary>
+		/// オレンジ系の色を取得（デバフ、掴み）
+		/// </summary>
+		private static Color GetOrangeColor()
+		{
+			return ThemeManager.IsDark ? Color.Orange : Color.OrangeRed;
+		}
+
+		/// <summary>
+		/// 黄色系の色を取得（速度、スタン）
+		/// </summary>
+		private static Color GetYellowColor()
+		{
+			return ThemeManager.IsDark ? Color.Gold : Color.Orange;
+		}
+
+		/// <summary>
+		/// グレー系の色を取得（デフォルト、壁）
+		/// </summary>
+		private static Color GetGrayColor()
+		{
+			return ThemeManager.IsDark ? Color.Gray : Color.DimGray;
+		}
+
+		/// <summary>
+		/// 白色を取得（背景用）
+		/// </summary>
+		private static Color GetWhiteColor()
+		{
+			return ThemeManager.IsDark ? Color.White : Color.WhiteSmoke;
+		}
+
+		/// <summary>
+		/// 黒色を取得（テキスト用）
+		/// </summary>
+		private static Color GetBlackColor()
+		{
+			return ThemeManager.IsDark ? Color.Black : Color.FromArgb(32, 32, 32);
+		}
+
+		/// <summary>
+		/// 速度アイコンの背景色を取得
+		/// </summary>
+		private static Color GetSpeedBackgroundColor()
+		{
+			return ThemeManager.IsDark ? Color.Yellow : Color.Gold;
+		}
+
+		#endregion
 
 		/// <summary>
 		/// 特性タイプに応じたアイコンを取得
 		/// </summary>
 		public static Image GetTraitIcon(string traitType, int size = 16)
 		{
-			string cacheKey = $"{traitType}_{size}";
+			// テーマごとにキャッシュキーを分ける（描画中のイメージを破棄しない）
+			string cacheKey = $"{traitType}_{size}_{ThemeManager.CurrentTheme}";
 
 			if (iconCache.ContainsKey(cacheKey))
 				return iconCache[cacheKey];
@@ -33,7 +135,8 @@ namespace ToNStatTool
 		/// </summary>
 		public static Image GetTraitIcon(string traitType, string description, int size = 16)
 		{
-			string cacheKey = $"{traitType}_{description}_{size}";
+			// テーマごとにキャッシュキーを分ける（描画中のイメージを破棄しない）
+			string cacheKey = $"{traitType}_{description}_{size}_{ThemeManager.CurrentTheme}";
 
 			if (iconCache.ContainsKey(cacheKey))
 				return iconCache[cacheKey];
@@ -211,7 +314,7 @@ namespace ToNStatTool
 		// 追跡アイコン（人型と矢印）
 		private static void DrawChaseIcon(Graphics g, int size)
 		{
-			using (var pen = new Pen(Color.Red, 2))
+			using (var pen = new Pen(GetRedColor(), 2))
 			{
 				// 人型の簡易シルエット
 				g.DrawEllipse(pen, size / 4, 2, size / 6, size / 6); // 頭
@@ -226,7 +329,7 @@ namespace ToNStatTool
 		// 徘徊アイコン（ランダムな軌跡）
 		private static void DrawWanderIcon(Graphics g, int size)
 		{
-			using (var pen = new Pen(Color.Blue, 1.5f))
+			using (var pen = new Pen(GetBlueColor(), 1.5f))
 			{
 				Point[] points = {
 					new Point(2, size / 2),
@@ -242,8 +345,8 @@ namespace ToNStatTool
 		// 壁貫通アイコン（壁と通り抜ける矢印）
 		private static void DrawWallPassIcon(Graphics g, int size)
 		{
-			using (var penWall = new Pen(Color.Gray, 3))
-			using (var penArrow = new Pen(Color.Purple, 2))
+			using (var penWall = new Pen(GetGrayColor(), 3))
+			using (var penArrow = new Pen(GetPurpleColor(), 2))
 			{
 				// 壁
 				g.DrawLine(penWall, size / 2, 2, size / 2, size - 2);
@@ -257,8 +360,8 @@ namespace ToNStatTool
 		// 即死アイコン（ドクロ改良版）
 		private static void DrawInstantKillIcon(Graphics g, int size)
 		{
-			using (var brush = new SolidBrush(Color.DarkRed))
-			using (var whiteBrush = new SolidBrush(Color.White))
+			using (var brush = new SolidBrush(GetDarkRedColor()))
+			using (var whiteBrush = new SolidBrush(GetWhiteColor()))
 			{
 				// ドクロの形
 				g.FillEllipse(brush, size / 4, size / 4, size / 2, size / 3);
@@ -277,7 +380,7 @@ namespace ToNStatTool
 		// デバフアイコン（下向き矢印に波模様）
 		private static void DrawDebuffIcon(Graphics g, int size)
 		{
-			using (var pen = new Pen(Color.Orange, 2))
+			using (var pen = new Pen(GetOrangeColor(), 2))
 			{
 				// 下向き矢印
 				g.DrawLine(pen, size / 2, 2, size / 2, size - 4);
@@ -285,7 +388,7 @@ namespace ToNStatTool
 				g.DrawLine(pen, size / 2 + 3, size - 7, size / 2, size - 4);
 
 				// 波模様（デバフ効果を表現）
-				using (var thinPen = new Pen(Color.Orange, 1))
+				using (var thinPen = new Pen(GetOrangeColor(), 1))
 				{
 					for (int i = 0; i < 3; i++)
 					{
@@ -299,8 +402,8 @@ namespace ToNStatTool
 		// 掴みアイコン（手の形）
 		private static void DrawGrabIcon(Graphics g, int size)
 		{
-			using (var pen = new Pen(Color.DarkOrange, 2))
-			using (var brush = new SolidBrush(Color.DarkOrange))
+			using (var pen = new Pen(GetOrangeColor(), 2))
+			using (var brush = new SolidBrush(GetOrangeColor()))
 			{
 				// 手のひら
 				g.FillEllipse(brush, size / 3, size / 3, size / 3, size / 2);
@@ -316,16 +419,16 @@ namespace ToNStatTool
 		// 視界ダメージアイコン（目に波線）
 		private static void DrawEyeIcon(Graphics g, int size)
 		{
-			using (var pen = new Pen(Color.Red, 1.5f))
-			using (var brush = new SolidBrush(Color.White))
+			using (var pen = new Pen(GetRedColor(), 1.5f))
+			using (var brush = new SolidBrush(GetWhiteColor()))
 			{
 				// 目の形
 				g.FillEllipse(brush, size / 4, size / 3, size / 2, size / 4);
 				g.DrawEllipse(pen, size / 4, size / 3, size / 2, size / 4);
 				// 瞳
-				g.FillEllipse(Brushes.Black, size * 5 / 12, size * 5 / 12, size / 6, size / 8);
+				g.FillEllipse(new SolidBrush(GetBlackColor()), size * 5 / 12, size * 5 / 12, size / 6, size / 8);
 				// ダメージ波線
-				using (var redPen = new Pen(Color.Red, 1))
+				using (var redPen = new Pen(GetRedColor(), 1))
 				{
 					for (int i = 0; i < 2; i++)
 					{
@@ -339,8 +442,8 @@ namespace ToNStatTool
 		// テレポートアイコン（稲妻改良版）
 		private static void DrawTeleportIcon(Graphics g, int size)
 		{
-			using (var pen = new Pen(Color.Cyan, 2))
-			using (var brush = new SolidBrush(Color.Cyan))
+			using (var pen = new Pen(GetCyanColor(), 2))
+			using (var brush = new SolidBrush(GetCyanColor()))
 			{
 				// ジグザグの稲妻
 				Point[] lightning = {
@@ -363,8 +466,8 @@ namespace ToNStatTool
 		// 召喚アイコン（魔法陣風）
 		private static void DrawSummonIcon(Graphics g, int size)
 		{
-			using (var pen = new Pen(Color.Green, 2))
-			using (var thinPen = new Pen(Color.Green, 1))
+			using (var pen = new Pen(GetGreenColor(), 2))
+			using (var thinPen = new Pen(GetGreenColor(), 1))
 			{
 				// 外側の円
 				g.DrawEllipse(thinPen, 2, 2, size - 4, size - 4);
@@ -380,7 +483,7 @@ namespace ToNStatTool
 		// 複数アイコン（3つの人影）
 		private static void DrawMultipleIcon(Graphics g, int size)
 		{
-			using (var brush = new SolidBrush(Color.Blue))
+			using (var brush = new SolidBrush(GetBlueColor()))
 			{
 				int figureWidth = size / 6;
 				int figureHeight = size / 3;
@@ -402,7 +505,7 @@ namespace ToNStatTool
 		// 変身アイコン（変化する形）
 		private static void DrawTransformIcon(Graphics g, int size)
 		{
-			using (var pen = new Pen(Color.Purple, 2))
+			using (var pen = new Pen(GetPurpleColor(), 2))
 			{
 				// 変化前（四角）
 				g.DrawRectangle(pen, 2, size / 4, size / 3, size / 3);
@@ -418,8 +521,8 @@ namespace ToNStatTool
 		// 停止アイコン（停止標識）
 		private static void DrawStopIcon(Graphics g, int size)
 		{
-			using (var brush = new SolidBrush(Color.Red))
-			using (var whiteBrush = new SolidBrush(Color.White))
+			using (var brush = new SolidBrush(GetRedColor()))
+			using (var whiteBrush = new SolidBrush(GetWhiteColor()))
 			{
 				// 八角形の停止標識
 				g.FillEllipse(brush, 2, 2, size - 4, size - 4);
@@ -432,13 +535,13 @@ namespace ToNStatTool
 		// 速度アイコン（>>と数値、改良版）
 		private static void DrawSpeedIcon(Graphics g, int size, string speedText = "")
 		{
-			using (var brush = new SolidBrush(Color.Yellow))
+			using (var brush = new SolidBrush(GetSpeedBackgroundColor()))
 			{
 				// 背景の四角形
 				g.FillRectangle(brush, 0, 0, size, size);
 			}
 
-			using (var pen = new Pen(Color.Black, 1))
+			using (var pen = new Pen(GetBlackColor(), 1))
 			{
 				// 境界線
 				g.DrawRectangle(pen, 0, 0, size - 1, size - 1);
@@ -448,7 +551,7 @@ namespace ToNStatTool
 			if (!string.IsNullOrEmpty(speedText))
 			{
 				using (var font = new Font("Arial", size * 0.35f, FontStyle.Bold))
-				using (var brush = new SolidBrush(Color.Black))
+				using (var brush = new SolidBrush(GetBlackColor()))
 				{
 					var textSize = g.MeasureString(speedText, font);
 					float x = (size - textSize.Width) / 2;
@@ -459,7 +562,7 @@ namespace ToNStatTool
 			else
 			{
 				// 数値がない場合は従来の>>アイコン
-				using (var pen = new Pen(Color.Black, 1.5f))
+				using (var pen = new Pen(GetBlackColor(), 1.5f))
 				{
 					// 二重矢印
 					g.DrawLine(pen, size / 6, size / 2 - size / 8, size / 2, size / 2);
@@ -473,7 +576,7 @@ namespace ToNStatTool
 		// カウンターアイコン（回転矢印改良版）
 		private static void DrawCounterIcon(Graphics g, int size)
 		{
-			using (var pen = new Pen(Color.Red, 2))
+			using (var pen = new Pen(GetRedColor(), 2))
 			{
 				// 反撃を表現する回転矢印
 				g.DrawArc(pen, 3, 3, size - 6, size - 6, 45, 270);
@@ -482,7 +585,7 @@ namespace ToNStatTool
 				g.DrawLine(pen, size - 4, size / 2 - 2, size - 2, size / 2);
 
 				// 中央に「!」マーク
-				using (var brush = new SolidBrush(Color.Red))
+				using (var brush = new SolidBrush(GetRedColor()))
 				using (var font = new Font("Arial", size * 0.4f, FontStyle.Bold))
 				{
 					g.DrawString("!", font, brush, size / 2 - size / 8, size / 2 - size / 6);
@@ -493,8 +596,8 @@ namespace ToNStatTool
 		// スタンアイコン（稲妻とスタン効果）
 		private static void DrawStunIcon(Graphics g, int size)
 		{
-			using (var pen = new Pen(Color.Gold, 2))
-			using (var brush = new SolidBrush(Color.Gold))
+			using (var pen = new Pen(GetYellowColor(), 2))
+			using (var brush = new SolidBrush(GetYellowColor()))
 			{
 				// スタン効果の星
 				for (int i = 0; i < 4; i++)
@@ -515,8 +618,8 @@ namespace ToNStatTool
 		// デフォルトアイコン（？マーク改良版）
 		private static void DrawDefaultIcon(Graphics g, int size)
 		{
-			using (var brush = new SolidBrush(Color.Gray))
-			using (var whiteBrush = new SolidBrush(Color.White))
+			using (var brush = new SolidBrush(GetGrayColor()))
+			using (var whiteBrush = new SolidBrush(GetWhiteColor()))
 			using (var font = new Font("Arial", size * 0.5f, FontStyle.Bold))
 			{
 				// 背景円
@@ -538,6 +641,16 @@ namespace ToNStatTool
 				icon?.Dispose();
 			}
 			iconCache.Clear();
+		}
+
+		/// <summary>
+		/// テーマ変更時の処理（キャッシュはクリアしない - 描画中のイメージを保護）
+		/// </summary>
+		public static void OnThemeChanged()
+		{
+			// キャッシュキーにテーマが含まれているので、
+			// クリアしなくても新しいテーマのアイコンが生成される
+			// 古いテーマのアイコンはアプリ終了時にDisposeされる
 		}
 	}
 }

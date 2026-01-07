@@ -19,6 +19,9 @@ namespace ToNStatTool
 	{
 		private WebSocketClient webSocketClient;
 		private TerrorDisplayForm terrorDisplayForm;
+		private System.Windows.Forms.Timer elapsedTimeTimer;
+		private DateTime mainFormRoundStartTime;
+		private bool mainFormRoundActive = false;
 
 		// UI Controls
 		private TextBox textBoxUrl;
@@ -47,11 +50,38 @@ namespace ToNStatTool
 		private bool isUpdatingPlayers = false;
 		private DateTime lastSaboteurUpdate = DateTime.MinValue;
 
+		// アプリケーション設定
+		private AppSettings appSettings;
+
 		public ToNStatTool()
 		{
+			// 設定を読み込み
+			appSettings = AppSettings.Load();
+			
 			InitializeComponent();
 			InitializeWebSocketClient();
 			InitializeTimer();
+			
+			// 保存されたテーマを適用
+			ThemeManager.SetTheme(appSettings.GetAppTheme());
+			ThemeManager.ThemeChanged += OnThemeChanged;
+			ThemeManager.Apply(this);
+			
+			// 保存されたURLを復元
+			if (!string.IsNullOrEmpty(appSettings.WebSocketUrl))
+			{
+				textBoxUrl.Text = appSettings.WebSocketUrl;
+			}
+			
+			// 保存された透明度を復元
+			var trackBar = FindControl("trackBarOpacity") as TrackBar;
+			if (trackBar != null)
+			{
+				trackBar.Value = Math.Max(trackBar.Minimum, Math.Min(trackBar.Maximum, appSettings.TerrorFormOpacity));
+			}
+			
+			// フォームクローズ時に設定を保存
+			this.FormClosing += ToNStatTool_FormClosing;
 		}
 
 		private void InitializeComponent()
@@ -85,7 +115,10 @@ namespace ToNStatTool
 			webSocketClient.OnError += OnWebSocketError;
 			webSocketClient.OnTerrorUpdate += OnTerrorUpdate;
 			webSocketClient.OnRoundEnd += OnRoundEnd;
+			webSocketClient.OnRoundStart += OnRoundStart;
 			webSocketClient.OnWarningUserJoined += OnWarningUserJoined;
+			webSocketClient.OnInstanceStateChanged += OnInstanceStateChanged;
+			webSocketClient.OnPlayerCountChanged += OnPlayerCountChanged;
 		}
 
 		private void InitializeTimer()
@@ -94,6 +127,11 @@ namespace ToNStatTool
 			uiUpdateTimer.Interval = 5000; // 5秒間隔（主に古いデータのクリーンアップ用）
 			uiUpdateTimer.Tick += UiUpdateTimer_Tick;
 			uiUpdateTimer.Start();
+
+			// 経過時間更新タイマー（1秒間隔）
+			elapsedTimeTimer = new System.Windows.Forms.Timer();
+			elapsedTimeTimer.Interval = 1000;
+			elapsedTimeTimer.Tick += ElapsedTimeTimer_Tick;
 		}
 
 		private void CreateConnectionControls()
@@ -122,26 +160,90 @@ namespace ToNStatTool
 			// ステータス表示
 			labelStatus = new Label();
 			labelStatus.Location = new Point(540, 15);
-			labelStatus.Size = new Size(400, 23);
+			labelStatus.Size = new Size(200, 23);
 			labelStatus.Text = "未接続";
 			labelStatus.ForeColor = Color.Red;
 			this.Controls.Add(labelStatus);
 
-			// テラー表示ウィンドウボタン
-			var buttonTerrorWindow = new Button();
-			buttonTerrorWindow.Location = new Point(950, 11);
+			// ログフォルダを開くボタン
+			var buttonOpenLog = new Button();
+			buttonOpenLog.Name = "buttonOpenLog";
+			buttonOpenLog.Location = new Point(750, 11);
+			buttonOpenLog.Size = new Size(55, 25);
+			buttonOpenLog.Text = "ログ";
+			buttonOpenLog.Click += (s, e) => Logger.OpenLogFolder();
+			this.Controls.Add(buttonOpenLog);
+
+			// 詳細ログトグルボタン
+			var buttonVerboseLog = new CheckBox();
+			buttonVerboseLog.Name = "buttonVerboseLog";
+			buttonVerboseLog.Location = new Point(810, 11);
+			buttonVerboseLog.Size = new Size(60, 25);
+			buttonVerboseLog.Text = "詳細ログ";
+			buttonVerboseLog.Appearance = Appearance.Button;
+			buttonVerboseLog.TextAlign = ContentAlignment.MiddleCenter;
+			buttonVerboseLog.CheckedChanged += (s, e) =>
+			{
+				if (buttonVerboseLog.Checked)
+				{
+					Logger.EnableVerboseLogging();
+				}
+				else
+				{
+					Logger.DisableVerboseLogging();
+				}
+			};
+			this.Controls.Add(buttonVerboseLog);
+
+			// テラー表示ウィンドウボタン（チェックボックススタイル）
+			var buttonTerrorWindow = new CheckBox();
+			buttonTerrorWindow.Name = "buttonTerrorWindow";
+			buttonTerrorWindow.Location = new Point(880, 11);
 			buttonTerrorWindow.Size = new Size(130, 25);
 			buttonTerrorWindow.Text = "テラー表示ウィンドウ";
-			buttonTerrorWindow.Click += ButtonTerrorWindow_Click;
+			buttonTerrorWindow.Appearance = Appearance.Button;
+			buttonTerrorWindow.TextAlign = ContentAlignment.MiddleCenter;
+			buttonTerrorWindow.CheckedChanged += ButtonTerrorWindow_CheckedChanged;
 			this.Controls.Add(buttonTerrorWindow);
 
-			// サウンド設定ボタン
-			var buttonSoundSettings = new Button();
-			buttonSoundSettings.Location = new Point(1090, 11);
-			buttonSoundSettings.Size = new Size(90, 25);
-			buttonSoundSettings.Text = "🔊 サウンド設定";
-			buttonSoundSettings.Click += ButtonSoundSettings_Click;
-			this.Controls.Add(buttonSoundSettings);
+			// 透明度ラベル
+			var labelOpacity = new Label();
+			labelOpacity.Text = "透明度:";
+			labelOpacity.Location = new Point(1025, 15);
+			labelOpacity.Size = new Size(50, 20);
+			labelOpacity.Font = new Font("Meiryo UI", 9);
+			this.Controls.Add(labelOpacity);
+
+			// 透明度スライダー（ラウンド情報グループ右端に合わせる）
+			var trackBarOpacity = new TrackBar();
+			trackBarOpacity.Name = "trackBarOpacity";
+			trackBarOpacity.Location = new Point(1070, 8);
+			trackBarOpacity.Size = new Size(80, 30);
+			trackBarOpacity.Minimum = 10;
+			trackBarOpacity.Maximum = 100;
+			trackBarOpacity.Value = 100;
+			trackBarOpacity.TickFrequency = 10;
+			trackBarOpacity.SmallChange = 5;
+			trackBarOpacity.LargeChange = 10;
+			trackBarOpacity.ValueChanged += (s, e) =>
+			{
+				if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
+				{
+					terrorDisplayForm.SetOpacity(trackBarOpacity.Value / 100.0);
+				}
+			};
+			this.Controls.Add(trackBarOpacity);
+
+			// テーマ切替ボタン（オーナー描画）
+			var btnThemeToggle = new Button();
+			btnThemeToggle.Name = "btnThemeToggle";
+			btnThemeToggle.Location = new Point(1152, 10);
+			btnThemeToggle.Size = new Size(26, 26);
+			btnThemeToggle.FlatStyle = FlatStyle.Flat;
+			btnThemeToggle.FlatAppearance.BorderSize = 1;
+			btnThemeToggle.Click += BtnThemeToggle_Click;
+			btnThemeToggle.Paint += BtnThemeToggle_Paint;
+			this.Controls.Add(btnThemeToggle);
 		}
 
 		private void CreateTerrorDisplay()
@@ -168,35 +270,256 @@ namespace ToNStatTool
 			groupBoxRoundInfo = new GroupBox();
 			groupBoxRoundInfo.Text = "ラウンド情報";
 			groupBoxRoundInfo.Location = new Point(620, 50);
-			groupBoxRoundInfo.Size = new Size(560, 180);
+			groupBoxRoundInfo.Size = new Size(560, 130);
 			this.Controls.Add(groupBoxRoundInfo);
 
-			var infoControls = new[]
-			{
-				new { Label = "ラウンド:", Key = "roundType", Y = 25 },
-				new { Label = "マップ:", Key = "location", Y = 50 },
-				new { Label = "ラウンド状態:", Key = "roundActive", Y = 75 },
-				new { Label = "生存状態:", Key = "alive", Y = 100 },
-				new { Label = "サボタージュ:", Key = "saboteur", Y = 125 },
-				new { Label = "ページ数:", Key = "pageCount", Y = 150 }
+			// 1行目: ラウンド（7割） + 経過時間（3割）
+			var labelRound = new Label();
+			labelRound.Text = "ラウンド:";
+			labelRound.Location = new Point(10, 22);
+			labelRound.Size = new Size(55, 20);
+			groupBoxRoundInfo.Controls.Add(labelRound);
+
+			var textBoxRound = new TextBox();
+			textBoxRound.Name = "textBox_roundType";
+			textBoxRound.Location = new Point(65, 20);
+			textBoxRound.Size = new Size(310, 23);
+			textBoxRound.ReadOnly = true;
+			textBoxRound.Text = "-";
+			groupBoxRoundInfo.Controls.Add(textBoxRound);
+
+			var labelElapsedTime = new Label();
+			labelElapsedTime.Text = "経過:";
+			labelElapsedTime.Location = new Point(385, 22);
+			labelElapsedTime.Size = new Size(35, 20);
+			groupBoxRoundInfo.Controls.Add(labelElapsedTime);
+
+			var textBoxElapsedTime = new TextBox();
+			textBoxElapsedTime.Name = "textBox_elapsedTime";
+			textBoxElapsedTime.Location = new Point(420, 20);
+			textBoxElapsedTime.Size = new Size(125, 23);
+			textBoxElapsedTime.ReadOnly = true;
+			textBoxElapsedTime.Text = "-";
+			groupBoxRoundInfo.Controls.Add(textBoxElapsedTime);
+
+			// 2行目: マップ（全幅）
+			var labelMap = new Label();
+			labelMap.Text = "マップ:";
+			labelMap.Location = new Point(10, 47);
+			labelMap.Size = new Size(55, 20);
+			groupBoxRoundInfo.Controls.Add(labelMap);
+
+			var textBoxMap = new TextBox();
+			textBoxMap.Name = "textBox_location";
+			textBoxMap.Location = new Point(65, 45);
+			textBoxMap.Size = new Size(480, 23);
+			textBoxMap.ReadOnly = true;
+			textBoxMap.Text = "-";
+			groupBoxRoundInfo.Controls.Add(textBoxMap);
+
+			// 3行目: 状態 | 生存 | サボ | ページ（4分割）
+			var labelRoundActive = new Label();
+			labelRoundActive.Text = "状態:";
+			labelRoundActive.Location = new Point(10, 72);
+			labelRoundActive.Size = new Size(55, 20);
+			groupBoxRoundInfo.Controls.Add(labelRoundActive);
+
+			var textBoxRoundActive = new TextBox();
+			textBoxRoundActive.Name = "textBox_roundActive";
+			textBoxRoundActive.Location = new Point(65, 70);
+			textBoxRoundActive.Size = new Size(80, 23);
+			textBoxRoundActive.ReadOnly = true;
+			textBoxRoundActive.Text = "-";
+			groupBoxRoundInfo.Controls.Add(textBoxRoundActive);
+
+			var labelAlive = new Label();
+			labelAlive.Text = "生存:";
+			labelAlive.Location = new Point(155, 72);
+			labelAlive.Size = new Size(35, 20);
+			groupBoxRoundInfo.Controls.Add(labelAlive);
+
+			var textBoxAlive = new TextBox();
+			textBoxAlive.Name = "textBox_alive";
+			textBoxAlive.Location = new Point(190, 70);
+			textBoxAlive.Size = new Size(80, 23);
+			textBoxAlive.ReadOnly = true;
+			textBoxAlive.Text = "-";
+			groupBoxRoundInfo.Controls.Add(textBoxAlive);
+
+			var labelSaboteur = new Label();
+			labelSaboteur.Text = "サボ:";
+			labelSaboteur.Location = new Point(280, 72);
+			labelSaboteur.Size = new Size(35, 20);
+			groupBoxRoundInfo.Controls.Add(labelSaboteur);
+
+			var textBoxSaboteur = new TextBox();
+			textBoxSaboteur.Name = "textBox_saboteur";
+			textBoxSaboteur.Location = new Point(315, 70);
+			textBoxSaboteur.Size = new Size(65, 23);
+			textBoxSaboteur.ReadOnly = true;
+			textBoxSaboteur.Text = "-";
+			groupBoxRoundInfo.Controls.Add(textBoxSaboteur);
+
+			var labelPageCount = new Label();
+			labelPageCount.Text = "ページ:";
+			labelPageCount.Location = new Point(390, 72);
+			labelPageCount.Size = new Size(45, 20);
+			groupBoxRoundInfo.Controls.Add(labelPageCount);
+
+			var textBoxPageCount = new TextBox();
+			textBoxPageCount.Name = "textBox_pageCount";
+			textBoxPageCount.Location = new Point(435, 70);
+			textBoxPageCount.Size = new Size(110, 23);
+			textBoxPageCount.ReadOnly = true;
+			textBoxPageCount.Text = "-";
+			groupBoxRoundInfo.Controls.Add(textBoxPageCount);
+
+			// 4行目: 次ラウンド予測（全幅）
+			var labelNextRound = new Label();
+			labelNextRound.Text = "次ラウンド:";
+			labelNextRound.Location = new Point(10, 97);
+			labelNextRound.Size = new Size(55, 20);
+			groupBoxRoundInfo.Controls.Add(labelNextRound);
+
+			var textBoxNextRound = new TextBox();
+			textBoxNextRound.Name = "textBox_nextRound";
+			textBoxNextRound.Location = new Point(65, 95);
+			textBoxNextRound.Size = new Size(480, 23);
+			textBoxNextRound.ReadOnly = true;
+			textBoxNextRound.Text = "-";
+			groupBoxRoundInfo.Controls.Add(textBoxNextRound);
+
+			// インスタンス状態設定グループ（鳥/Moon設定）
+			var groupBoxInstanceState = new GroupBox();
+			groupBoxInstanceState.Text = "インスタンス状態設定";
+			groupBoxInstanceState.Location = new Point(620, 185);
+			groupBoxInstanceState.Size = new Size(560, 105);
+			this.Controls.Add(groupBoxInstanceState);
+
+			// 鳥遭遇チェックボックス
+			var labelBirds = new Label();
+			labelBirds.Text = "鳥遭遇:";
+			labelBirds.Location = new Point(10, 22);
+			labelBirds.Size = new Size(50, 20);
+			groupBoxInstanceState.Controls.Add(labelBirds);
+
+			var checkBigBird = new CheckBox();
+			checkBigBird.Name = "checkBigBird";
+			checkBigBird.Text = "Big Bird";
+			checkBigBird.Location = new Point(65, 20);
+			checkBigBird.Size = new Size(80, 20);
+			checkBigBird.CheckedChanged += (s, e) => { if (webSocketClient?.InstanceState != null) webSocketClient.InstanceState.MetBigBird = checkBigBird.Checked; };
+			groupBoxInstanceState.Controls.Add(checkBigBird);
+
+			var checkJudgementBird = new CheckBox();
+			checkJudgementBird.Name = "checkJudgementBird";
+			checkJudgementBird.Text = "Judgement Bird";
+			checkJudgementBird.Location = new Point(150, 20);
+			checkJudgementBird.Size = new Size(105, 20);
+			checkJudgementBird.CheckedChanged += (s, e) => { if (webSocketClient?.InstanceState != null) webSocketClient.InstanceState.MetJudgementBird = checkJudgementBird.Checked; };
+			groupBoxInstanceState.Controls.Add(checkJudgementBird);
+
+			var checkPunishingBird = new CheckBox();
+			checkPunishingBird.Name = "checkPunishingBird";
+			checkPunishingBird.Text = "Punishing Bird";
+			checkPunishingBird.Location = new Point(260, 20);
+			checkPunishingBird.Size = new Size(105, 20);
+			checkPunishingBird.CheckedChanged += (s, e) => { if (webSocketClient?.InstanceState != null) webSocketClient.InstanceState.MetPunishingBird = checkPunishingBird.Checked; };
+			groupBoxInstanceState.Controls.Add(checkPunishingBird);
+
+			// Moon解禁チェックボックス
+			var labelMoon = new Label();
+			labelMoon.Text = "Moon:";
+			labelMoon.Location = new Point(10, 47);
+			labelMoon.Size = new Size(50, 20);
+			groupBoxInstanceState.Controls.Add(labelMoon);
+
+			var checkBloodMoon = new CheckBox();
+			checkBloodMoon.Name = "checkBloodMoon";
+			checkBloodMoon.Text = "Blood Moon";
+			checkBloodMoon.Location = new Point(65, 45);
+			checkBloodMoon.Size = new Size(90, 20);
+			checkBloodMoon.ForeColor = Color.DarkRed;
+			checkBloodMoon.CheckedChanged += (s, e) => { if (webSocketClient?.InstanceState != null) webSocketClient.InstanceState.BloodMoonUnlocked = checkBloodMoon.Checked; };
+			groupBoxInstanceState.Controls.Add(checkBloodMoon);
+
+			var checkTwilight = new CheckBox();
+			checkTwilight.Name = "checkTwilight";
+			checkTwilight.Text = "Twilight";
+			checkTwilight.Location = new Point(160, 45);
+			checkTwilight.Size = new Size(70, 20);
+			checkTwilight.ForeColor = Color.Goldenrod;
+			checkTwilight.CheckedChanged += (s, e) => {
+				if (webSocketClient?.InstanceState != null)
+					webSocketClient.InstanceState.TwilightUnlocked = checkTwilight.Checked;
+				
+				// Twilightがチェックされたら鳥も全部チェック
+				if (checkTwilight.Checked)
+				{
+					var chkBigBird = FindControl("checkBigBird") as CheckBox;
+					var chkJudgementBird = FindControl("checkJudgementBird") as CheckBox;
+					var chkPunishingBird = FindControl("checkPunishingBird") as CheckBox;
+					
+					if (chkBigBird != null) chkBigBird.Checked = true;
+					if (chkJudgementBird != null) chkJudgementBird.Checked = true;
+					if (chkPunishingBird != null) chkPunishingBird.Checked = true;
+				}
 			};
+			groupBoxInstanceState.Controls.Add(checkTwilight);
 
-			foreach (var control in infoControls)
+			var checkMysticMoon = new CheckBox();
+			checkMysticMoon.Name = "checkMysticMoon";
+			checkMysticMoon.Text = "Mystic Moon";
+			checkMysticMoon.Location = new Point(235, 45);
+			checkMysticMoon.Size = new Size(95, 20);
+			checkMysticMoon.ForeColor = Color.DarkCyan;
+			checkMysticMoon.CheckedChanged += (s, e) => { if (webSocketClient?.InstanceState != null) webSocketClient.InstanceState.MysticMoonUnlocked = checkMysticMoon.Checked; };
+			groupBoxInstanceState.Controls.Add(checkMysticMoon);
+
+			var checkSolstice = new CheckBox();
+			checkSolstice.Name = "checkSolstice";
+			checkSolstice.Text = "Solstice";
+			checkSolstice.Location = new Point(335, 45);
+			checkSolstice.Size = new Size(70, 20);
+			checkSolstice.ForeColor = Color.Green;
+			checkSolstice.CheckedChanged += (s, e) => { if (webSocketClient?.InstanceState != null) webSocketClient.InstanceState.SolsticeUnlocked = checkSolstice.Checked; };
+			groupBoxInstanceState.Controls.Add(checkSolstice);
+
+			// 生存回数
+			var labelSurvivalCount = new Label();
+			labelSurvivalCount.Text = "推定生存数:";
+			labelSurvivalCount.Location = new Point(10, 75);
+			labelSurvivalCount.Size = new Size(75, 20);
+			groupBoxInstanceState.Controls.Add(labelSurvivalCount);
+
+			var numericSurvivalCount = new NumericUpDown();
+			numericSurvivalCount.Name = "numericSurvivalCount";
+			numericSurvivalCount.Location = new Point(90, 72);
+			numericSurvivalCount.Size = new Size(60, 23);
+			numericSurvivalCount.Minimum = 0;
+			numericSurvivalCount.Maximum = 999;
+			numericSurvivalCount.Value = 0;
+			numericSurvivalCount.ValueChanged += (s, e) => { try { if (webSocketClient?.InstanceState != null) webSocketClient.InstanceState.EstimatedSurvivalCount = (int)numericSurvivalCount.Value; } catch { } };
+			groupBoxInstanceState.Controls.Add(numericSurvivalCount);
+
+			// リセットボタン
+			var buttonResetInstanceState = new Button();
+			buttonResetInstanceState.Text = "リセット";
+			buttonResetInstanceState.Location = new Point(480, 70);
+			buttonResetInstanceState.Size = new Size(65, 25);
+			buttonResetInstanceState.Click += (s, e) =>
 			{
-				var label = new Label();
-				label.Text = control.Label;
-				label.Location = new Point(10, control.Y);
-				label.Size = new Size(80, 20);
-				groupBoxRoundInfo.Controls.Add(label);
-
-				var textBox = new TextBox();
-				textBox.Name = $"textBox_{control.Key}";
-				textBox.Location = new Point(95, control.Y - 2);
-				textBox.Size = new Size(450, 23);
-				textBox.ReadOnly = true;
-				textBox.Text = "-";
-				groupBoxRoundInfo.Controls.Add(textBox);
-			}
+				if (webSocketClient != null) webSocketClient.ResetInstanceState();
+				checkBigBird.Checked = false;
+				checkJudgementBird.Checked = false;
+				checkPunishingBird.Checked = false;
+				checkBloodMoon.Checked = false;
+				checkTwilight.Checked = false;
+				checkMysticMoon.Checked = false;
+				checkSolstice.Checked = false;
+				numericSurvivalCount.Value = 0;
+			};
+			groupBoxInstanceState.Controls.Add(buttonResetInstanceState);
 		}
 
 		private void CreatePlayerListControls()
@@ -212,19 +535,30 @@ namespace ToNStatTool
 			var labelPlayerCount = new Label();
 			labelPlayerCount.Name = "labelPlayerCount";
 			labelPlayerCount.Location = new Point(10, 25);
-			labelPlayerCount.Size = new Size(300, 20); // 幅を狭めてボタン用スペースを確保
+			labelPlayerCount.Size = new Size(280, 20);  // 幅を広げて警告ユーザー数も表示できるように
 			labelPlayerCount.Text = "総人数: 0人 | 生存: 0人";
 			labelPlayerCount.Font = new Font("Meiryo UI", 9, FontStyle.Bold);
-			labelPlayerCount.TextAlign = ContentAlignment.MiddleLeft; // 左寄せに変更
+			labelPlayerCount.TextAlign = ContentAlignment.MiddleLeft;
 			groupBoxPlayerList.Controls.Add(labelPlayerCount);
+
+			// サウンド設定ボタン（右上端にアイコンで配置）
+			var buttonSoundSettings = new Button();
+			buttonSoundSettings.Name = "buttonSoundSettings";
+			buttonSoundSettings.Location = new Point(295, 20);
+			buttonSoundSettings.Size = new Size(30, 25);
+			buttonSoundSettings.Text = "🔊";
+			buttonSoundSettings.Font = new Font("Segoe UI Emoji", 9);
+			buttonSoundSettings.UseVisualStyleBackColor = true;
+			buttonSoundSettings.Click += ButtonSoundSettings_Click;
+			groupBoxPlayerList.Controls.Add(buttonSoundSettings);
 
 			// 警告対象ユーザー表示ボタン（右上端にアイコンで配置）
 			var buttonShowWarningUsers = new Button();
 			buttonShowWarningUsers.Name = "buttonShowWarningUsers";
-			buttonShowWarningUsers.Location = new Point(325, 20);
+			buttonShowWarningUsers.Location = new Point(330, 20);
 			buttonShowWarningUsers.Size = new Size(30, 25);
 			buttonShowWarningUsers.Text = "👤";
-			buttonShowWarningUsers.Font = new Font("Arial", 12);
+			buttonShowWarningUsers.Font = new Font("Segoe UI Emoji", 9);
 			buttonShowWarningUsers.UseVisualStyleBackColor = true;
 			buttonShowWarningUsers.Click += ButtonShowWarningUsers_Click;
 			groupBoxPlayerList.Controls.Add(buttonShowWarningUsers);
@@ -232,10 +566,10 @@ namespace ToNStatTool
 			// 警告ユーザーリスト再読み込みボタン（右上端にアイコンで配置）
 			var buttonReloadWarningUsers = new Button();
 			buttonReloadWarningUsers.Name = "buttonReloadWarningUsers";
-			buttonReloadWarningUsers.Location = new Point(360, 20);
+			buttonReloadWarningUsers.Location = new Point(365, 20);
 			buttonReloadWarningUsers.Size = new Size(30, 25);
 			buttonReloadWarningUsers.Text = "🔄";
-			buttonReloadWarningUsers.Font = new Font("Arial", 12);
+			buttonReloadWarningUsers.Font = new Font("Segoe UI Emoji", 9);
 			buttonReloadWarningUsers.UseVisualStyleBackColor = true;
 			buttonReloadWarningUsers.Click += ButtonReloadWarningUsers_Click;
 			groupBoxPlayerList.Controls.Add(buttonReloadWarningUsers);
@@ -582,7 +916,7 @@ namespace ToNStatTool
 			using (var dialog = new Form())
 			{
 				dialog.Text = "サウンド設定";
-				dialog.Size = new Size(450, 280);
+				dialog.Size = new Size(450, 380);
 				dialog.StartPosition = FormStartPosition.CenterParent;
 				dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
 				dialog.MaximizeBox = false;
@@ -678,10 +1012,54 @@ namespace ToNStatTool
 				labelLeaveNote.ForeColor = Color.Gray;
 				groupLeave.Controls.Add(labelLeaveNote);
 
+				// 警告ユーザー参加時サウンド設定
+				var groupWarning = new GroupBox();
+				groupWarning.Text = "⚠️ 警告ユーザー参加時のサウンド";
+				groupWarning.Location = new Point(10, 190);
+				groupWarning.Size = new Size(415, 80);
+				dialog.Controls.Add(groupWarning);
+
+				var checkWarningEnabled = new CheckBox();
+				checkWarningEnabled.Text = "有効";
+				checkWarningEnabled.Location = new Point(10, 25);
+				checkWarningEnabled.Size = new Size(60, 20);
+				checkWarningEnabled.Checked = settings.EnableWarningUserSound;
+				groupWarning.Controls.Add(checkWarningEnabled);
+
+				var textWarningPath = new TextBox();
+				textWarningPath.Location = new Point(75, 23);
+				textWarningPath.Size = new Size(250, 23);
+				textWarningPath.Text = settings.WarningUserSoundPath;
+				groupWarning.Controls.Add(textWarningPath);
+
+				var buttonWarningBrowse = new Button();
+				buttonWarningBrowse.Text = "参照...";
+				buttonWarningBrowse.Location = new Point(330, 22);
+				buttonWarningBrowse.Size = new Size(70, 25);
+				buttonWarningBrowse.Click += (s, args) =>
+				{
+					using (var ofd = new OpenFileDialog())
+					{
+						ofd.Filter = "音声ファイル|*.mp3;*.wav|MP3ファイル|*.mp3|WAVファイル|*.wav|すべてのファイル|*.*";
+						if (ofd.ShowDialog() == DialogResult.OK)
+						{
+							textWarningPath.Text = ofd.FileName;
+						}
+					}
+				};
+				groupWarning.Controls.Add(buttonWarningBrowse);
+
+				var labelWarningNote = new Label();
+				labelWarningNote.Text = "※ 空の場合はwarning.mp3またはシステム音を使用";
+				labelWarningNote.Location = new Point(75, 50);
+				labelWarningNote.Size = new Size(330, 20);
+				labelWarningNote.ForeColor = Color.OrangeRed;
+				groupWarning.Controls.Add(labelWarningNote);
+
 				// ボタン
 				var buttonSave = new Button();
 				buttonSave.Text = "保存";
-				buttonSave.Location = new Point(260, 195);
+				buttonSave.Location = new Point(260, 290);
 				buttonSave.Size = new Size(80, 30);
 				buttonSave.Click += (s, args) =>
 				{
@@ -690,7 +1068,9 @@ namespace ToNStatTool
 						EnableJoinSound = checkJoinEnabled.Checked,
 						JoinSoundPath = textJoinPath.Text,
 						EnableLeaveSound = checkLeaveEnabled.Checked,
-						LeaveSoundPath = textLeavePath.Text
+						LeaveSoundPath = textLeavePath.Text,
+						EnableWarningUserSound = checkWarningEnabled.Checked,
+						WarningUserSoundPath = textWarningPath.Text
 					};
 					webSocketClient.UpdateSoundSettings(newSettings);
 					MessageBox.Show("サウンド設定を保存しました。", "保存完了", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -700,7 +1080,7 @@ namespace ToNStatTool
 
 				var buttonCancel = new Button();
 				buttonCancel.Text = "キャンセル";
-				buttonCancel.Location = new Point(345, 195);
+				buttonCancel.Location = new Point(345, 290);
 				buttonCancel.Size = new Size(80, 30);
 				buttonCancel.Click += (s, args) => dialog.Close();
 				dialog.Controls.Add(buttonCancel);
@@ -755,18 +1135,113 @@ namespace ToNStatTool
 			}
 		}
 
-		private void ButtonTerrorWindow_Click(object sender, EventArgs e)
+		private void ButtonTerrorWindow_CheckedChanged(object sender, EventArgs e)
 		{
-			if (terrorDisplayForm == null || terrorDisplayForm.IsDisposed)
+			var checkBox = sender as CheckBox;
+			if (checkBox == null) return;
+
+			if (checkBox.Checked)
 			{
-				terrorDisplayForm = new TerrorDisplayForm();
-				terrorDisplayForm.UpdateTerrors(webSocketClient.CurrentTerrors);
-				terrorDisplayForm.Show();
+				if (terrorDisplayForm == null || terrorDisplayForm.IsDisposed)
+				{
+					terrorDisplayForm = new TerrorDisplayForm();
+					terrorDisplayForm.SetInstanceState(webSocketClient.InstanceState);
+					terrorDisplayForm.UpdateTerrors(webSocketClient.CurrentTerrors);
+					
+					// 現在のプレイヤー数を同期
+					int aliveCount = webSocketClient.Players.Values.Count(p => p.IsAlive);
+					int totalCount = webSocketClient.Players.Count;
+					terrorDisplayForm.UpdatePlayerCount(aliveCount, totalCount);
+					
+					// 現在のラウンド状態を同期
+					var gameData = webSocketClient.GameData;
+					if (mainFormRoundActive)
+					{
+						string roundType = gameData.ContainsKey("roundType") ? gameData["roundType"]?.ToString() ?? "-" : "-";
+						// (開始)などのサフィックスを除去
+						if (roundType.Contains(" ("))
+							roundType = roundType.Substring(0, roundType.IndexOf(" ("));
+						
+						// 経過時間を含めて同期
+						terrorDisplayForm.SyncRoundInfo(roundType, mainFormRoundStartTime, mainFormRoundActive);
+					}
+					else
+					{
+						// ラウンド非アクティブ時は次ラウンド予測のみ更新
+						terrorDisplayForm.UpdateNextRoundPrediction();
+					}
+					
+					// 透明度スライダーの値を適用
+					var trackBar = FindControl("trackBarOpacity") as TrackBar;
+					if (trackBar != null)
+					{
+						terrorDisplayForm.SetOpacity(trackBar.Value / 100.0);
+					}
+					
+					terrorDisplayForm.FormClosed += (s, args) =>
+					{
+						// フォームが閉じられたらチェックボックスを解除
+						if (!checkBox.IsDisposed)
+						{
+							checkBox.Checked = false;
+						}
+					};
+					terrorDisplayForm.Show();
+				}
 			}
 			else
 			{
-				terrorDisplayForm.Close();
+				if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
+				{
+					terrorDisplayForm.Close();
+				}
 			}
+		}
+
+		private void BtnThemeToggle_Click(object sender, EventArgs e)
+		{
+			ThemeManager.ToggleTheme();
+		}
+
+		private void BtnThemeToggle_Paint(object sender, PaintEventArgs e)
+		{
+			var btn = sender as Button;
+			if (btn == null) return;
+
+			// 背景を描画
+			e.Graphics.Clear(btn.BackColor);
+
+			// アイコンを描画
+			string icon = ThemeManager.IsDark ? "☀" : "🌙";
+			using (var font = new Font("Segoe UI Emoji", 11))
+			{
+				var textSize = e.Graphics.MeasureString(icon, font);
+				float x = (btn.Width - textSize.Width) / 2;
+				float y = (btn.Height - textSize.Height) / 2;
+				e.Graphics.DrawString(icon, font, new SolidBrush(btn.ForeColor), x, y);
+			}
+		}
+
+		private void OnThemeChanged(object sender, AppTheme newTheme)
+		{
+			// メインフォームにテーマを適用
+			ThemeManager.Apply(this);
+
+			// テーマ切替ボタンを再描画
+			var btnThemeToggle = FindControl("btnThemeToggle") as Button;
+			btnThemeToggle?.Invalidate();
+
+			// テラー表示フォームが開いていればテーマを適用
+			if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
+			{
+				terrorDisplayForm.ApplyTheme();
+			}
+
+			// プレイヤーリストを更新（色をテーマ対応に）
+			UpdatePlayerList();
+
+			// 次ラウンド予測の色を更新
+			UpdateNextRoundPrediction();
 		}
 
 		private void OnWebSocketConnected(string playerName)
@@ -832,7 +1307,271 @@ namespace ToNStatTool
 			{
 				UpdateStatsDisplay();
 				UpdateRoundLogDisplay();
+				
+				// 経過時間タイマー停止
+				mainFormRoundActive = false;
+				elapsedTimeTimer.Stop();
+				
+				// 次ラウンド予測を更新
+				UpdateNextRoundPrediction();
+				
+				// テラー表示フォームに通知
+				if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
+				{
+					terrorDisplayForm.OnRoundEnd();
+				}
 			}));
+		}
+
+		/// <summary>
+		/// インスタンス状態変更時（鳥遭遇、ラウンド開始時など）
+		/// </summary>
+		private void OnInstanceStateChanged()
+		{
+			this.Invoke(new Action(() =>
+			{
+				// メインフォームの鳥チェックボックスを更新
+				UpdateBirdCheckboxes();
+				
+				// 次ラウンド予測を更新
+				UpdateNextRoundPrediction();
+				
+				// テラー表示フォームにも通知
+				if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
+				{
+					terrorDisplayForm.UpdateNextRoundPrediction();
+				}
+			}));
+		}
+
+		/// <summary>
+		/// プレイヤー数変更時（死亡、参加、退出時）
+		/// </summary>
+		private void OnPlayerCountChanged()
+		{
+			this.Invoke(new Action(() =>
+			{
+				// テラー表示フォームのプレイヤー数を更新
+				if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
+				{
+					int aliveCount = webSocketClient.Players.Values.Count(p => p.IsAlive);
+					int totalCount = webSocketClient.Players.Count;
+					terrorDisplayForm.UpdatePlayerCount(aliveCount, totalCount);
+				}
+			}));
+		}
+
+		/// <summary>
+		/// 鳥チェックボックスとMoonチェックボックスを更新
+		/// </summary>
+		private void UpdateBirdCheckboxes()
+		{
+			var instanceState = webSocketClient?.InstanceState;
+			if (instanceState == null) return;
+
+			// 鳥チェックボックス
+			var checkBigBird = FindControl("checkBigBird") as CheckBox;
+			var checkJudgementBird = FindControl("checkJudgementBird") as CheckBox;
+			var checkPunishingBird = FindControl("checkPunishingBird") as CheckBox;
+
+			if (checkBigBird != null && checkBigBird.Checked != instanceState.MetBigBird)
+				checkBigBird.Checked = instanceState.MetBigBird;
+			if (checkJudgementBird != null && checkJudgementBird.Checked != instanceState.MetJudgementBird)
+				checkJudgementBird.Checked = instanceState.MetJudgementBird;
+			if (checkPunishingBird != null && checkPunishingBird.Checked != instanceState.MetPunishingBird)
+				checkPunishingBird.Checked = instanceState.MetPunishingBird;
+
+			// Moonチェックボックス
+			var checkBloodMoon = FindControl("checkBloodMoon") as CheckBox;
+			var checkTwilight = FindControl("checkTwilight") as CheckBox;
+			var checkMysticMoon = FindControl("checkMysticMoon") as CheckBox;
+			var checkSolstice = FindControl("checkSolstice") as CheckBox;
+
+			if (checkBloodMoon != null && checkBloodMoon.Checked != instanceState.BloodMoonUnlocked)
+				checkBloodMoon.Checked = instanceState.BloodMoonUnlocked;
+			if (checkTwilight != null && checkTwilight.Checked != instanceState.TwilightUnlocked)
+				checkTwilight.Checked = instanceState.TwilightUnlocked;
+			if (checkMysticMoon != null && checkMysticMoon.Checked != instanceState.MysticMoonUnlocked)
+				checkMysticMoon.Checked = instanceState.MysticMoonUnlocked;
+			if (checkSolstice != null && checkSolstice.Checked != instanceState.SolsticeUnlocked)
+				checkSolstice.Checked = instanceState.SolsticeUnlocked;
+		}
+
+		private void OnRoundStart(string roundType)
+		{
+			this.Invoke(new Action(() =>
+			{
+				// 経過時間タイマー開始
+				mainFormRoundStartTime = DateTime.Now;
+				mainFormRoundActive = true;
+				elapsedTimeTimer.Start();
+				
+				// 次ラウンド予測を更新
+				UpdateNextRoundPrediction();
+				
+				// テラー表示フォームに通知
+				if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
+				{
+					terrorDisplayForm.OnRoundStart(roundType);
+				}
+			}));
+		}
+
+		private void ElapsedTimeTimer_Tick(object sender, EventArgs e)
+		{
+			if (mainFormRoundActive)
+			{
+				TimeSpan elapsed = DateTime.Now - mainFormRoundStartTime;
+				var textBoxElapsedTime = FindControl("textBox_elapsedTime") as TextBox;
+				if (textBoxElapsedTime != null)
+				{
+					textBoxElapsedTime.Text = $"{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
+				}
+			}
+		}
+
+		private void UpdateNextRoundPrediction()
+		{
+			var textBoxNextRound = FindControl("textBox_nextRound") as TextBox;
+			if (textBoxNextRound == null) return;
+
+			var instanceState = webSocketClient?.InstanceState;
+			if (instanceState == null)
+			{
+				textBoxNextRound.Text = "-";
+				textBoxNextRound.ForeColor = ThemeManager.IsDark ? ThemeManager.Dark.Text : ThemeManager.Light.Text;
+				return;
+			}
+
+			// ラウンドがアクティブな場合は、現在のラウンドを考慮した予測を使用
+			if (mainFormRoundActive && !string.IsNullOrEmpty(instanceState.CurrentRoundType))
+			{
+				UpdateNextRoundPredictionForCurrentRound(instanceState.CurrentRoundType);
+				return;
+			}
+
+			string prediction = "";
+			Color color = ThemeManager.IsDark ? ThemeManager.Dark.Text : ThemeManager.Light.Text;
+
+			// Moon解禁チェック
+			if (instanceState.AllBirdsMet && !instanceState.TwilightUnlocked)
+			{
+				prediction = "Twilight";
+				color = ThemeManager.GetPredictionColor("twilight");
+			}
+			else if (instanceState.EstimatedSurvivalCount >= 15 && !instanceState.MysticMoonUnlocked)
+			{
+				prediction = "Mystic Moon";
+				color = ThemeManager.GetPredictionColor("mystic");
+			}
+			else if (instanceState.AllMoonsUnlocked && !instanceState.SolsticeUnlocked)
+			{
+				prediction = "Solstice";
+				color = ThemeManager.GetPredictionColor("solstice");
+			}
+			else if (!instanceState.SpecialUnlocked)
+			{
+				prediction = "通常 (特殊未解放)";
+				color = ThemeManager.GetPredictionColor("disabled");
+			}
+			else
+			{
+				string lastRound = instanceState.LastRoundType?.ToLower() ?? "";
+				
+				if (IsSpecialRoundType(lastRound))
+				{
+					prediction = "通常";
+					color = ThemeManager.GetPredictionColor("normal");
+				}
+				else if (IsOverrideRoundType(lastRound))
+				{
+					prediction = "通常 or 特殊";
+					color = ThemeManager.GetPredictionColor("special");
+				}
+				else if (instanceState.NormalRoundCount >= 2)
+				{
+					prediction = "特殊";
+					color = ThemeManager.GetPredictionColor("special");
+				}
+				else
+				{
+					prediction = "通常 or 特殊";
+					color = ThemeManager.GetPredictionColor("special");
+				}
+			}
+
+			textBoxNextRound.Text = prediction;
+			textBoxNextRound.ForeColor = color;
+		}
+
+		private bool IsSpecialRoundType(string roundType)
+		{
+			string lower = roundType.ToLower();
+			string[] specialRounds = {
+				"alternate", "punished", "cracked", "sabotage", "fog",
+				"bloodbath", "double trouble", "midnight",
+				"blood moon", "mystic moon", "twilight", "solstice"
+			};
+			foreach (var special in specialRounds)
+			{
+				if (lower.Contains(special)) return true;
+			}
+			return false;
+		}
+
+		private bool IsOverrideRoundType(string roundType)
+		{
+			string lower = roundType.ToLower();
+			return lower.Contains("ghost") || lower.Contains("8 pages") || lower.Contains("unbound");
+		}
+
+		/// <summary>
+		/// 現在のラウンドを考慮した次ラウンド予測を更新
+		/// </summary>
+		private void UpdateNextRoundPredictionForCurrentRound(string currentRoundType)
+		{
+			var textBoxNextRound = FindControl("textBox_nextRound") as TextBox;
+			if (textBoxNextRound == null) return;
+
+			var instanceState = webSocketClient?.InstanceState;
+			if (instanceState == null)
+			{
+				textBoxNextRound.Text = "-";
+				return;
+			}
+
+			string prediction = "";
+			Color color = ThemeManager.IsDark ? ThemeManager.Dark.Text : ThemeManager.Light.Text;
+
+			// 現在のラウンドが特殊なら次は通常
+			if (IsSpecialRoundType(currentRoundType.ToLower()))
+			{
+				prediction = "通常";
+				color = ThemeManager.GetPredictionColor("normal");
+			}
+			else if (IsOverrideRoundType(currentRoundType.ToLower()))
+			{
+				prediction = "通常 or 特殊";
+				color = ThemeManager.GetPredictionColor("special");
+			}
+			else
+			{
+				// 通常ラウンドの場合、カウントを考慮
+				int normalCount = instanceState.NormalRoundCount + 1; // 現在のラウンドも含む
+				if (normalCount >= 2)
+				{
+					prediction = "特殊";
+					color = ThemeManager.GetPredictionColor("special");
+				}
+				else
+				{
+					prediction = "通常 or 特殊";
+					color = ThemeManager.GetPredictionColor("special");
+				}
+			}
+
+			textBoxNextRound.Text = prediction;
+			textBoxNextRound.ForeColor = color;
 		}
 
 		private void ScheduleUIUpdate()
@@ -943,6 +1682,11 @@ namespace ToNStatTool
 				if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
 				{
 					terrorDisplayForm.UpdateTerrors(currentTerrors);
+					
+					// プレイヤー数を更新
+					int aliveCount = webSocketClient.Players.Values.Count(p => p.IsAlive);
+					int totalCount = webSocketClient.Players.Count;
+					terrorDisplayForm.UpdatePlayerCount(aliveCount, totalCount);
 				}
 			}
 		}
@@ -1024,19 +1768,19 @@ namespace ToNStatTool
 						if (player.IsAlive)
 							alivePlayers++;
 
-						// 色分け（優先順位: 警告 > 死亡 > 自分）
+						// 色分け（優先順位: 警告 > 死亡 > 自分）- テーマ対応
 						if (isWarningUser)
 						{
-							item.ForeColor = Color.DarkOrange; // 警告ユーザーはオレンジ色
+							item.ForeColor = ThemeManager.IsDark ? ThemeManager.Dark.PlayerWarning : ThemeManager.Light.PlayerWarning;
 							item.Font = new Font(listView.Font, FontStyle.Bold); // 太字で強調
 						}
 						else if (!player.IsAlive)
 						{
-							item.ForeColor = Color.Red; // 死亡は赤
+							item.ForeColor = ThemeManager.IsDark ? ThemeManager.Dark.PlayerDead : ThemeManager.Light.PlayerDead;
 						}
 						else if (player.UserId == localPlayerUserId)
 						{
-							item.ForeColor = Color.Blue; // 自分は青
+							item.ForeColor = ThemeManager.IsDark ? ThemeManager.Dark.PlayerSelf : ThemeManager.Light.PlayerSelf;
 						}
 
 						listView.Items.Add(item);
@@ -1057,16 +1801,16 @@ namespace ToNStatTool
 					}
 				}
 
-				// プレイヤー数表示を更新（警告ユーザー数も表示）
+				// プレイヤー数表示を更新（警告ユーザー数も表示）- テーマ対応
 				string countText = $"総人数: {totalPlayers}人 | 生存: {alivePlayers}人";
 				if (warningPlayers > 0)
 				{
 					countText += $" | ⚠️警告: {warningPlayers}人";
-					labelPlayerCount.ForeColor = Color.DarkOrange; // 警告がある場合は色を変える
+					labelPlayerCount.ForeColor = ThemeManager.IsDark ? ThemeManager.Dark.PlayerWarning : ThemeManager.Light.PlayerWarning;
 				}
 				else
 				{
-					labelPlayerCount.ForeColor = SystemColors.ControlText; // 通常の色に戻す
+					labelPlayerCount.ForeColor = ThemeManager.IsDark ? ThemeManager.Dark.PlayerCountLabel : ThemeManager.Light.PlayerCountLabel;
 				}
 				labelPlayerCount.Text = countText;
 
@@ -1225,9 +1969,9 @@ namespace ToNStatTool
 				item.SubItems.Add(log.TerrorNames);
 
 				if (log.Survived)
-					item.ForeColor = Color.Green;
+					item.ForeColor = ThemeManager.IsDark ? ThemeManager.Dark.RoundLogSurvived : ThemeManager.Light.RoundLogSurvived;
 				else
-					item.ForeColor = Color.Red;
+					item.ForeColor = ThemeManager.IsDark ? ThemeManager.Dark.RoundLogDied : ThemeManager.Light.RoundLogDied;
 
 				listView.Items.Add(item);
 			}
@@ -1253,22 +1997,58 @@ namespace ToNStatTool
 
 				if (key == "roundType")
 				{
+					// デフォルトの文字色を設定
+					textBox.ForeColor = ThemeManager.IsDark ? ThemeManager.Dark.Text : ThemeManager.Light.Text;
+					
 					if (value.Contains("Classic"))
-						textBox.BackColor = Color.LightBlue;
+					{
+						textBox.BackColor = ThemeManager.IsDark ? Color.FromArgb(40, 80, 120) : Color.LightBlue;
+					}
 					else if (value.Contains("Alternate"))
-						textBox.BackColor = Color.LightGreen;
+					{
+						textBox.BackColor = ThemeManager.IsDark ? Color.FromArgb(40, 100, 40) : Color.LightGreen;
+					}
 					else if (value.Contains("Sabotage"))
-						textBox.BackColor = Color.LightCoral;
+					{
+						textBox.BackColor = ThemeManager.IsDark ? Color.FromArgb(100, 60, 60) : Color.LightCoral;
+					}
+					else if (value.Contains("Bloodbath"))
+					{
+						// ブラッドバスは濃い赤背景に白文字
+						textBox.BackColor = ThemeManager.IsDark ? Color.FromArgb(139, 0, 0) : Color.DarkRed;
+						textBox.ForeColor = Color.White;
+					}
 					else if (value.Contains("Blood"))
-						textBox.BackColor = Color.LightPink;
+					{
+						textBox.BackColor = ThemeManager.IsDark ? Color.FromArgb(100, 50, 70) : Color.LightPink;
+					}
 					else if (value.Contains("Midnight"))
+					{
 						textBox.BackColor = Color.DarkSlateBlue;
+						textBox.ForeColor = Color.White;
+					}
 					else if (value.Contains("Cracked"))
-						textBox.BackColor = Color.LightYellow;
+					{
+						textBox.BackColor = ThemeManager.IsDark ? Color.FromArgb(100, 100, 40) : Color.LightYellow;
+					}
 					else if (value.Contains("Mystic"))
-						textBox.BackColor = Color.Lavender;
+					{
+						textBox.BackColor = ThemeManager.IsDark ? Color.FromArgb(60, 80, 100) : Color.Lavender;
+					}
+					else if (value.Contains("Twilight"))
+					{
+						textBox.BackColor = ThemeManager.IsDark ? Color.FromArgb(120, 100, 40) : Color.Gold;
+						textBox.ForeColor = ThemeManager.IsDark ? Color.White : Color.Black;
+					}
+					else if (value.Contains("Solstice"))
+					{
+						textBox.BackColor = ThemeManager.IsDark ? Color.FromArgb(0, 100, 50) : Color.FromArgb(0, 200, 100);
+						textBox.ForeColor = Color.White;
+					}
 					else
-						textBox.BackColor = SystemColors.Window;
+					{
+						textBox.BackColor = ThemeManager.IsDark ? ThemeManager.Dark.TextBoxBackground : SystemColors.Window;
+					}
 				}
 			}
 		}
@@ -1313,12 +2093,54 @@ namespace ToNStatTool
 			}
 		}
 
+		/// <summary>
+		/// 設定を保存する
+		/// </summary>
+		private void SaveSettings()
+		{
+			try
+			{
+				// テーマを保存
+				appSettings.SetTheme(ThemeManager.CurrentTheme);
+				
+				// 透明度を保存
+				var trackBar = FindControl("trackBarOpacity") as TrackBar;
+				if (trackBar != null)
+				{
+					appSettings.TerrorFormOpacity = trackBar.Value;
+				}
+				
+				// URLを保存
+				appSettings.WebSocketUrl = textBoxUrl.Text;
+				
+				appSettings.Save();
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"設定保存エラー: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// フォームクローズ時のイベントハンドラ
+		/// </summary>
+		private void ToNStatTool_FormClosing(object sender, FormClosingEventArgs e)
+		{
+			// OnFormClosingで保存するので、ここでは何もしない
+		}
+
 		protected override void OnFormClosing(FormClosingEventArgs e)
 		{
+			// 設定を保存
+			SaveSettings();
+			
 			webSocketClient?.DisconnectAsync().Wait();
 
 			uiUpdateTimer?.Stop();
 			uiUpdateTimer?.Dispose();
+
+			elapsedTimeTimer?.Stop();
+			elapsedTimeTimer?.Dispose();
 
 			// テラーコントロールのリソースを解放
 			foreach (var control in terrorControls)

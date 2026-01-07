@@ -15,11 +15,22 @@ namespace ToNStatTool
 		[STAThread]
 		static void Main()
 		{
-			Application.EnableVisualStyles();
-			Application.SetCompatibleTextRenderingDefault(false);
-			TerrorJsonLoader.LoadTerrorData();
-			Application.Run(new ToNStatTool());
-			MediaFoundationApi.Startup();
+			// ロガーを初期化
+			Logger.Initialize();
+
+			try
+			{
+				Application.EnableVisualStyles();
+				Application.SetCompatibleTextRenderingDefault(false);
+				TerrorJsonLoader.LoadTerrorData();
+				MediaFoundationApi.Startup();
+				Application.Run(new ToNStatTool());
+			}
+			finally
+			{
+				// ロガーをシャットダウン
+				Logger.Shutdown();
+			}
 		}
 	}
 }

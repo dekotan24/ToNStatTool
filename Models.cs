@@ -40,6 +40,78 @@ namespace ToNStatTool
 		public bool EnableLeaveSound { get; set; } = false;
 		public string JoinSoundPath { get; set; } = "";
 		public string LeaveSoundPath { get; set; } = "";
+		// 警告ユーザー参加時サウンド
+		public bool EnableWarningUserSound { get; set; } = true;
+		public string WarningUserSoundPath { get; set; } = "";
+	}
+
+	/// <summary>
+	/// インスタンス状態を保持するクラス（ラウンド予測用）
+	/// </summary>
+	public class InstanceState
+	{
+		// インスタンス作成者判定
+		public bool IsInstanceOwner { get; set; } = false;
+		
+		// 特殊ラウンド解放状態（インスタンス全体で3回生存）
+		public bool SpecialUnlocked { get; set; } = true; // 途中参加を考慮してデフォルトtrue
+		
+		// 通常ラウンド連続回数（特殊後にリセット）
+		public int NormalRoundCount { get; set; } = 0;
+		
+		// 前回のラウンドタイプ
+		public string LastRoundType { get; set; } = "";
+		
+		// 現在のラウンドタイプ（次ラウンド予測用）
+		public string CurrentRoundType { get; set; } = "";
+		
+		// インスタンス全体の推定生存カウント
+		public int EstimatedSurvivalCount { get; set; } = 0;
+		
+		// 鳥遭遇状態
+		public bool MetBigBird { get; set; } = false;
+		public bool MetJudgementBird { get; set; } = false;
+		public bool MetPunishingBird { get; set; } = false;
+		
+		// Moon解禁状態
+		public bool BloodMoonUnlocked { get; set; } = false;
+		public bool TwilightUnlocked { get; set; } = false;
+		public bool MysticMoonUnlocked { get; set; } = false;
+		public bool SolsticeUnlocked { get; set; } = false;
+		
+		// Midnight生存済みフラグ
+		public bool MidnightSurvived { get; set; } = false;
+		
+		/// <summary>
+		/// 3鳥コンプリート判定
+		/// </summary>
+		public bool AllBirdsMet => MetBigBird && MetJudgementBird && MetPunishingBird;
+		
+		/// <summary>
+		/// 全Moon解禁判定
+		/// </summary>
+		public bool AllMoonsUnlocked => BloodMoonUnlocked && TwilightUnlocked && MysticMoonUnlocked;
+		
+		/// <summary>
+		/// 状態をリセット
+		/// </summary>
+		public void Reset()
+		{
+			IsInstanceOwner = false;
+			SpecialUnlocked = true;
+			NormalRoundCount = 0;
+			LastRoundType = "";
+			CurrentRoundType = "";
+			EstimatedSurvivalCount = 0;
+			MetBigBird = false;
+			MetJudgementBird = false;
+			MetPunishingBird = false;
+			BloodMoonUnlocked = false;
+			TwilightUnlocked = false;
+			MysticMoonUnlocked = false;
+			SolsticeUnlocked = false;
+			MidnightSurvived = false;
+		}
 	}
 
 	/// <summary>

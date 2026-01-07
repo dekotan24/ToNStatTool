@@ -87,6 +87,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AppSettings.cs" />
+    <Compile Include="Logger.cs" />
     <Compile Include="Models.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="TerrorConfiguration.cs" />
@@ -101,6 +103,7 @@
     <Compile Include="TerrorJsonModels.cs" />
     <Compile Include="TerrorStunType.cs" />
     <Compile Include="TerrorTraitIcons.cs" />
+    <Compile Include="ThemeManager.cs" />
     <Compile Include="ToNStatTool.cs">
       <SubType>Form</SubType>
     </Compile>
