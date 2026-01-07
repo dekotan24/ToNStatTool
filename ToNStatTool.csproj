@@ -112,6 +112,9 @@
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="WebSocketClient.cs" />
+    <Compile Include="Controls\DoubleBufferedListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Content Include="icon.ico" />
     <Content Include="player_join.mp3">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

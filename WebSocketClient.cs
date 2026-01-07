@@ -952,8 +952,7 @@ namespace ToNStatTool
 			// Midnightラウンド終了時のチェック（誰かが生存していればBlood Moon解禁）
 			if (lower.Contains("midnight") || lower.Contains("ミッドナイト"))
 			{
-				// インスタンス内の誰かが生存しているかチェック
-				int aliveCount = Players.Values.Count(p => p.IsAlive);
+				// インスタンス内の誰かが生存しているかチェック（aliveCountは既に上で計算済み）
 				int totalCount = Players.Count;
 				System.Diagnostics.Debug.WriteLine($"[InstanceState] Midnight終了時チェック: 生存{aliveCount}/{totalCount}人, BloodMoon解禁={InstanceState.BloodMoonUnlocked}");
 				

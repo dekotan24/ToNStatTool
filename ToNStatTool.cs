@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using ToNStatTool.Controls;
 
 namespace ToNStatTool
 {
@@ -492,29 +493,43 @@ namespace ToNStatTool
 			labelSurvivalCount.Size = new Size(75, 20);
 			groupBoxInstanceState.Controls.Add(labelSurvivalCount);
 
-			var numericSurvivalCount = new NumericUpDown();
-			numericSurvivalCount.Name = "numericSurvivalCount";
-			numericSurvivalCount.Location = new Point(90, 72);
-			numericSurvivalCount.Size = new Size(60, 23);
-			numericSurvivalCount.Minimum = 0;
-			numericSurvivalCount.Maximum = 999;
-			numericSurvivalCount.Value = 0;
-			numericSurvivalCount.ValueChanged += (s, e) => {
-				// イベントループ防止：UI更新中は処理しない
-				if (isUpdatingSurvivalCount) return;
+			// 生存回数表示ラベル
+			var labelSurvivalValue = new Label();
+			labelSurvivalValue.Name = "labelSurvivalValue";
+			labelSurvivalValue.Text = "0";
+			labelSurvivalValue.Location = new Point(90, 75);
+			labelSurvivalValue.Size = new Size(40, 20);
+			labelSurvivalValue.Font = new Font("Meiryo UI", 9, FontStyle.Bold);
+			labelSurvivalValue.TextAlign = ContentAlignment.MiddleRight;
+			groupBoxInstanceState.Controls.Add(labelSurvivalValue);
+
+			// 編集ボタン
+			var buttonEditSurvival = new Button();
+			buttonEditSurvival.Name = "buttonEditSurvival";
+			buttonEditSurvival.Text = "編集";
+			buttonEditSurvival.Location = new Point(135, 70);
+			buttonEditSurvival.Size = new Size(45, 25);
+			buttonEditSurvival.Click += (s, e) => {
 				try
 				{
-					if (webSocketClient?.InstanceState != null)
+					int currentValue = webSocketClient?.InstanceState?.EstimatedSurvivalCount ?? 0;
+					string input = ShowInputDialog("推定生存回数", "推定生存回数を入力してください (0-999):", currentValue.ToString());
+					if (input != null && int.TryParse(input, out int newValue))
 					{
-						webSocketClient.InstanceState.EstimatedSurvivalCount = (int)numericSurvivalCount.Value;
+						newValue = Math.Max(0, Math.Min(999, newValue));
+						if (webSocketClient?.InstanceState != null)
+						{
+							webSocketClient.InstanceState.EstimatedSurvivalCount = newValue;
+							labelSurvivalValue.Text = newValue.ToString();
+						}
 					}
 				}
 				catch (Exception ex)
 				{
-					System.Diagnostics.Debug.WriteLine($"推定生存回数の更新エラー: {ex.Message}");
+					System.Diagnostics.Debug.WriteLine($"推定生存回数の編集エラー: {ex.Message}");
 				}
 			};
-			groupBoxInstanceState.Controls.Add(numericSurvivalCount);
+			groupBoxInstanceState.Controls.Add(buttonEditSurvival);
 
 			// リセットボタン
 			var buttonResetInstanceState = new Button();
@@ -531,7 +546,7 @@ namespace ToNStatTool
 				checkTwilight.Checked = false;
 				checkMysticMoon.Checked = false;
 				checkSolstice.Checked = false;
-				numericSurvivalCount.Value = 0;
+				labelSurvivalValue.Text = "0";
 			};
 			groupBoxInstanceState.Controls.Add(buttonResetInstanceState);
 		}
@@ -588,8 +603,8 @@ namespace ToNStatTool
 			buttonReloadWarningUsers.Click += ButtonReloadWarningUsers_Click;
 			groupBoxPlayerList.Controls.Add(buttonReloadWarningUsers);
 
-			// リストビュー
-			var listViewPlayers = new ListView();
+			// リストビュー（ダブルバッファリング有効）
+			var listViewPlayers = new DoubleBufferedListView();
 			listViewPlayers.Name = "listViewPlayers";
 			listViewPlayers.Location = new Point(10, 50);
 			listViewPlayers.Size = new Size(375, 350);
@@ -655,8 +670,8 @@ namespace ToNStatTool
 			buttonResetStats.Click += ButtonResetStats_Click;
 			tabPageRounds.Controls.Add(buttonResetStats);
 
-			// ラウンド統計ListView
-			var listViewStats = new ListView();
+			// ラウンド統計ListView（ダブルバッファリング有効）
+			var listViewStats = new DoubleBufferedListView();
 			listViewStats.Name = "listViewStats";
 			listViewStats.Location = new Point(5, 30);
 			listViewStats.Size = new Size(260, 320);
@@ -668,8 +683,8 @@ namespace ToNStatTool
 			listViewStats.Columns.Add("確率(%)", 60);
 			tabPageRounds.Controls.Add(listViewStats);
 
-			// テラー統計ListView
-			var listViewStatsTerrors = new ListView();
+			// テラー統計ListView（ダブルバッファリング有効）
+			var listViewStatsTerrors = new DoubleBufferedListView();
 			listViewStatsTerrors.Name = "listViewStatsTerrors";
 			listViewStatsTerrors.Dock = DockStyle.Fill;
 			listViewStatsTerrors.View = View.Details;
@@ -689,7 +704,8 @@ namespace ToNStatTool
 			groupBoxRoundLog.Size = new Size(450, 415);
 			this.Controls.Add(groupBoxRoundLog);
 
-			var listViewRoundLog = new ListView();
+			// ダブルバッファリング有効
+			var listViewRoundLog = new DoubleBufferedListView();
 			listViewRoundLog.Name = "listViewRoundLog";
 			listViewRoundLog.Location = new Point(10, 25);
 			listViewRoundLog.Size = new Size(430, 375);
@@ -1375,9 +1391,6 @@ namespace ToNStatTool
 			}));
 		}
 
-		// UI更新中フラグ（イベントループ防止用）
-		private bool isUpdatingSurvivalCount = false;
-
 		/// <summary>
 		/// 鳥チェックボックス、Moonチェックボックス、推定生存回数を更新
 		/// </summary>
@@ -1413,23 +1426,12 @@ namespace ToNStatTool
 			if (checkSolstice != null && checkSolstice.Checked != instanceState.SolsticeUnlocked)
 				checkSolstice.Checked = instanceState.SolsticeUnlocked;
 
-			// 推定生存回数を更新（イベントループ防止）
-			var numericSurvivalCount = FindControl("numericSurvivalCount") as NumericUpDown;
-			if (numericSurvivalCount != null && !isUpdatingSurvivalCount)
+			// 推定生存回数を更新
+			var labelSurvivalValue = FindControl("labelSurvivalValue") as Label;
+			if (labelSurvivalValue != null)
 			{
 				int targetValue = Math.Max(0, Math.Min(999, instanceState.EstimatedSurvivalCount));
-				if ((int)numericSurvivalCount.Value != targetValue)
-				{
-					isUpdatingSurvivalCount = true;
-					try
-					{
-						numericSurvivalCount.Value = targetValue;
-					}
-					finally
-					{
-						isUpdatingSurvivalCount = false;
-					}
-				}
+				labelSurvivalValue.Text = targetValue.ToString();
 			}
 		}
 
@@ -2126,6 +2128,58 @@ namespace ToNStatTool
 			catch
 			{
 				return json;
+			}
+		}
+
+		/// <summary>
+		/// 入力ダイアログを表示
+		/// </summary>
+		private string ShowInputDialog(string title, string prompt, string defaultValue = "")
+		{
+			using (var dialog = new Form())
+			{
+				dialog.Text = title;
+				dialog.Size = new Size(300, 150);
+				dialog.StartPosition = FormStartPosition.CenterParent;
+				dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+				dialog.MaximizeBox = false;
+				dialog.MinimizeBox = false;
+
+				var label = new Label();
+				label.Text = prompt;
+				label.Location = new Point(10, 15);
+				label.Size = new Size(270, 20);
+				dialog.Controls.Add(label);
+
+				var textBox = new TextBox();
+				textBox.Text = defaultValue;
+				textBox.Location = new Point(10, 40);
+				textBox.Size = new Size(260, 23);
+				textBox.SelectAll();
+				dialog.Controls.Add(textBox);
+
+				var buttonOk = new Button();
+				buttonOk.Text = "OK";
+				buttonOk.DialogResult = DialogResult.OK;
+				buttonOk.Location = new Point(110, 75);
+				buttonOk.Size = new Size(75, 25);
+				dialog.Controls.Add(buttonOk);
+
+				var buttonCancel = new Button();
+				buttonCancel.Text = "キャンセル";
+				buttonCancel.DialogResult = DialogResult.Cancel;
+				buttonCancel.Location = new Point(195, 75);
+				buttonCancel.Size = new Size(75, 25);
+				dialog.Controls.Add(buttonCancel);
+
+				dialog.AcceptButton = buttonOk;
+				dialog.CancelButton = buttonCancel;
+
+				if (dialog.ShowDialog(this) == DialogResult.OK)
+				{
+					return textBox.Text;
+				}
+				return null;
 			}
 		}
 
