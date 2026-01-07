@@ -82,6 +82,7 @@ namespace ToNStatTool
 		// Midnight生存済みフラグ
 		public bool MidnightSurvived { get; set; } = false;
 		
+		
 		/// <summary>
 		/// 3鳥コンプリート判定
 		/// </summary>

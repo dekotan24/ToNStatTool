@@ -60,6 +60,7 @@ namespace ToNStatTool
 		public event Action<string, bool> OnPlayerJoinLeave; // プレイヤー名, join=true/leave=false
 		private bool isRoundActive = false;
 		private bool wasDeadDuringRound = false; // ラウンド中に死亡したかを追跡
+		private bool isCurrentRoundFirstMoon = false; // 今回のラウンドが初回Moonかどうか
 
 		// Sound settings
 		public SoundSettings SoundSettings { get; private set; } = new SoundSettings();
@@ -824,6 +825,9 @@ namespace ToNStatTool
 		{
 			string lower = roundName.ToLower();
 			bool stateChanged = false;
+			
+			// 初回Moonフラグをリセット
+			isCurrentRoundFirstMoon = false;
 
 			// ※Midnightは開始時には解禁しない（ラウンド終了時に生存者がいる場合のみBlood Moon解禁）
 
@@ -831,36 +835,40 @@ namespace ToNStatTool
 			{
 				if (!InstanceState.BloodMoonUnlocked)
 				{
+					isCurrentRoundFirstMoon = true; // 初回Blood Moon
 					InstanceState.BloodMoonUnlocked = true;
 					stateChanged = true;
-					System.Diagnostics.Debug.WriteLine("[InstanceState] Blood Moon解禁（ラウンド開始時）");
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Blood Moon解禁（初回、ラウンド開始時）");
 				}
 			}
 			if (lower.Contains("twilight") || lower.Contains("トワイライト"))
 			{
 				if (!InstanceState.TwilightUnlocked)
 				{
+					isCurrentRoundFirstMoon = true; // 初回Twilight
 					InstanceState.TwilightUnlocked = true;
 					stateChanged = true;
-					System.Diagnostics.Debug.WriteLine("[InstanceState] Twilight解禁（ラウンド開始時）");
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Twilight解禁（初回、ラウンド開始時）");
 				}
 			}
 			if (lower.Contains("mystic moon") || lower.Contains("mystic_moon") || lower.Contains("ミスティックムーン"))
 			{
 				if (!InstanceState.MysticMoonUnlocked)
 				{
+					isCurrentRoundFirstMoon = true; // 初回Mystic Moon
 					InstanceState.MysticMoonUnlocked = true;
 					stateChanged = true;
-					System.Diagnostics.Debug.WriteLine("[InstanceState] Mystic Moon解禁（ラウンド開始時）");
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Mystic Moon解禁（初回、ラウンド開始時）");
 				}
 			}
 			if (lower.Contains("solstice") || lower.Contains("ソルスティス"))
 			{
 				if (!InstanceState.SolsticeUnlocked)
 				{
+					isCurrentRoundFirstMoon = true; // 初回Solstice
 					InstanceState.SolsticeUnlocked = true;
 					stateChanged = true;
-					System.Diagnostics.Debug.WriteLine("[InstanceState] Solstice解禁（ラウンド開始時）");
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Solstice解禁（初回、ラウンド開始時）");
 				}
 			}
 
@@ -997,37 +1005,105 @@ namespace ToNStatTool
 			}
 
 			// ラウンド周期の更新
-			if (IsNormalRoundType(lower))
+			// N=0: 通常枠確定, N=1: 通常/特殊どちらか, N=2: 特殊枠確定
+			if (IsClassicRoundType(lower))
 			{
-				InstanceState.NormalRoundCount++;
+				// Classic: 純粋な通常ラウンド（通常枠のみ出現）
+				if (InstanceState.NormalRoundCount >= 2)
+				{
+					// N=2（特殊枠確定）でClassicが出た → 特殊未解放時
+					// 特殊枠は消費されたが特殊が出せないのでClassicが代わりに出た
+					InstanceState.NormalRoundCount = 0;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Classic(特殊未解放時): 特殊枠消費 → NormalRoundCount=0");
+				}
+				else
+				{
+					// N=0 → N=1, N=1 → N=2
+					InstanceState.NormalRoundCount++;
+					System.Diagnostics.Debug.WriteLine($"[InstanceState] Classic: NormalRoundCount={InstanceState.NormalRoundCount}");
+				}
+				
 				// 通常が3回連続 → インスタンス作成者確定、特殊未解放
 				if (InstanceState.NormalRoundCount >= 3 && !InstanceState.IsInstanceOwner)
 				{
 					InstanceState.IsInstanceOwner = true;
 					InstanceState.SpecialUnlocked = false;
-					InstanceState.EstimatedSurvivalCount = RoundStats.SurvivedRounds; // 自分の生存回数で初期化
+					InstanceState.EstimatedSurvivalCount = RoundStats.SurvivedRounds;
 					System.Diagnostics.Debug.WriteLine("[InstanceState] インスタンス作成者と判定");
+				}
+			}
+			else if (IsMoonRoundType(lower))
+			{
+				// Moonラウンド（Blood Moon/Twilight/Mystic Moon/Solstice）
+				// 初回: Classicを上書きして出現 → Override系と同じ挙動
+				// 2回目以降: 特殊ラウンドの1/20で選出 → 特殊枠を消費
+				if (isCurrentRoundFirstMoon)
+				{
+					// 初回Moon → Override系と同じ挙動
+					if (InstanceState.NormalRoundCount == 0)
+					{
+						InstanceState.NormalRoundCount = 1;
+						System.Diagnostics.Debug.WriteLine("[InstanceState] 初回Moon(通常枠確定): NormalRoundCount=1");
+					}
+					else if (InstanceState.NormalRoundCount == 1)
+					{
+						// N=1で初回Moon → N=1維持（通常枠を上書きした可能性）
+						System.Diagnostics.Debug.WriteLine("[InstanceState] 初回Moon(不明): NormalRoundCount=1維持");
+					}
+					else if (InstanceState.NormalRoundCount >= 2)
+					{
+						InstanceState.NormalRoundCount = 0;
+						System.Diagnostics.Debug.WriteLine("[InstanceState] 初回Moon(特殊枠消費): NormalRoundCount=0");
+					}
+				}
+				else
+				{
+					// 2回目以降Moon → 特殊ラウンドとして扱う（特殊枠を消費）
+					InstanceState.NormalRoundCount = 0;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] 2回目以降Moon(特殊枠消費): NormalRoundCount=0");
+				}
+			}
+			else if (IsOverrideRoundType(lower))
+			{
+				// Run/Ghost/Unbound/8Pages: 通常枠でも特殊枠でも出現可能
+				if (InstanceState.NormalRoundCount == 0)
+				{
+					// N=0（通常枠確定） → N=1
+					InstanceState.NormalRoundCount = 1;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Override系(通常枠確定): NormalRoundCount=1");
+				}
+				else if (InstanceState.NormalRoundCount == 1)
+				{
+					// N=1（通常/特殊どちらか） → N=1維持（どちらで出たか不明）
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Override系(不明): NormalRoundCount=1維持");
+				}
+				else if (InstanceState.NormalRoundCount >= 2)
+				{
+					// N=2（特殊枠確定） → N=0（特殊枠消費）
+					InstanceState.NormalRoundCount = 0;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Override系(特殊枠消費): NormalRoundCount=0");
 				}
 			}
 			else if (IsSpecialRoundType(lower))
 			{
+				// 特殊ラウンド → N=0
 				InstanceState.NormalRoundCount = 0;
+				System.Diagnostics.Debug.WriteLine("[InstanceState] 特殊ラウンド: NormalRoundCount=0");
 			}
-			// Ghost/8Pages/Unboundは周期に影響しない
 
 			InstanceState.LastRoundType = roundType;
 		}
 
 		/// <summary>
-		/// 通常ラウンド判定
+		/// Classicラウンド判定（純粋な通常ラウンド、通常枠でのみ出現）
 		/// </summary>
-		private bool IsNormalRoundType(string roundType)
+		private bool IsClassicRoundType(string roundType)
 		{
-			return roundType.Contains("classic") || roundType == "run" || roundType.Contains("走れ");
+			return roundType.Contains("classic") || roundType.Contains("クラシック");
 		}
 
 		/// <summary>
-		/// 特殊ラウンド判定
+		/// 特殊ラウンド判定（Override系を除く）
 		/// </summary>
 		private bool IsSpecialRoundType(string roundType)
 		{
@@ -1044,6 +1120,7 @@ namespace ToNStatTool
 				"mystic moon", "ミスティックムーン",
 				"twilight", "トワイライト",
 				"solstice", "ソルスティス"
+				// GhostはOverride系なので含めない
 			};
 
 			foreach (var special in specialRounds)
@@ -1052,6 +1129,34 @@ namespace ToNStatTool
 					return true;
 			}
 			return false;
+		}
+
+		/// <summary>
+		/// Override系ラウンド判定（Run/Ghost/8Pages/Unbound：通常枠でも特殊枠でも出現可能）
+		/// </summary>
+		private bool IsOverrideRoundType(string roundType)
+		{
+			return roundType.Contains("run") || 
+			       roundType.Contains("走れ") || 
+			       roundType.Contains("ghost") ||
+			       roundType.Contains("ゴースト") ||
+			       roundType.Contains("8 pages") || 
+			       roundType.Contains("8pages") || 
+			       roundType.Contains("8ページ") ||
+			       roundType.Contains("unbound") ||
+			       roundType.Contains("アンバウンド");
+		}
+
+		/// <summary>
+		/// Moonラウンド判定（Blood Moon/Twilight/Mystic Moon/Solstice）
+		/// ※MidnightはMoonラウンドではなく通常の特殊ラウンド
+		/// </summary>
+		private bool IsMoonRoundType(string roundType)
+		{
+			return roundType.Contains("blood moon") || roundType.Contains("blood_moon") || roundType.Contains("ブラッドムーン") ||
+			       roundType.Contains("twilight") || roundType.Contains("トワイライト") ||
+			       roundType.Contains("mystic moon") || roundType.Contains("mystic_moon") || roundType.Contains("ミスティックムーン") ||
+			       roundType.Contains("solstice") || roundType.Contains("ソルスティス");
 		}
 
 		/// <summary>
