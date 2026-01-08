@@ -34,6 +34,7 @@ namespace ToNStatTool
 		public event Action<string> OnRoundStart;
 		public event Action OnInstanceStateChanged; // インスタンス状態変更イベント
 		public event Action OnPlayerCountChanged; // プレイヤー数変更イベント
+		public event Action OnItemReminderRoundEnd; // 8ページ/アンバウンド終了時のリマインダーイベント
 		private HashSet<string> warningUsers = new HashSet<string>();
 		private IWavePlayer waveOutDevice;
 		private AudioFileReader audioFileReader;
@@ -673,6 +674,13 @@ namespace ToNStatTool
 				// ラウンド終了イベントを発火
 				OnRoundEnd?.Invoke();
 				Logger.Info("RoundType", $"ラウンド終了イベントを発火: {roundName}");
+
+				// 8ページ/アンバウンドの場合はアイテムリマインダーイベントを発火
+				if (IsItemReminderRound(roundName))
+				{
+					Logger.Info("RoundType", $"アイテムリマインダーイベントを発火: {roundName}");
+					OnItemReminderRoundEnd?.Invoke();
+				}
 			}
 			else
 			{
@@ -1168,6 +1176,19 @@ namespace ToNStatTool
 			       roundType.Contains("8ページ") ||
 			       roundType.Contains("unbound") ||
 			       roundType.Contains("アンバウンド");
+		}
+
+		/// <summary>
+		/// アイテムリマインダー対象ラウンド判定（8 Pages/Unbound：アイテムを持ち込めないラウンド）
+		/// </summary>
+		private bool IsItemReminderRound(string roundType)
+		{
+			string lower = roundType.ToLower();
+			return lower.Contains("8 pages") || 
+			       lower.Contains("8pages") || 
+			       lower.Contains("8ページ") ||
+			       lower.Contains("unbound") ||
+			       lower.Contains("アンバウンド");
 		}
 
 		/// <summary>
@@ -1855,10 +1876,20 @@ namespace ToNStatTool
 			{
 				try
 				{
-					string soundPath = isJoin ? SoundSettings.JoinSoundPath : SoundSettings.LeaveSoundPath;
 					bool isEnabled = isJoin ? SoundSettings.EnableJoinSound : SoundSettings.EnableLeaveSound;
+					if (!isEnabled)
+						return;
 
-					if (!isEnabled || string.IsNullOrEmpty(soundPath) || !File.Exists(soundPath))
+					string soundPath = isJoin ? SoundSettings.JoinSoundPath : SoundSettings.LeaveSoundPath;
+					string defaultFileName = isJoin ? "player_join.mp3" : "player_leave.mp3";
+
+					// カスタムパスが空または存在しない場合はデフォルトファイルを使用
+					if (string.IsNullOrEmpty(soundPath) || !File.Exists(soundPath))
+					{
+						soundPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, defaultFileName);
+					}
+
+					if (!File.Exists(soundPath))
 						return;
 
 					PlayMp3File(soundPath);

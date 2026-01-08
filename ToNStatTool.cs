@@ -120,6 +120,7 @@ namespace ToNStatTool
 			webSocketClient.OnWarningUserJoined += OnWarningUserJoined;
 			webSocketClient.OnInstanceStateChanged += OnInstanceStateChanged;
 			webSocketClient.OnPlayerCountChanged += OnPlayerCountChanged;
+			webSocketClient.OnItemReminderRoundEnd += OnItemReminderRoundEnd;
 		}
 
 		private void InitializeTimer()
@@ -166,36 +167,6 @@ namespace ToNStatTool
 			labelStatus.ForeColor = Color.Red;
 			this.Controls.Add(labelStatus);
 
-			// ログフォルダを開くボタン
-			var buttonOpenLog = new Button();
-			buttonOpenLog.Name = "buttonOpenLog";
-			buttonOpenLog.Location = new Point(750, 11);
-			buttonOpenLog.Size = new Size(55, 25);
-			buttonOpenLog.Text = "ログ";
-			buttonOpenLog.Click += (s, e) => Logger.OpenLogFolder();
-			this.Controls.Add(buttonOpenLog);
-
-			// 詳細ログトグルボタン
-			var buttonVerboseLog = new CheckBox();
-			buttonVerboseLog.Name = "buttonVerboseLog";
-			buttonVerboseLog.Location = new Point(810, 11);
-			buttonVerboseLog.Size = new Size(60, 25);
-			buttonVerboseLog.Text = "詳細ログ";
-			buttonVerboseLog.Appearance = Appearance.Button;
-			buttonVerboseLog.TextAlign = ContentAlignment.MiddleCenter;
-			buttonVerboseLog.CheckedChanged += (s, e) =>
-			{
-				if (buttonVerboseLog.Checked)
-				{
-					Logger.EnableVerboseLogging();
-				}
-				else
-				{
-					Logger.DisableVerboseLogging();
-				}
-			};
-			this.Controls.Add(buttonVerboseLog);
-
 			// テラー表示ウィンドウボタン（チェックボックススタイル）
 			var buttonTerrorWindow = new CheckBox();
 			buttonTerrorWindow.Name = "buttonTerrorWindow";
@@ -235,16 +206,17 @@ namespace ToNStatTool
 			};
 			this.Controls.Add(trackBarOpacity);
 
-			// テーマ切替ボタン（オーナー描画）
-			var btnThemeToggle = new Button();
-			btnThemeToggle.Name = "btnThemeToggle";
-			btnThemeToggle.Location = new Point(1152, 10);
-			btnThemeToggle.Size = new Size(26, 26);
-			btnThemeToggle.FlatStyle = FlatStyle.Flat;
-			btnThemeToggle.FlatAppearance.BorderSize = 1;
-			btnThemeToggle.Click += BtnThemeToggle_Click;
-			btnThemeToggle.Paint += BtnThemeToggle_Paint;
-			this.Controls.Add(btnThemeToggle);
+			// 設定ボタン
+			var btnSettings = new Button();
+			btnSettings.Name = "btnSettings";
+			btnSettings.Location = new Point(1152, 10);
+			btnSettings.Size = new Size(26, 26);
+			btnSettings.Text = "🛠";
+			btnSettings.Font = new Font("Segoe UI Emoji", 9);
+			btnSettings.FlatStyle = FlatStyle.Flat;
+			btnSettings.FlatAppearance.BorderSize = 1;
+			btnSettings.Click += ButtonSoundSettings_Click;
+			this.Controls.Add(btnSettings);
 		}
 
 		private void CreateTerrorDisplay()
@@ -483,13 +455,28 @@ namespace ToNStatTool
 			checkSolstice.Location = new Point(335, 45);
 			checkSolstice.Size = new Size(70, 20);
 			checkSolstice.ForeColor = Color.Green;
-			checkSolstice.CheckedChanged += (s, e) => { if (webSocketClient?.InstanceState != null) webSocketClient.InstanceState.SolsticeUnlocked = checkSolstice.Checked; };
+			checkSolstice.CheckedChanged += (s, e) => {
+				if (webSocketClient?.InstanceState != null)
+					webSocketClient.InstanceState.SolsticeUnlocked = checkSolstice.Checked;
+				
+				// Solsticeがチェックされたら、全てのmoonと鳥をチェック
+				if (checkSolstice.Checked)
+				{
+					var chkBloodMoon = FindControl("checkBloodMoon") as CheckBox;
+					var chkTwilight = FindControl("checkTwilight") as CheckBox;
+					var chkMysticMoon = FindControl("checkMysticMoon") as CheckBox;
+					
+					if (chkBloodMoon != null) chkBloodMoon.Checked = true;
+					if (chkTwilight != null) chkTwilight.Checked = true;  // Twilightがチェックされると鳥も連鎖でチェックされる
+					if (chkMysticMoon != null) chkMysticMoon.Checked = true;
+				}
+			};
 			groupBoxInstanceState.Controls.Add(checkSolstice);
 
 			// 生存回数
 			var labelSurvivalCount = new Label();
 			labelSurvivalCount.Text = "推定生存数:";
-			labelSurvivalCount.Location = new Point(10, 75);
+			labelSurvivalCount.Location = new Point(10, 73);
 			labelSurvivalCount.Size = new Size(75, 20);
 			groupBoxInstanceState.Controls.Add(labelSurvivalCount);
 
@@ -497,7 +484,7 @@ namespace ToNStatTool
 			var labelSurvivalValue = new Label();
 			labelSurvivalValue.Name = "labelSurvivalValue";
 			labelSurvivalValue.Text = "0";
-			labelSurvivalValue.Location = new Point(90, 75);
+			labelSurvivalValue.Location = new Point(90, 71);
 			labelSurvivalValue.Size = new Size(40, 20);
 			labelSurvivalValue.Font = new Font("Meiryo UI", 9, FontStyle.Bold);
 			labelSurvivalValue.TextAlign = ContentAlignment.MiddleRight;
@@ -513,10 +500,10 @@ namespace ToNStatTool
 				try
 				{
 					int currentValue = webSocketClient?.InstanceState?.EstimatedSurvivalCount ?? 0;
-					string input = ShowInputDialog("推定生存回数", "推定生存回数を入力してください (0-999):", currentValue.ToString());
+					string input = ShowInputDialog("推定生存回数", "推定生存回数を入力してください (0-9999):", currentValue.ToString());
 					if (input != null && int.TryParse(input, out int newValue))
 					{
-						newValue = Math.Max(0, Math.Min(999, newValue));
+						newValue = Math.Max(0, Math.Min(9999, newValue));
 						if (webSocketClient?.InstanceState != null)
 						{
 							webSocketClient.InstanceState.EstimatedSurvivalCount = newValue;
@@ -569,17 +556,6 @@ namespace ToNStatTool
 			labelPlayerCount.Font = new Font("Meiryo UI", 9, FontStyle.Bold);
 			labelPlayerCount.TextAlign = ContentAlignment.MiddleLeft;
 			groupBoxPlayerList.Controls.Add(labelPlayerCount);
-
-			// サウンド設定ボタン（右上端にアイコンで配置）
-			var buttonSoundSettings = new Button();
-			buttonSoundSettings.Name = "buttonSoundSettings";
-			buttonSoundSettings.Location = new Point(295, 20);
-			buttonSoundSettings.Size = new Size(30, 25);
-			buttonSoundSettings.Text = "🔊";
-			buttonSoundSettings.Font = new Font("Segoe UI Emoji", 9);
-			buttonSoundSettings.UseVisualStyleBackColor = true;
-			buttonSoundSettings.Click += ButtonSoundSettings_Click;
-			groupBoxPlayerList.Controls.Add(buttonSoundSettings);
 
 			// 警告対象ユーザー表示ボタン（右上端にアイコンで配置）
 			var buttonShowWarningUsers = new Button();
@@ -934,188 +910,38 @@ namespace ToNStatTool
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show($"サウンド設定の表示でエラーが発生しました: {ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				MessageBox.Show($"設定の表示でエラーが発生しました: {ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
 
 		/// <summary>
-		/// サウンド設定ダイアログを表示
+		/// 設定ダイアログを表示
 		/// </summary>
 		private void ShowSoundSettingsDialog()
 		{
-			using (var dialog = new Form())
+			using (var settingsForm = new SettingsForm(webSocketClient.SoundSettings))
 			{
-				dialog.Text = "サウンド設定";
-				dialog.Size = new Size(450, 380);
-				dialog.StartPosition = FormStartPosition.CenterParent;
-				dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
-				dialog.MaximizeBox = false;
-				dialog.MinimizeBox = false;
-
-				var settings = webSocketClient.SoundSettings;
-
-				// Joinサウンド設定
-				var groupJoin = new GroupBox();
-				groupJoin.Text = "プレイヤー参加時のサウンド";
-				groupJoin.Location = new Point(10, 10);
-				groupJoin.Size = new Size(415, 80);
-				dialog.Controls.Add(groupJoin);
-
-				var checkJoinEnabled = new CheckBox();
-				checkJoinEnabled.Text = "有効";
-				checkJoinEnabled.Location = new Point(10, 25);
-				checkJoinEnabled.Size = new Size(60, 20);
-				checkJoinEnabled.Checked = settings.EnableJoinSound;
-				groupJoin.Controls.Add(checkJoinEnabled);
-
-				var textJoinPath = new TextBox();
-				textJoinPath.Location = new Point(75, 23);
-				textJoinPath.Size = new Size(250, 23);
-				textJoinPath.Text = settings.JoinSoundPath;
-				groupJoin.Controls.Add(textJoinPath);
-
-				var buttonJoinBrowse = new Button();
-				buttonJoinBrowse.Text = "参照...";
-				buttonJoinBrowse.Location = new Point(330, 22);
-				buttonJoinBrowse.Size = new Size(70, 25);
-				buttonJoinBrowse.Click += (s, args) =>
+				if (settingsForm.ShowDialog(this) == DialogResult.OK)
 				{
-					using (var ofd = new OpenFileDialog())
+					webSocketClient.SaveSoundSettings();
+
+					// テーマが変更されていたら適用
+					if (settingsForm.ThemeChanged)
 					{
-						ofd.Filter = "音声ファイル|*.mp3;*.wav|MP3ファイル|*.mp3|WAVファイル|*.wav|すべてのファイル|*.*";
-						if (ofd.ShowDialog() == DialogResult.OK)
-						{
-							textJoinPath.Text = ofd.FileName;
-						}
+						var newTheme = settingsForm.NewThemeIsDark ? AppTheme.Dark : AppTheme.Light;
+						ThemeManager.SetTheme(newTheme);
 					}
-				};
-				groupJoin.Controls.Add(buttonJoinBrowse);
 
-				var labelJoinNote = new Label();
-				labelJoinNote.Text = "※ MP3またはWAVファイルを指定してください";
-				labelJoinNote.Location = new Point(75, 50);
-				labelJoinNote.Size = new Size(300, 20);
-				labelJoinNote.ForeColor = Color.Gray;
-				groupJoin.Controls.Add(labelJoinNote);
-
-				// Leaveサウンド設定
-				var groupLeave = new GroupBox();
-				groupLeave.Text = "プレイヤー退出時のサウンド";
-				groupLeave.Location = new Point(10, 100);
-				groupLeave.Size = new Size(415, 80);
-				dialog.Controls.Add(groupLeave);
-
-				var checkLeaveEnabled = new CheckBox();
-				checkLeaveEnabled.Text = "有効";
-				checkLeaveEnabled.Location = new Point(10, 25);
-				checkLeaveEnabled.Size = new Size(60, 20);
-				checkLeaveEnabled.Checked = settings.EnableLeaveSound;
-				groupLeave.Controls.Add(checkLeaveEnabled);
-
-				var textLeavePath = new TextBox();
-				textLeavePath.Location = new Point(75, 23);
-				textLeavePath.Size = new Size(250, 23);
-				textLeavePath.Text = settings.LeaveSoundPath;
-				groupLeave.Controls.Add(textLeavePath);
-
-				var buttonLeaveBrowse = new Button();
-				buttonLeaveBrowse.Text = "参照...";
-				buttonLeaveBrowse.Location = new Point(330, 22);
-				buttonLeaveBrowse.Size = new Size(70, 25);
-				buttonLeaveBrowse.Click += (s, args) =>
-				{
-					using (var ofd = new OpenFileDialog())
+					// 詳細ログの設定を適用
+					if (settingsForm.VerboseLogEnabled)
 					{
-						ofd.Filter = "音声ファイル|*.mp3;*.wav|MP3ファイル|*.mp3|WAVファイル|*.wav|すべてのファイル|*.*";
-						if (ofd.ShowDialog() == DialogResult.OK)
-						{
-							textLeavePath.Text = ofd.FileName;
-						}
+						Logger.EnableVerboseLogging();
 					}
-				};
-				groupLeave.Controls.Add(buttonLeaveBrowse);
-
-				var labelLeaveNote = new Label();
-				labelLeaveNote.Text = "※ MP3またはWAVファイルを指定してください";
-				labelLeaveNote.Location = new Point(75, 50);
-				labelLeaveNote.Size = new Size(300, 20);
-				labelLeaveNote.ForeColor = Color.Gray;
-				groupLeave.Controls.Add(labelLeaveNote);
-
-				// 警告ユーザー参加時サウンド設定
-				var groupWarning = new GroupBox();
-				groupWarning.Text = "⚠️ 警告ユーザー参加時のサウンド";
-				groupWarning.Location = new Point(10, 190);
-				groupWarning.Size = new Size(415, 80);
-				dialog.Controls.Add(groupWarning);
-
-				var checkWarningEnabled = new CheckBox();
-				checkWarningEnabled.Text = "有効";
-				checkWarningEnabled.Location = new Point(10, 25);
-				checkWarningEnabled.Size = new Size(60, 20);
-				checkWarningEnabled.Checked = settings.EnableWarningUserSound;
-				groupWarning.Controls.Add(checkWarningEnabled);
-
-				var textWarningPath = new TextBox();
-				textWarningPath.Location = new Point(75, 23);
-				textWarningPath.Size = new Size(250, 23);
-				textWarningPath.Text = settings.WarningUserSoundPath;
-				groupWarning.Controls.Add(textWarningPath);
-
-				var buttonWarningBrowse = new Button();
-				buttonWarningBrowse.Text = "参照...";
-				buttonWarningBrowse.Location = new Point(330, 22);
-				buttonWarningBrowse.Size = new Size(70, 25);
-				buttonWarningBrowse.Click += (s, args) =>
-				{
-					using (var ofd = new OpenFileDialog())
+					else
 					{
-						ofd.Filter = "音声ファイル|*.mp3;*.wav|MP3ファイル|*.mp3|WAVファイル|*.wav|すべてのファイル|*.*";
-						if (ofd.ShowDialog() == DialogResult.OK)
-						{
-							textWarningPath.Text = ofd.FileName;
-						}
+						Logger.DisableVerboseLogging();
 					}
-				};
-				groupWarning.Controls.Add(buttonWarningBrowse);
-
-				var labelWarningNote = new Label();
-				labelWarningNote.Text = "※ 空の場合はwarning.mp3またはシステム音を使用";
-				labelWarningNote.Location = new Point(75, 50);
-				labelWarningNote.Size = new Size(330, 20);
-				labelWarningNote.ForeColor = Color.OrangeRed;
-				groupWarning.Controls.Add(labelWarningNote);
-
-				// ボタン
-				var buttonSave = new Button();
-				buttonSave.Text = "保存";
-				buttonSave.Location = new Point(260, 290);
-				buttonSave.Size = new Size(80, 30);
-				buttonSave.Click += (s, args) =>
-				{
-					var newSettings = new SoundSettings
-					{
-						EnableJoinSound = checkJoinEnabled.Checked,
-						JoinSoundPath = textJoinPath.Text,
-						EnableLeaveSound = checkLeaveEnabled.Checked,
-						LeaveSoundPath = textLeavePath.Text,
-						EnableWarningUserSound = checkWarningEnabled.Checked,
-						WarningUserSoundPath = textWarningPath.Text
-					};
-					webSocketClient.UpdateSoundSettings(newSettings);
-					MessageBox.Show("サウンド設定を保存しました。", "保存完了", MessageBoxButtons.OK, MessageBoxIcon.Information);
-					dialog.Close();
-				};
-				dialog.Controls.Add(buttonSave);
-
-				var buttonCancel = new Button();
-				buttonCancel.Text = "キャンセル";
-				buttonCancel.Location = new Point(345, 290);
-				buttonCancel.Size = new Size(80, 30);
-				buttonCancel.Click += (s, args) => dialog.Close();
-				dialog.Controls.Add(buttonCancel);
-
-				dialog.ShowDialog(this);
+				}
 			}
 		}
 
@@ -1228,38 +1054,22 @@ namespace ToNStatTool
 			}
 		}
 
-		private void BtnThemeToggle_Click(object sender, EventArgs e)
-		{
-			ThemeManager.ToggleTheme();
-		}
-
-		private void BtnThemeToggle_Paint(object sender, PaintEventArgs e)
-		{
-			var btn = sender as Button;
-			if (btn == null) return;
-
-			// 背景を描画
-			e.Graphics.Clear(btn.BackColor);
-
-			// アイコンを描画
-			string icon = ThemeManager.IsDark ? "☀" : "🌙";
-			using (var font = new Font("Segoe UI Emoji", 11))
-			{
-				var textSize = e.Graphics.MeasureString(icon, font);
-				float x = (btn.Width - textSize.Width) / 2;
-				float y = (btn.Height - textSize.Height) / 2;
-				e.Graphics.DrawString(icon, font, new SolidBrush(btn.ForeColor), x, y);
-			}
-		}
-
 		private void OnThemeChanged(object sender, AppTheme newTheme)
 		{
 			// メインフォームにテーマを適用
 			ThemeManager.Apply(this);
 
-			// テーマ切替ボタンを再描画
-			var btnThemeToggle = FindControl("btnThemeToggle") as Button;
-			btnThemeToggle?.Invalidate();
+			// 設定ボタンのテーマを更新
+			var btnSettings = FindControl("btnSettings") as Button;
+			if (btnSettings != null)
+			{
+				btnSettings.BackColor = ThemeManager.IsDark
+					? ThemeManager.Dark.ButtonBackground
+					: SystemColors.Control;
+				btnSettings.ForeColor = ThemeManager.IsDark
+					? ThemeManager.Dark.Text
+					: ThemeManager.Light.Text;
+			}
 
 			// テラー表示フォームが開いていればテーマを適用
 			if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
@@ -1354,6 +1164,72 @@ namespace ToNStatTool
 		}
 
 		/// <summary>
+		/// 8ページ/アンバウンド終了時のアイテムリマインダー
+		/// </summary>
+		private void OnItemReminderRoundEnd()
+		{
+			// リマインダーが無効の場合は何もしない
+			if (!webSocketClient.SoundSettings.EnableItemReminder)
+				return;
+
+			this.BeginInvoke(new Action(() =>
+			{
+				// テラー表示フォームにリマインダーを表示
+				if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
+				{
+					int duration = webSocketClient.SoundSettings.ItemReminderDurationSeconds;
+					terrorDisplayForm.ShowItemReminder(duration);
+				}
+
+				// リマインダー音を再生
+				if (webSocketClient.SoundSettings.EnableItemReminderSound)
+				{
+					PlayItemReminderSound();
+				}
+			}));
+		}
+
+		/// <summary>
+		/// アイテムリマインダー音を再生
+		/// </summary>
+		private void PlayItemReminderSound()
+		{
+			System.Threading.Tasks.Task.Run(() =>
+			{
+				try
+				{
+					string soundPath = webSocketClient.SoundSettings.ItemReminderSoundPath;
+					
+					if (!string.IsNullOrEmpty(soundPath) && System.IO.File.Exists(soundPath))
+					{
+						// カスタムサウンドファイルを再生
+						using (var audioFile = new NAudio.Wave.AudioFileReader(soundPath))
+						using (var outputDevice = new NAudio.Wave.WaveOutEvent())
+						{
+							outputDevice.Init(audioFile);
+							outputDevice.Play();
+							while (outputDevice.PlaybackState == NAudio.Wave.PlaybackState.Playing)
+							{
+								System.Threading.Thread.Sleep(100);
+							}
+						}
+					}
+					else
+					{
+						// システム音を使用
+						System.Media.SystemSounds.Asterisk.Play();
+					}
+				}
+				catch (Exception ex)
+				{
+					System.Diagnostics.Debug.WriteLine($"[REMINDER] サウンド再生エラー: {ex.Message}");
+					// エラー時はシステム音にフォールバック
+					try { System.Media.SystemSounds.Asterisk.Play(); } catch { }
+				}
+			});
+		}
+
+		/// <summary>
 		/// インスタンス状態変更時（鳥遭遇、ラウンド開始時など）
 		/// </summary>
 		private void OnInstanceStateChanged()
@@ -1430,7 +1306,7 @@ namespace ToNStatTool
 			var labelSurvivalValue = FindControl("labelSurvivalValue") as Label;
 			if (labelSurvivalValue != null)
 			{
-				int targetValue = Math.Max(0, Math.Min(999, instanceState.EstimatedSurvivalCount));
+				int targetValue = Math.Max(0, Math.Min(9999, instanceState.EstimatedSurvivalCount));
 				labelSurvivalValue.Text = targetValue.ToString();
 			}
 		}

@@ -383,5 +383,13 @@ namespace ToNStatTool
 			EnableDebugOutput = false;
 			Info("Logger", "通常ログモードに戻しました");
 		}
+
+		/// <summary>
+		/// 詳細ログが有効かどうかを返す
+		/// </summary>
+		public static bool IsVerboseLoggingEnabled()
+		{
+			return CurrentLogLevel == LogLevel.Debug && EnableWebSocketLogging && EnableDebugOutput;
+		}
 	}
 }

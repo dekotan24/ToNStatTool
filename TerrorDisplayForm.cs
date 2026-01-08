@@ -29,6 +29,16 @@ namespace ToNStatTool
 		// インスタンス状態への参照
 		private InstanceState instanceState;
 
+		// アイテムリマインダー用
+		private System.Windows.Forms.Timer reminderTimer;
+		private bool isShowingReminder = false;
+		private string savedPlayerCountText;
+		private string savedElapsedTimeText;
+		private string savedCurrentRoundText;
+		private Color savedPlayerCountColor;
+		private Color savedElapsedTimeColor;
+		private Color savedCurrentRoundColor;
+
 		private const int BOTTOM_PANEL_HEIGHT = 18;
 		private const int TERROR_PANEL_HEIGHT = 140;  // 元のサイズに戻す
 
@@ -36,6 +46,7 @@ namespace ToNStatTool
 		{
 			InitializeComponent();
 			InitializeElapsedTimer();
+			InitializeReminderTimer();
 			ApplyTheme(); // テーマを適用
 		}
 
@@ -159,11 +170,84 @@ namespace ToNStatTool
 
 		private void ElapsedTimer_Tick(object sender, EventArgs e)
 		{
-			if (isRoundActive)
+			if (isRoundActive && !isShowingReminder)
 			{
 				TimeSpan elapsed = DateTime.Now - roundStartTime;
 				labelElapsedTime.Text = $"⏱️ {elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
 			}
+		}
+
+		private void InitializeReminderTimer()
+		{
+			reminderTimer = new System.Windows.Forms.Timer();
+			reminderTimer.Tick += ReminderTimer_Tick;
+		}
+
+		private void ReminderTimer_Tick(object sender, EventArgs e)
+		{
+			reminderTimer.Stop();
+			HideItemReminder();
+		}
+
+		/// <summary>
+		/// アイテムリマインダーを表示（8ページ/アンバウンド終了時）
+		/// </summary>
+		public void ShowItemReminder(int durationSeconds = 7)
+		{
+			if (this.InvokeRequired)
+			{
+				this.BeginInvoke(new Action(() => ShowItemReminder(durationSeconds)));
+				return;
+			}
+
+			if (isShowingReminder) return;
+
+			// 現在の表示内容を保存
+			savedPlayerCountText = labelPlayerCount.Text;
+			savedElapsedTimeText = labelElapsedTime.Text;
+			savedCurrentRoundText = labelCurrentRound.Text;
+			savedPlayerCountColor = labelPlayerCount.ForeColor;
+			savedElapsedTimeColor = labelElapsedTime.ForeColor;
+			savedCurrentRoundColor = labelCurrentRound.ForeColor;
+
+			isShowingReminder = true;
+
+			// リマインダーメッセージを表示（画像2のように）
+			labelPlayerCount.Text = "⚠";
+			labelPlayerCount.ForeColor = Color.Orange;
+			labelElapsedTime.Text = "アイテムを持ち直してください。";
+			labelElapsedTime.ForeColor = Color.Orange;
+			labelElapsedTime.Size = new Size(200, 16);  // 幅を一時的に広げる
+			labelCurrentRound.Text = "";
+
+			// タイマーで元に戻す
+			reminderTimer.Interval = durationSeconds * 1000;
+			reminderTimer.Start();
+		}
+
+		/// <summary>
+		/// アイテムリマインダーを非表示にして元の表示に戻す
+		/// </summary>
+		private void HideItemReminder()
+		{
+			if (this.InvokeRequired)
+			{
+				this.BeginInvoke(new Action(HideItemReminder));
+				return;
+			}
+
+			if (!isShowingReminder) return;
+
+			isShowingReminder = false;
+
+			// 元の表示内容に戻す
+			labelPlayerCount.Text = savedPlayerCountText;
+			labelPlayerCount.ForeColor = savedPlayerCountColor;
+			labelElapsedTime.Text = savedElapsedTimeText;
+			labelElapsedTime.ForeColor = savedElapsedTimeColor;
+			labelElapsedTime.Size = new Size(58, 16);  // 元のサイズに戻す
+			labelCurrentRound.Text = savedCurrentRoundText;
+			labelCurrentRound.ForeColor = savedCurrentRoundColor;
 		}
 
 		private void DragHandle_MouseDown(object sender, MouseEventArgs e)
@@ -635,6 +719,8 @@ namespace ToNStatTool
 		{
 			elapsedTimer?.Stop();
 			elapsedTimer?.Dispose();
+			reminderTimer?.Stop();
+			reminderTimer?.Dispose();
 			base.OnFormClosing(e);
 		}
 	}
