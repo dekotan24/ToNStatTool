@@ -4,11 +4,14 @@ on:
   push:
     branches:
       - dev
-      - master
+      - main
 
 jobs:
   build:
     runs-on: windows-latest
+
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
 
     steps:
       - uses: actions/checkout@v4
@@ -23,6 +26,22 @@ jobs:
       - name: Build solution
         run: msbuild ToNStatTool.sln -t:rebuild -property:Configuration=Release
 
+      - name: Get version from AssemblyInfo.cs
+        id: get_version
+        shell: pwsh
+        run: |
+          $content = Get-Content Properties/AssemblyInfo.cs
+          $line = $content | Select-String 'AssemblyVersion'
+          if ($line -match '"([\d\.]+)"') {
+            $full = $matches[1]
+            $short = ($full -split '\.')[0..2] -join '.'
+            echo "version=v$short" >> $env:GITHUB_OUTPUT
+            Write-Host "Detected version: v$short"
+          } else {
+            Write-Error "AssemblyVersion not found"
+            exit 1
+          }
+
       - name: Zip output
         run: powershell compress-archive .\ToNStatTool\bin\Release\* Release.zip
 
@@ -34,7 +53,7 @@ jobs:
 
   release:
     needs: build
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/main'
     runs-on: windows-latest
 
     steps:
@@ -45,8 +64,9 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.run_number }}
-          name: Release v${{ github.run_number }}
+          tag_name: ${{ needs.build.outputs.version }}
+          name: ${{ needs.build.outputs.version }} release.
+          generate_release_notes: true
           files: Release.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
