@@ -1,37 +1,52 @@
-name: CI
+name: .NET Build & Release
 
 on:
   push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+    branches:
+      - dev
+      - master
 
 jobs:
   build:
-    runs-on: windows-latest  # For a list of available runner types, refer to
-                             # https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on
-                             
-    env:
-      Solution_Name: ToNStatTool.sln       # Replace with your solution name, i.e. MyWpfApp.sln.
+    runs-on: windows-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
+      - uses: actions/checkout@v4
 
-    # Add  MSBuild to the PATH: https://github.com/microsoft/setup-msbuild
-    - name: Setup MSBuild.exe
-      uses: microsoft/setup-msbuild@v1.3.1
+      - uses: microsoft/setup-msbuild@v1.1
 
-    # Setup NuGet
-    - name: Setup NuGet
-      uses: nuget/setup-nuget@v1.2.0
+      - uses: NuGet/setup-nuget@v1.0.5
 
-    # Restore NuGet
-    - name: Restore NuGet packages
-      run: nuget restore $env:Solution_Name
+      - name: Restore Packages
+        run: nuget restore ToNStatTool.sln
 
-    # Build
-    - name: Build the Solution
-      run: msbuild $env:Solution_Name
+      - name: Build solution
+        run: msbuild ToNStatTool.sln -t:rebuild -property:Configuration=Release
+
+      - name: Zip output
+        run: powershell compress-archive .\ToNStatTool\bin\Release\* Release.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ToNStatTool_release
+          path: Release.zip
+
+  release:
+    needs: build
+    if: github.ref == 'refs/heads/master'
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ToNStatTool_release
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
+          files: Release.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
