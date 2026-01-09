@@ -418,7 +418,18 @@ namespace ToNStatTool
                 
                 foreach (var saveCode in saveCodes)
                 {
-                    var item = new ToolStripMenuItem($"{saveCode.Timestamp:HH:mm:ss} - {saveCode.RoundTypeName}");
+                    // テラー名も表示（長すぎる場合は省略）
+                    string terrorDisplay = saveCode.TerrorNames;
+                    if (string.IsNullOrEmpty(terrorDisplay))
+                    {
+                        terrorDisplay = "-";
+                    }
+                    else if (terrorDisplay.Length > 30)
+                    {
+                        terrorDisplay = terrorDisplay.Substring(0, 27) + "...";
+                    }
+                    
+                    var item = new ToolStripMenuItem($"{saveCode.Timestamp:HH:mm:ss} - {saveCode.RoundTypeName} - {terrorDisplay}");
                     item.Tag = saveCode.Code;
                     item.Click += (s, args) =>
                     {

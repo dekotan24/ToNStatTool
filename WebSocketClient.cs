@@ -737,12 +737,15 @@ namespace ToNStatTool
 				FinishCurrentRound();
 				ResetAllPlayersAlive();
 				GameData["saboteur"] = "いいえ";
+				
+				// 上書きフラグをリセット
+				InstanceState.IsCurrentRoundOverride = false;
 
 				// ラウンド終了イベントを発火
 				OnRoundEnd?.Invoke();
 				Logger.Info("RoundType", $"ラウンド終了イベントを発火: {roundType}");
 
-				// アイテムリマインダー対象ラウンドかチェック（Punished/8Pages/Unbound）
+				// アイテムリマインダー対象ラウンドかチェック（Punished/8Pages）
 				// 注意: 受信したroundType(Intermission)ではなく、終了前のラウンドタイプを使用
 				bool isItemReminderRound = ToNRoundTypeHelper.IsItemReminderRound(finishedRoundType);
 				Logger.Info("RoundType", $"アイテムリマインダーチェック: finishedRoundType={finishedRoundType}, IsItemReminderRound={isItemReminderRound}");
@@ -769,11 +772,36 @@ namespace ToNStatTool
 			currentRoundItems.Clear();
 			wasDeadDuringRound = false; // ラウンド開始時に死亡フラグをリセット
 			
-			// 8ページ/アンバウンドはアイテム持ち込み不可なのでリセット
-			if (ToNRoundTypeHelper.IsItemReminderRound(roundType))
+			// 上書きフラグを設定（通常確定時にOverrideラウンドまたは特殊ラウンドが出た場合）
+			InstanceState.IsCurrentRoundOverride = false;
+			if (InstanceState.NormalRoundCount == 0)
 			{
+				if (ToNRoundTypeHelper.IsOverrideRound(roundType) || ToNRoundTypeHelper.IsSpecialRound(roundType))
+				{
+					InstanceState.IsCurrentRoundOverride = true;
+					Logger.Info("Round", $"通常確定時に{roundType}が上書き（NormalRoundCount={InstanceState.NormalRoundCount}）");
+				}
+			}
+			
+			// アイテムリセット処理（ラウンドタイプによって異なる）
+			if (roundType == ToNRoundType.Eight_Pages)
+			{
+				// 8ページ: Midn（ミッドレーダー）は持ち込み可能、それ以外はリセット
+				if (InstanceState.CurrentItem != "Midn")
+				{
+					InstanceState.CurrentItem = "";
+					Logger.Debug("Round", "8ページラウンドのためアイテムをリセット（Midn以外）");
+				}
+				else
+				{
+					Logger.Debug("Round", "8ページラウンドだがMidnを所持しているため保持");
+				}
+			}
+			else if (roundType == ToNRoundType.Punished)
+			{
+				// パニッシュド: アイテムが没収されるためリセット
 				InstanceState.CurrentItem = "";
-				Logger.Debug("Round", "8ページ/アンバウンドラウンドのためアイテムをリセット");
+				Logger.Debug("Round", "パニッシュドラウンドのためアイテムをリセット");
 			}
 			
 			// マスター変更フラグをリセット（ラウンド開始で消費）
@@ -782,7 +810,7 @@ namespace ToNStatTool
 			string mapName = GetGameDataValue("location", "Unknown").Split('(')[0].Trim();
 			Logger.Debug("Round", $"マップ名: {mapName}");
 			
-			// ラウンド開始時の所持アイテムを取得（IsItemReminderRoundの場合は既に空文字にリセット済み）
+			// ラウンド開始時の所持アイテムを取得
 			string startingItem = InstanceState.CurrentItem ?? "";
 			
 			currentRound = new RoundLog
@@ -917,6 +945,11 @@ namespace ToNStatTool
 			// 初回Moonフラグをリセット
 			isCurrentRoundFirstMoon = false;
 			InstanceState.IsCurrentRoundFirstMoon = false;
+			
+			// ラウンド開始時にJustUnlockedフラグをリセット（次のラウンド予測に影響しないように）
+			InstanceState.BloodMoonJustUnlocked = false;
+			InstanceState.TwilightJustUnlocked = false;
+			InstanceState.MysticMoonJustUnlocked = false;
 
 			// ※Midnightは開始時には解禁しない（ラウンド終了時に生存者がいる場合のみBlood Moon解禁）
 
@@ -1055,7 +1088,8 @@ namespace ToNStatTool
 				{
 					InstanceState.MidnightSurvived = true;
 					InstanceState.BloodMoonUnlocked = true;
-					System.Diagnostics.Debug.WriteLine("[InstanceState] Midnight生存者あり → Blood Moon解禁");
+					InstanceState.BloodMoonJustUnlocked = true; // 解禁直後フラグをセット（次ラウンドがBlood Moonの可能性が高い）
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Midnight生存者あり → Blood Moon解禁 (JustUnlocked=true)");
 					OnInstanceStateChanged?.Invoke();
 				}
 			}
@@ -1552,10 +1586,22 @@ namespace ToNStatTool
 						roundTypeName = ToNRoundTypeHelper.GetDisplayName(InstanceState.CurrentRoundType);
 					}
 					
+					// テラー名を取得（currentRoundがあればそこから、なければCurrentTerrorsから）
+					string terrorNames = "";
+					if (currentRound != null && !string.IsNullOrEmpty(currentRound.TerrorNames))
+					{
+						terrorNames = currentRound.TerrorNames;
+					}
+					else if (CurrentTerrors.Count > 0)
+					{
+						terrorNames = string.Join(", ", CurrentTerrors.Select(t => t.Name));
+					}
+					
 					var saveCodeInfo = new SaveCodeInfo
 					{
 						Code = saveCode,
 						RoundTypeName = roundTypeName,
+						TerrorNames = terrorNames,
 						Timestamp = DateTime.Now
 					};
 					
@@ -1568,7 +1614,7 @@ namespace ToNStatTool
 						SaveCodes.RemoveAt(SaveCodes.Count - 1);
 					}
 					
-					Logger.Info("SaveCode", $"セーブコード受信: {saveCode} ({roundTypeName})");
+					Logger.Info("SaveCode", $"セーブコード受信: {saveCode} ({roundTypeName}) - テラー: {terrorNames}");
 					
 					// イベント発火
 					OnSaveCodeReceived?.Invoke(saveCodeInfo);

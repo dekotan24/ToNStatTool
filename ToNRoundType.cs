@@ -377,14 +377,13 @@ namespace ToNStatTool
 
         /// <summary>
         /// アイテムリマインダー対象ラウンドかどうかを判定
-        /// Punished, Eight_Pages, Unbound が該当（ラウンド終了後にアイテム再装備が必要）
+        /// Punished, Eight_Pages が該当（ラウンド終了後にアイテム再装備が必要）
         /// ※Punishedはアイテムが没収されるため再装備が必要
         /// </summary>
         public static bool IsItemReminderRound(ToNRoundType roundType)
         {
             return roundType == ToNRoundType.Punished ||
-                   roundType == ToNRoundType.Eight_Pages ||
-                   roundType == ToNRoundType.Unbound;
+                   roundType == ToNRoundType.Eight_Pages;
         }
 
         /// <summary>

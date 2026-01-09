@@ -87,6 +87,12 @@ namespace ToNStatTool
 		public bool MysticMoonUnlocked { get; set; } = false;
 		public bool SolsticeUnlocked { get; set; } = false;
 		
+		// Moon解禁直後フラグ（次のラウンドがそのMoonになる可能性があることを示す）
+		// 次のラウンド開始時にリセットされる
+		public bool BloodMoonJustUnlocked { get; set; } = false;
+		public bool TwilightJustUnlocked { get; set; } = false;
+		public bool MysticMoonJustUnlocked { get; set; } = false;
+		
 		// Midnight生存済みフラグ
 		public bool MidnightSurvived { get; set; } = false;
 		
@@ -108,6 +114,10 @@ namespace ToNStatTool
 		// ラウンド開始時のNormalRoundCount（次ラウンド予測用）
 		// ラウンド終了時にNormalRoundCountが更新されるため、開始時の値を保存しておく
 		public int NormalRoundCountAtRoundStart { get; set; } = 0;
+		
+		// 現在のラウンドが上書きラウンドかどうか（表示用）
+		// 通常確定時にOverrideラウンドまたは特殊ラウンドが出た場合にtrue
+		public bool IsCurrentRoundOverride { get; set; } = false;
 		
 		/// <summary>
 		/// 3鳥コンプリート判定
@@ -147,6 +157,9 @@ namespace ToNStatTool
 			TwilightUnlocked = false;
 			MysticMoonUnlocked = false;
 			SolsticeUnlocked = false;
+			BloodMoonJustUnlocked = false;
+			TwilightJustUnlocked = false;
+			MysticMoonJustUnlocked = false;
 			MidnightSurvived = false;
 			MasterChanged = false;
 			InstanceUrl = "";
@@ -154,6 +167,7 @@ namespace ToNStatTool
 			CurrentItem = "";
 			IsCurrentRoundFirstMoon = false;
 			NormalRoundCountAtRoundStart = 0;
+			IsCurrentRoundOverride = false;
 		}
 	}
 
@@ -251,6 +265,7 @@ namespace ToNStatTool
 	{
 		public string Code { get; set; } = "";
 		public string RoundTypeName { get; set; } = "";
+		public string TerrorNames { get; set; } = "";  // テラー名を追加
 		public DateTime Timestamp { get; set; } = DateTime.Now;
 		
 		public override string ToString()

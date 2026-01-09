@@ -71,6 +71,7 @@ namespace ToNStatTool
 			public static readonly Color RoundLogDied = Color.Red;
 			
 			// 次ラウンド予測の色（ライト用）
+			public static readonly Color PredictionBloodMoon = Color.DarkRed;
 			public static readonly Color PredictionTwilight = Color.Goldenrod;
 			public static readonly Color PredictionMysticMoon = Color.Teal;
 			public static readonly Color PredictionSolstice = Color.DarkGreen;
@@ -116,6 +117,7 @@ namespace ToNStatTool
 			public static readonly Color RoundLogDied = Color.FromArgb(255, 120, 120);      // 明るい赤
 			
 			// 次ラウンド予測の色（ダーク用）
+			public static readonly Color PredictionBloodMoon = Color.FromArgb(255, 100, 120);
 			public static readonly Color PredictionTwilight = Color.Gold;
 			public static readonly Color PredictionMysticMoon = Color.Cyan;
 			public static readonly Color PredictionSolstice = Color.FromArgb(0, 255, 136);
@@ -337,6 +339,9 @@ namespace ToNStatTool
 		{
 			switch (predictionType.ToLower())
 			{
+				case "blood":
+				case "blood moon":
+					return IsDark ? Dark.PredictionBloodMoon : Light.PredictionBloodMoon;
 				case "twilight":
 					return IsDark ? Dark.PredictionTwilight : Light.PredictionTwilight;
 				case "mystic":

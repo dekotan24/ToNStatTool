@@ -371,7 +371,14 @@ namespace ToNStatTool
 
 			Color roundColor = GetRoundTypeColor(roundType);
 			labelCurrentRound.ForeColor = roundColor;
-			labelCurrentRound.Text = $"🎮 {ToNRoundTypeHelper.GetDisplayName(roundType)}";
+			
+			// 上書きフラグをチェックして表示を変更
+			string displayName = ToNRoundTypeHelper.GetDisplayName(roundType);
+			if (instanceState?.IsCurrentRoundOverride == true)
+			{
+				displayName += " (上書き)";
+			}
+			labelCurrentRound.Text = $"🎮 {displayName}";
 
 			// 次のラウンド予測を更新（現在のラウンド種別を考慮）
 			UpdateNextRoundPredictionForCurrentRound(roundType);
@@ -400,7 +407,14 @@ namespace ToNStatTool
 				
 				Color roundColor = GetRoundTypeColor(roundType);
 				labelCurrentRound.ForeColor = roundColor;
-				labelCurrentRound.Text = $"🎮 {ToNRoundTypeHelper.GetDisplayName(roundType)}";
+				
+				// 上書きフラグをチェックして表示を変更
+				string displayName = ToNRoundTypeHelper.GetDisplayName(roundType);
+				if (instanceState?.IsCurrentRoundOverride == true)
+				{
+					displayName += " (上書き)";
+				}
+				labelCurrentRound.Text = $"🎮 {displayName}";
 				
 				// 次ラウンド予測を更新
 				UpdateNextRoundPredictionForCurrentRound(roundType);

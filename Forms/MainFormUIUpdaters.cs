@@ -59,7 +59,10 @@ namespace ToNStatTool
 
             // テラーの数が変わったか、または内容が変わったかをチェック
             bool needsUpdate = currentTerrors.Count != terrorControls.Count;
-            
+
+			/*
+            // この部分の処理は不要なのではないかと思い、検証のためコメントアウト
+            // これで問題が無ければ将来的に削除予定
             if (!needsUpdate && currentTerrors.Count > 0)
             {
                 // 数が同じでも、テラー名が変わっていれば更新が必要
@@ -67,8 +70,9 @@ namespace ToNStatTool
                 var displayedNames = terrorControls.Select(c => c.TerrorData?.Name ?? "").ToList();
                 needsUpdate = !currentNames.SequenceEqual(displayedNames);
             }
+            */
 
-            if (needsUpdate)
+			if (needsUpdate)
             {
                 foreach (var control in terrorControls)
                 {
@@ -465,7 +469,26 @@ namespace ToNStatTool
                 return;
             }
 
-            if (instanceState.AllBirdsMet && !instanceState.TwilightUnlocked)
+            // JustUnlockedフラグを最優先でチェック（解禁直後のMoonを予測）
+            // これによりAllMoonsUnlockedによるSolstice予測が上書きされることを防ぐ
+            // 複数同時解禁時の優先度: Twilight > Mystic Moon > Blood Moon
+            // （Wiki情報: BloodMoonとMysticMoonならMysticMoon、TwilightとMysticMoonならTwilight）
+            if (instanceState.TwilightJustUnlocked)
+            {
+                prediction = "Twilight (解禁直後)";
+                color = ThemeManager.GetPredictionColor("twilight");
+            }
+            else if (instanceState.MysticMoonJustUnlocked)
+            {
+                prediction = "Mystic Moon (解禁直後)";
+                color = ThemeManager.GetPredictionColor("mystic");
+            }
+            else if (instanceState.BloodMoonJustUnlocked)
+            {
+                prediction = "Blood Moon (解禁直後)";
+                color = ThemeManager.GetPredictionColor("blood");
+            }
+            else if (instanceState.AllBirdsMet && !instanceState.TwilightUnlocked)
             {
                 prediction = "Twilight";
                 color = ThemeManager.GetPredictionColor("twilight");
@@ -588,7 +611,26 @@ namespace ToNStatTool
             var textBox = FindControl($"textBox_{key}") as TextBox;
             if (textBox != null && textBox.Text != value)
             {
-                textBox.Text = value;
+                // ラウンドタイプの場合、上書きフラグをチェックして表示を変更
+                string displayValue = value;
+                if (key == "roundType" && webSocketClient?.InstanceState?.IsCurrentRoundOverride == true)
+                {
+                    // 「(開始)」や「(終了)」がある場合はその前に「(上書き)」を挿入
+                    if (displayValue.Contains("(開始)"))
+                    {
+                        displayValue = displayValue.Replace("(開始)", "(上書き・開始)");
+                    }
+                    else if (displayValue.Contains("(終了)"))
+                    {
+                        displayValue = displayValue.Replace("(終了)", "(上書き・終了)");
+                    }
+                    else if (!displayValue.Contains("(上書き)"))
+                    {
+                        displayValue = displayValue + " (上書き)";
+                    }
+                }
+                
+                textBox.Text = displayValue;
 
                 if (key == "roundType")
                 {
