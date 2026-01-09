@@ -20,6 +20,7 @@ namespace ToNStatTool
 	{
 		private WebSocketClient webSocketClient;
 		private TerrorDisplayForm terrorDisplayForm;
+		private SessionStatsForm sessionStatsForm;
 		private System.Windows.Forms.Timer elapsedTimeTimer;
 		private DateTime mainFormRoundStartTime;
 		private bool mainFormRoundActive = false;
@@ -49,7 +50,6 @@ namespace ToNStatTool
 		private readonly TimeSpan minUIUpdateInterval = TimeSpan.FromMilliseconds(100);
 		private bool isUpdatingEvents = false;
 		private bool isUpdatingPlayers = false;
-		private DateTime lastSaboteurUpdate = DateTime.MinValue;
 
 		// アプリケーション設定
 		private AppSettings appSettings;
@@ -121,6 +121,8 @@ namespace ToNStatTool
 			webSocketClient.OnInstanceStateChanged += OnInstanceStateChanged;
 			webSocketClient.OnPlayerCountChanged += OnPlayerCountChanged;
 			webSocketClient.OnItemReminderRoundEnd += OnItemReminderRoundEnd;
+			webSocketClient.OnMasterChanged += OnMasterChanged;
+			webSocketClient.OnSaveCodeReceived += OnSaveCodeReceived;
 		}
 
 		private void InitializeTimer()
@@ -167,10 +169,46 @@ namespace ToNStatTool
 			labelStatus.ForeColor = Color.Red;
 			this.Controls.Add(labelStatus);
 
+			// 統計表示ボタン（テラー表示ウィンドウの左側）
+			var buttonStats = new Button();
+			buttonStats.Name = "buttonStats";
+			buttonStats.Location = new Point(760, 10);
+			buttonStats.Size = new Size(26, 26);
+			buttonStats.Text = "📊";
+			buttonStats.Font = new Font("Segoe UI Emoji", 9);
+			buttonStats.FlatStyle = FlatStyle.Flat;
+			buttonStats.FlatAppearance.BorderSize = 1;
+			buttonStats.Click += ButtonStats_Click;
+			this.Controls.Add(buttonStats);
+
+			// インスタンスURLコピーボタン
+			var buttonCopyInstanceUrl = new Button();
+			buttonCopyInstanceUrl.Name = "buttonCopyInstanceUrl";
+			buttonCopyInstanceUrl.Location = new Point(790, 10);
+			buttonCopyInstanceUrl.Size = new Size(26, 26);
+			buttonCopyInstanceUrl.Text = "🔗";
+			buttonCopyInstanceUrl.Font = new Font("Segoe UI Emoji", 9);
+			buttonCopyInstanceUrl.FlatStyle = FlatStyle.Flat;
+			buttonCopyInstanceUrl.FlatAppearance.BorderSize = 1;
+			buttonCopyInstanceUrl.Click += ButtonCopyInstanceUrl_Click;
+			this.Controls.Add(buttonCopyInstanceUrl);
+
+			// セーブコードボタン
+			var buttonSaveCodes = new Button();
+			buttonSaveCodes.Name = "buttonSaveCodes";
+			buttonSaveCodes.Location = new Point(820, 10);
+			buttonSaveCodes.Size = new Size(26, 26);
+			buttonSaveCodes.Text = "💾";
+			buttonSaveCodes.Font = new Font("Segoe UI Emoji", 9);
+			buttonSaveCodes.FlatStyle = FlatStyle.Flat;
+			buttonSaveCodes.FlatAppearance.BorderSize = 1;
+			buttonSaveCodes.Click += ButtonSaveCodes_Click;
+			this.Controls.Add(buttonSaveCodes);
+
 			// テラー表示ウィンドウボタン（チェックボックススタイル）
 			var buttonTerrorWindow = new CheckBox();
 			buttonTerrorWindow.Name = "buttonTerrorWindow";
-			buttonTerrorWindow.Location = new Point(880, 11);
+			buttonTerrorWindow.Location = new Point(860, 11);
 			buttonTerrorWindow.Size = new Size(130, 25);
 			buttonTerrorWindow.Text = "テラー表示ウィンドウ";
 			buttonTerrorWindow.Appearance = Appearance.Button;
@@ -181,7 +219,7 @@ namespace ToNStatTool
 			// 透明度ラベル
 			var labelOpacity = new Label();
 			labelOpacity.Text = "透明度:";
-			labelOpacity.Location = new Point(1025, 15);
+			labelOpacity.Location = new Point(1000, 15);
 			labelOpacity.Size = new Size(50, 20);
 			labelOpacity.Font = new Font("Meiryo UI", 9);
 			this.Controls.Add(labelOpacity);
@@ -189,7 +227,7 @@ namespace ToNStatTool
 			// 透明度スライダー（ラウンド情報グループ右端に合わせる）
 			var trackBarOpacity = new TrackBar();
 			trackBarOpacity.Name = "trackBarOpacity";
-			trackBarOpacity.Location = new Point(1070, 8);
+			trackBarOpacity.Location = new Point(1045, 8);
 			trackBarOpacity.Size = new Size(80, 30);
 			trackBarOpacity.Minimum = 10;
 			trackBarOpacity.Maximum = 100;
@@ -209,7 +247,7 @@ namespace ToNStatTool
 			// 設定ボタン
 			var btnSettings = new Button();
 			btnSettings.Name = "btnSettings";
-			btnSettings.Location = new Point(1152, 10);
+			btnSettings.Location = new Point(1127, 10);
 			btnSettings.Size = new Size(26, 26);
 			btnSettings.Text = "🛠";
 			btnSettings.Font = new Font("Segoe UI Emoji", 9);
@@ -347,7 +385,7 @@ namespace ToNStatTool
 			textBoxPageCount.Text = "-";
 			groupBoxRoundInfo.Controls.Add(textBoxPageCount);
 
-			// 4行目: 次ラウンド予測（全幅）
+			// 4行目: 次ラウンド予測 + 所持アイテム
 			var labelNextRound = new Label();
 			labelNextRound.Text = "次ラウンド:";
 			labelNextRound.Location = new Point(10, 97);
@@ -357,10 +395,24 @@ namespace ToNStatTool
 			var textBoxNextRound = new TextBox();
 			textBoxNextRound.Name = "textBox_nextRound";
 			textBoxNextRound.Location = new Point(65, 95);
-			textBoxNextRound.Size = new Size(480, 23);
+			textBoxNextRound.Size = new Size(250, 23);
 			textBoxNextRound.ReadOnly = true;
 			textBoxNextRound.Text = "-";
 			groupBoxRoundInfo.Controls.Add(textBoxNextRound);
+
+			var labelCurrentItem = new Label();
+			labelCurrentItem.Text = "所持アイテム:";
+			labelCurrentItem.Location = new Point(325, 97);
+			labelCurrentItem.Size = new Size(70, 20);
+			groupBoxRoundInfo.Controls.Add(labelCurrentItem);
+
+			var textBoxCurrentItem = new TextBox();
+			textBoxCurrentItem.Name = "textBox_currentItem";
+			textBoxCurrentItem.Location = new Point(395, 95);
+			textBoxCurrentItem.Size = new Size(150, 23);
+			textBoxCurrentItem.ReadOnly = true;
+			textBoxCurrentItem.Text = "-";
+			groupBoxRoundInfo.Controls.Add(textBoxCurrentItem);
 
 			// インスタンス状態設定グループ（鳥/Moon設定）
 			var groupBoxInstanceState = new GroupBox();
@@ -551,13 +603,13 @@ namespace ToNStatTool
 			var labelPlayerCount = new Label();
 			labelPlayerCount.Name = "labelPlayerCount";
 			labelPlayerCount.Location = new Point(10, 25);
-			labelPlayerCount.Size = new Size(280, 20);  // 幅を広げて警告ユーザー数も表示できるように
+			labelPlayerCount.Size = new Size(260, 20);
 			labelPlayerCount.Text = "総人数: 0人 | 生存: 0人";
 			labelPlayerCount.Font = new Font("Meiryo UI", 9, FontStyle.Bold);
 			labelPlayerCount.TextAlign = ContentAlignment.MiddleLeft;
 			groupBoxPlayerList.Controls.Add(labelPlayerCount);
 
-			// 警告対象ユーザー表示ボタン（右上端にアイコンで配置）
+			// 警告対象ユーザー表示ボタン
 			var buttonShowWarningUsers = new Button();
 			buttonShowWarningUsers.Name = "buttonShowWarningUsers";
 			buttonShowWarningUsers.Location = new Point(330, 20);
@@ -568,7 +620,7 @@ namespace ToNStatTool
 			buttonShowWarningUsers.Click += ButtonShowWarningUsers_Click;
 			groupBoxPlayerList.Controls.Add(buttonShowWarningUsers);
 
-			// 警告ユーザーリスト再読み込みボタン（右上端にアイコンで配置）
+			// 警告ユーザーリスト再読み込みボタン
 			var buttonReloadWarningUsers = new Button();
 			buttonReloadWarningUsers.Name = "buttonReloadWarningUsers";
 			buttonReloadWarningUsers.Location = new Point(365, 20);
@@ -689,10 +741,11 @@ namespace ToNStatTool
 			listViewRoundLog.FullRowSelect = true;
 			listViewRoundLog.GridLines = true;
 
-			listViewRoundLog.Columns.Add("時刻", 45);
-			listViewRoundLog.Columns.Add("ラウンド", 90);
-			listViewRoundLog.Columns.Add("マップ", 120);
-			listViewRoundLog.Columns.Add("テラー", 150);
+			listViewRoundLog.Columns.Add("時刻", 50);
+			listViewRoundLog.Columns.Add("ラウンド", 85);
+			listViewRoundLog.Columns.Add("マップ", 100);
+			listViewRoundLog.Columns.Add("テラー", 120);
+			listViewRoundLog.Columns.Add("アイテム", 65);
 
 			groupBoxRoundLog.Controls.Add(listViewRoundLog);
 		}
@@ -925,6 +978,9 @@ namespace ToNStatTool
 				{
 					webSocketClient.SaveSoundSettings();
 
+					// AppSettingsを再読み込み（設定画面で保存された内容を反映）
+					appSettings = AppSettings.Load();
+
 					// テーマが変更されていたら適用
 					if (settingsForm.ThemeChanged)
 					{
@@ -991,6 +1047,159 @@ namespace ToNStatTool
 			}
 		}
 
+		private void ButtonStats_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				if (sessionStatsForm == null || sessionStatsForm.IsDisposed)
+				{
+					sessionStatsForm = new SessionStatsForm(webSocketClient.SessionStats);
+				}
+				
+				sessionStatsForm.UpdateDisplay();
+				sessionStatsForm.ApplyTheme();
+				
+				if (!sessionStatsForm.Visible)
+				{
+					sessionStatsForm.Show(this);
+				}
+				else
+				{
+					sessionStatsForm.BringToFront();
+				}
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show($"統計フォームの表示でエラーが発生しました: {ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+		}
+
+		private void ButtonCopyInstanceUrl_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				string instanceUrl = webSocketClient.InstanceState.InstanceUrl;
+				
+				if (string.IsNullOrEmpty(instanceUrl))
+				{
+					MessageBox.Show("インスタンスURLがまだ取得されていません。\nゲームに接続してから再試行してください。", 
+						"情報", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					return;
+				}
+
+				// VRChat Launch URLに変換
+				string[] parts = instanceUrl.Split(new[] { ':' }, 2);
+				string worldId = parts[0];
+				string instanceId = parts[1];
+				string launchUrl = $"https://vrchat.com/home/launch?worldId={worldId}&instanceId={instanceId}";
+				
+				Clipboard.SetText(launchUrl);
+				
+				// 簡易通知（ツールチップ風）
+				var button = sender as Button;
+				if (button != null)
+				{
+					var originalText = button.Text;
+					button.Text = "✓";
+					var timer = new System.Windows.Forms.Timer();
+					timer.Interval = 1000;
+					timer.Tick += (s, args) =>
+					{
+						button.Text = originalText;
+						timer.Stop();
+						timer.Dispose();
+					};
+					timer.Start();
+				}
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show($"URLのコピーでエラーが発生しました: {ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+		}
+
+		private void ButtonSaveCodes_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				var saveCodes = webSocketClient.SaveCodes;
+				
+				if (saveCodes.Count == 0)
+				{
+					MessageBox.Show("セーブコードがまだありません。\nラウンドをクリアするとセーブコードが生成されます。", 
+						"情報", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					return;
+				}
+				
+				// コンテキストメニューでセーブコードを表示
+				var contextMenu = new ContextMenuStrip();
+				
+				foreach (var saveCode in saveCodes)
+				{
+					var item = new ToolStripMenuItem($"{saveCode.Timestamp:HH:mm:ss} - {saveCode.RoundTypeName}");
+					item.Tag = saveCode.Code;
+					item.Click += (s, args) =>
+					{
+						var code = (s as ToolStripMenuItem)?.Tag?.ToString();
+						if (!string.IsNullOrEmpty(code))
+						{
+							Clipboard.SetText(code);
+							MessageBox.Show($"セーブコードをコピーしました。\n\n{code}", 
+								"コピー完了", MessageBoxButtons.OK, MessageBoxIcon.Information);
+						}
+					};
+					contextMenu.Items.Add(item);
+				}
+				
+				var button = sender as Button;
+				if (button != null)
+				{
+					contextMenu.Show(button, new Point(0, button.Height));
+				}
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show($"セーブコード一覧の表示でエラーが発生しました: {ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+		}
+
+		private void OnMasterChanged()
+		{
+			if (this.InvokeRequired)
+			{
+				this.BeginInvoke(new Action(OnMasterChanged));
+				return;
+			}
+			
+			// マスター変更音を再生（SoundSettingsから設定を取得）
+			if (webSocketClient.SoundSettings.EnableMasterChangeSound)
+			{
+				webSocketClient.PlayCustomSound(webSocketClient.SoundSettings.MasterChangeSoundPath, "masterchange.mp3");
+			}
+			
+			// 次ラウンド予測を更新
+			UpdateNextRoundPrediction();
+			
+			// TerrorDisplayFormも更新
+			if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
+			{
+				terrorDisplayForm.UpdateNextRoundPrediction();
+			}
+			
+			Logger.Info("MasterChange", "マスター変更を検出 - 次ラウンドは特殊確定");
+		}
+
+		private void OnSaveCodeReceived(SaveCodeInfo saveCode)
+		{
+			if (this.InvokeRequired)
+			{
+				this.BeginInvoke(new Action<SaveCodeInfo>(OnSaveCodeReceived), saveCode);
+				return;
+			}
+			
+			Logger.Info("SaveCode", $"セーブコード受信: {saveCode.Code} ({saveCode.RoundTypeName})");
+		}
+
 		private void ButtonTerrorWindow_CheckedChanged(object sender, EventArgs e)
 		{
 			var checkBox = sender as CheckBox;
@@ -1010,16 +1219,10 @@ namespace ToNStatTool
 					terrorDisplayForm.UpdatePlayerCount(aliveCount, totalCount);
 					
 					// 現在のラウンド状態を同期
-					var gameData = webSocketClient.GameData;
-					if (mainFormRoundActive)
+					if (mainFormRoundActive && webSocketClient.InstanceState.HasCurrentRound)
 					{
-						string roundType = gameData.ContainsKey("roundType") ? gameData["roundType"]?.ToString() ?? "-" : "-";
-						// (開始)などのサフィックスを除去
-						if (roundType.Contains(" ("))
-							roundType = roundType.Substring(0, roundType.IndexOf(" ("));
-						
 						// 経過時間を含めて同期
-						terrorDisplayForm.SyncRoundInfo(roundType, mainFormRoundStartTime, mainFormRoundActive);
+						terrorDisplayForm.SyncRoundInfo(webSocketClient.InstanceState.CurrentRoundType, mainFormRoundStartTime, mainFormRoundActive);
 					}
 					else
 					{
@@ -1071,7 +1274,7 @@ namespace ToNStatTool
 					: ThemeManager.Light.Text;
 			}
 
-			// テラー表示フォームが開いていればテーマを適用
+			// テラー表示ウィンドウが開いていればテーマを適用
 			if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
 			{
 				terrorDisplayForm.ApplyTheme();
@@ -1155,7 +1358,7 @@ namespace ToNStatTool
 				// 次ラウンド予測を更新
 				UpdateNextRoundPrediction();
 				
-				// テラー表示フォームに通知
+				// テラー表示ウィンドウに通知
 				if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
 				{
 					terrorDisplayForm.OnRoundEnd();
@@ -1164,26 +1367,46 @@ namespace ToNStatTool
 		}
 
 		/// <summary>
-		/// 8ページ/アンバウンド終了時のアイテムリマインダー
+		/// 8ページ/アンバウンド/パニッシュ終了時のアイテムリマインダー
 		/// </summary>
 		private void OnItemReminderRoundEnd()
 		{
+			// イベント受信をログ（デバッグ用）
+			Logger.Info("ItemReminder", $"アイテムリマインダーイベント受信: EnableItemReminder={webSocketClient.SoundSettings.EnableItemReminder}");
+			System.Diagnostics.Debug.WriteLine($"[ITEM_REMINDER_UI] イベント受信: EnableItemReminder={webSocketClient.SoundSettings.EnableItemReminder}");
+			
 			// リマインダーが無効の場合は何もしない
 			if (!webSocketClient.SoundSettings.EnableItemReminder)
+			{
+				Logger.Info("ItemReminder", "リマインダーが無効のためスキップ");
+				System.Diagnostics.Debug.WriteLine("[ITEM_REMINDER_UI] リマインダーが無効のためスキップ");
 				return;
+			}
 
 			this.BeginInvoke(new Action(() =>
 			{
-				// テラー表示フォームにリマインダーを表示
+				Logger.Info("ItemReminder", $"リマインダー処理開始: terrorDisplayForm={terrorDisplayForm != null}, IsDisposed={terrorDisplayForm?.IsDisposed ?? true}");
+				System.Diagnostics.Debug.WriteLine($"[ITEM_REMINDER_UI] 処理開始: terrorDisplayForm={terrorDisplayForm != null}");
+				
+				// テラー表示ウィンドウにリマインダーを表示
 				if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
 				{
 					int duration = webSocketClient.SoundSettings.ItemReminderDurationSeconds;
+					Logger.Info("ItemReminder", $"テラー表示ウィンドウにリマインダー表示: duration={duration}秒");
+					System.Diagnostics.Debug.WriteLine($"[ITEM_REMINDER_UI] ShowItemReminder呼び出し: duration={duration}");
 					terrorDisplayForm.ShowItemReminder(duration);
+				}
+				else
+				{
+					Logger.Info("ItemReminder", "テラー表示ウィンドウが表示されていないためリマインダーをスキップ");
+					System.Diagnostics.Debug.WriteLine("[ITEM_REMINDER_UI] terrorDisplayFormがないためスキップ");
 				}
 
 				// リマインダー音を再生
 				if (webSocketClient.SoundSettings.EnableItemReminderSound)
 				{
+					Logger.Info("ItemReminder", "リマインダー音を再生");
+					System.Diagnostics.Debug.WriteLine("[ITEM_REMINDER_UI] サウンド再生");
 					PlayItemReminderSound();
 				}
 			}));
@@ -1200,7 +1423,13 @@ namespace ToNStatTool
 				{
 					string soundPath = webSocketClient.SoundSettings.ItemReminderSoundPath;
 					
-					if (!string.IsNullOrEmpty(soundPath) && System.IO.File.Exists(soundPath))
+					// パスが空の場合はデフォルトのitem.mp3を使用
+					if (string.IsNullOrEmpty(soundPath))
+					{
+						soundPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "item.mp3");
+					}
+					
+					if (System.IO.File.Exists(soundPath))
 					{
 						// カスタムサウンドファイルを再生
 						using (var audioFile = new NAudio.Wave.AudioFileReader(soundPath))
@@ -1216,7 +1445,7 @@ namespace ToNStatTool
 					}
 					else
 					{
-						// システム音を使用
+						// ファイルが見つからない場合はシステム音を使用
 						System.Media.SystemSounds.Asterisk.Play();
 					}
 				}
@@ -1230,24 +1459,52 @@ namespace ToNStatTool
 		}
 
 		/// <summary>
-		/// インスタンス状態変更時（鳥遭遇、ラウンド開始時など）
+		/// インスタンス状態変更時（鳥遭遇、ラウンド開始時、アイテム取得時など）
 		/// </summary>
 		private void OnInstanceStateChanged()
 		{
 			this.Invoke(new Action(() =>
 			{
+				// デバッグログ
+				string currentItem = webSocketClient?.InstanceState?.CurrentItem ?? "";
+				System.Diagnostics.Debug.WriteLine($"[INSTANCE_STATE] OnInstanceStateChanged呼び出し: CurrentItem='{currentItem}'");
+				
 				// メインフォームの鳥チェックボックスを更新
 				UpdateBirdCheckboxes();
 				
 				// 次ラウンド予測を更新
 				UpdateNextRoundPrediction();
 				
-				// テラー表示フォームにも通知
+				// 現在のアイテム表示を更新
+				UpdateCurrentItemDisplay();
+				
+				// テラー表示ウィンドウにも通知
 				if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
 				{
 					terrorDisplayForm.UpdateNextRoundPrediction();
 				}
 			}));
+		}
+
+		/// <summary>
+		/// 現在の所持アイテム表示を更新
+		/// </summary>
+		private void UpdateCurrentItemDisplay()
+		{
+			var textBoxCurrentItem = FindControl("textBox_currentItem") as TextBox;
+			if (textBoxCurrentItem == null)
+			{
+				System.Diagnostics.Debug.WriteLine("[ITEM_DISPLAY] textBox_currentItemが見つかりません");
+				return;
+			}
+			
+			var instanceState = webSocketClient?.InstanceState;
+			string currentItem = instanceState?.CurrentItem ?? "";
+			string displayText = string.IsNullOrEmpty(currentItem) ? "-" : currentItem;
+			
+			System.Diagnostics.Debug.WriteLine($"[ITEM_DISPLAY] UpdateCurrentItemDisplay: CurrentItem='{currentItem}' → Display='{displayText}'");
+			
+			textBoxCurrentItem.Text = displayText;
 		}
 
 		/// <summary>
@@ -1257,7 +1514,7 @@ namespace ToNStatTool
 		{
 			this.Invoke(new Action(() =>
 			{
-				// テラー表示フォームのプレイヤー数を更新
+				// テラー表示ウィンドウのプレイヤー数を更新
 				if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
 				{
 					int aliveCount = webSocketClient.Players.Values.Count(p => p.IsAlive);
@@ -1311,7 +1568,7 @@ namespace ToNStatTool
 			}
 		}
 
-		private void OnRoundStart(string roundType)
+		private void OnRoundStart(ToNRoundType roundType)
 		{
 			this.Invoke(new Action(() =>
 			{
@@ -1323,7 +1580,7 @@ namespace ToNStatTool
 				// 次ラウンド予測を更新
 				UpdateNextRoundPrediction();
 				
-				// テラー表示フォームに通知
+				// テラー表示ウィンドウに通知
 				if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
 				{
 					terrorDisplayForm.OnRoundStart(roundType);
@@ -1358,7 +1615,7 @@ namespace ToNStatTool
 			}
 
 			// ラウンドがアクティブな場合は、現在のラウンドを考慮した予測を使用
-			if (mainFormRoundActive && !string.IsNullOrEmpty(instanceState.CurrentRoundType))
+			if (mainFormRoundActive && instanceState.HasCurrentRound)
 			{
 				UpdateNextRoundPredictionForCurrentRound(instanceState.CurrentRoundType);
 				return;
@@ -1366,6 +1623,16 @@ namespace ToNStatTool
 
 			string prediction = "";
 			Color color = ThemeManager.IsDark ? ThemeManager.Dark.Text : ThemeManager.Light.Text;
+
+			// マスター変更時は特殊確定
+			if (instanceState.MasterChanged)
+			{
+				prediction = "特殊 (マスター変更)";
+				color = ThemeManager.GetPredictionColor("special");
+				textBoxNextRound.Text = prediction;
+				textBoxNextRound.ForeColor = color;
+				return;
+			}
 
 			// Moon解禁チェック
 			if (instanceState.AllBirdsMet && !instanceState.TwilightUnlocked)
@@ -1390,25 +1657,23 @@ namespace ToNStatTool
 			}
 			else
 			{
-				string lastRound = instanceState.LastRoundType?.ToLower() ?? "";
-				
-				if (IsSpecialRoundType(lastRound))
+				// 特殊解放後の予測ロジック
+				// NormalRoundCount: 0=特殊枠消費後, 1=通常/特殊どちらか, 2=特殊枠確定
+				if (instanceState.NormalRoundCount == 0)
 				{
+					// 特殊枠を消費した後なので次は通常
 					prediction = "通常";
 					color = ThemeManager.GetPredictionColor("normal");
 				}
-				else if (IsOverrideRoundType(lastRound))
-				{
-					prediction = "通常 or 特殊";
-					color = ThemeManager.GetPredictionColor("special");
-				}
 				else if (instanceState.NormalRoundCount >= 2)
 				{
+					// Classicが2回続いたので特殊確定
 					prediction = "特殊";
 					color = ThemeManager.GetPredictionColor("special");
 				}
 				else
 				{
+					// N=1の場合は通常/特殊どちらか不明
 					prediction = "通常 or 特殊";
 					color = ThemeManager.GetPredictionColor("special");
 				}
@@ -1418,31 +1683,10 @@ namespace ToNStatTool
 			textBoxNextRound.ForeColor = color;
 		}
 
-		private bool IsSpecialRoundType(string roundType)
-		{
-			string lower = roundType.ToLower();
-			string[] specialRounds = {
-				"alternate", "punished", "cracked", "sabotage", "fog",
-				"bloodbath", "double trouble", "midnight",
-				"blood moon", "mystic moon", "twilight", "solstice"
-			};
-			foreach (var special in specialRounds)
-			{
-				if (lower.Contains(special)) return true;
-			}
-			return false;
-		}
-
-		private bool IsOverrideRoundType(string roundType)
-		{
-			string lower = roundType.ToLower();
-			return lower.Contains("ghost") || lower.Contains("8 pages") || lower.Contains("unbound");
-		}
-
 		/// <summary>
 		/// 現在のラウンドを考慮した次ラウンド予測を更新
 		/// </summary>
-		private void UpdateNextRoundPredictionForCurrentRound(string currentRoundType)
+			private void UpdateNextRoundPredictionForCurrentRound(ToNRoundType currentRoundType)
 		{
 			var textBoxNextRound = FindControl("textBox_nextRound") as TextBox;
 			if (textBoxNextRound == null) return;
@@ -1457,21 +1701,61 @@ namespace ToNStatTool
 			string prediction = "";
 			Color color = ThemeManager.IsDark ? ThemeManager.Dark.Text : ThemeManager.Light.Text;
 
+			// ラウンド開始時のNormalRoundCountを使用（ラウンド終了時に更新されるため）
+			int normalCountAtStart = instanceState.NormalRoundCountAtRoundStart;
+
 			// 現在のラウンドが特殊なら次は通常
-			if (IsSpecialRoundType(currentRoundType.ToLower()))
+			if (ToNRoundTypeHelper.IsSpecialRound(currentRoundType))
 			{
 				prediction = "通常";
 				color = ThemeManager.GetPredictionColor("normal");
 			}
-			else if (IsOverrideRoundType(currentRoundType.ToLower()))
+			else if (ToNRoundTypeHelper.IsMoonRound(currentRoundType))
 			{
-				prediction = "通常 or 特殊";
-				color = ThemeManager.GetPredictionColor("special");
+				// Moonラウンド
+				// 初回: Override系と同じ挙動（Classicを上書き）
+				// 2回目以降: 特殊枠を1/20で選出 → 特殊枠消費
+				if (instanceState.IsCurrentRoundFirstMoon)
+				{
+					// 初回MoonはOverride系と同じ
+					if (normalCountAtStart >= 2)
+					{
+						// N=2でMoonが出た → 特殊枠消費
+						prediction = "通常";
+						color = ThemeManager.GetPredictionColor("normal");
+					}
+					else
+					{
+						prediction = "通常 or 特殊";
+						color = ThemeManager.GetPredictionColor("special");
+					}
+				}
+				else
+				{
+					// 2回目以降Moon → 特殊枠消費 → 次は通常
+					prediction = "通常";
+					color = ThemeManager.GetPredictionColor("normal");
+				}
+			}
+			else if (ToNRoundTypeHelper.IsOverrideRound(currentRoundType))
+			{
+				// Override系 (RUN, Ghost, Unbound, 8Pages)
+				// N=2（特殊枠確定）で出た場合は特殊枠消費 → 次は通常
+				if (normalCountAtStart >= 2)
+				{
+					prediction = "通常";
+					color = ThemeManager.GetPredictionColor("normal");
+				}
+				else
+				{
+					prediction = "通常 or 特殊";
+					color = ThemeManager.GetPredictionColor("special");
+				}
 			}
 			else
 			{
-				// 通常ラウンドの場合、カウントを考慮
-				int normalCount = instanceState.NormalRoundCount + 1; // 現在のラウンドも含む
+				// 通常ラウンド（Classic）の場合、カウントを考慮
+				int normalCount = normalCountAtStart + 1; // 現在のラウンドも含む
 				if (normalCount >= 2)
 				{
 					prediction = "特殊";
@@ -1557,12 +1841,8 @@ namespace ToNStatTool
 			UpdateTextBox("roundActive", GetGameDataValue(gameData, "roundActive", "-"));
 			UpdateTextBox("alive", GetGameDataValue(gameData, "alive", "-"));
 
-			// サボタージュ状態の更新を制限
-			if (DateTime.Now - lastSaboteurUpdate > TimeSpan.FromSeconds(2))
-			{
-				UpdateTextBox("saboteur", GetGameDataValue(gameData, "saboteur", "-"));
-				lastSaboteurUpdate = DateTime.Now;
-			}
+			// サボタージュ状態の更新（スロットリング削除 - 即時更新）
+			UpdateTextBox("saboteur", GetGameDataValue(gameData, "saboteur", "-"));
 
 			UpdateTextBox("pageCount", GetGameDataValue(gameData, "pageCount", "-"));
 		}
@@ -1832,7 +2112,7 @@ namespace ToNStatTool
 					foreach (var kvp in roundStats.RoundTypeCounts.OrderByDescending(x => x.Value))
 					{
 						double percentage = (double)kvp.Value / roundStats.TotalRounds * 100;
-						var item = new ListViewItem(kvp.Key);
+						var item = new ListViewItem(ToNRoundTypeHelper.GetDisplayName(kvp.Key));
 						item.SubItems.Add(kvp.Value.ToString());
 						item.SubItems.Add(percentage.ToString("F1"));
 						listView.Items.Add(item);
@@ -1878,14 +2158,27 @@ namespace ToNStatTool
 			foreach (var log in roundLogs.OrderByDescending(l => l.Timestamp).Take(1000))
 			{
 				var item = new ListViewItem(log.Timestamp.ToString("HH:mm"));
-				item.SubItems.Add(log.RoundType);
+				item.SubItems.Add(log.RoundTypeDisplayName);
 				item.SubItems.Add(log.MapName);
 				item.SubItems.Add(log.TerrorNames);
-
-				if (log.Survived)
+				
+				// アイテム列（常に表示）
+				item.SubItems.Add(string.IsNullOrEmpty(log.Items) || log.Items == "なし" ? "-" : log.Items);
+				
+				// 色で生死を判定（結果列は削除）
+				if (!log.WasOptedIn)
+				{
+					// 未参加時はグレー系の色
+					item.ForeColor = ThemeManager.IsDark ? Color.FromArgb(128, 128, 128) : Color.Gray;
+				}
+				else if (log.Survived)
+				{
 					item.ForeColor = ThemeManager.IsDark ? ThemeManager.Dark.RoundLogSurvived : ThemeManager.Light.RoundLogSurvived;
+				}
 				else
+				{
 					item.ForeColor = ThemeManager.IsDark ? ThemeManager.Dark.RoundLogDied : ThemeManager.Light.RoundLogDied;
+				}
 
 				listView.Items.Add(item);
 			}
@@ -2066,20 +2359,24 @@ namespace ToNStatTool
 		{
 			try
 			{
+				// 最新の設定を読み込んでからメインフォームの設定だけを更新
+				// （設定画面で保存されたMasterChangeSoundPath等を上書きしないため）
+				var currentSettings = AppSettings.Load();
+				
 				// テーマを保存
-				appSettings.SetTheme(ThemeManager.CurrentTheme);
+				currentSettings.SetTheme(ThemeManager.CurrentTheme);
 				
 				// 透明度を保存
 				var trackBar = FindControl("trackBarOpacity") as TrackBar;
 				if (trackBar != null)
 				{
-					appSettings.TerrorFormOpacity = trackBar.Value;
+					currentSettings.TerrorFormOpacity = trackBar.Value;
 				}
 				
 				// URLを保存
-				appSettings.WebSocketUrl = textBoxUrl.Text;
+				currentSettings.WebSocketUrl = textBoxUrl.Text;
 				
-				appSettings.Save();
+				currentSettings.Save();
 			}
 			catch (Exception ex)
 			{

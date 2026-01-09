@@ -203,3 +203,5 @@ See LICENSE file and licenses/ directory for full details.
 - Application: Copyright (c) 2025 Ogura Deko All rights reserved.
 - JSON data: Copyright (c) yussy, 2025. All rights reserved.
 - Sound data: OtoLogic(https://otologic.jp) CC BY 4.0
+- Terror Image data: Terror Of Nowhere情報wiki (https://wikiwiki.jp/ton_jp/)
+- Icon data: Terror of Nowhere world (https://vrchat.com/home/launch?worldId=wrld_a61cdabe-1218-4287-9ffc-2a4d1414e5bd)

@@ -357,7 +357,7 @@ namespace ToNStatTool
 		/// <summary>
 		/// ラウンド開始時に呼び出す
 		/// </summary>
-		public void OnRoundStart(string roundType)
+		public void OnRoundStart(ToNRoundType roundType)
 		{
 			if (this.InvokeRequired)
 			{
@@ -371,7 +371,7 @@ namespace ToNStatTool
 
 			Color roundColor = GetRoundTypeColor(roundType);
 			labelCurrentRound.ForeColor = roundColor;
-			labelCurrentRound.Text = $"🎮 {roundType}";
+			labelCurrentRound.Text = $"🎮 {ToNRoundTypeHelper.GetDisplayName(roundType)}";
 
 			// 次のラウンド予測を更新（現在のラウンド種別を考慮）
 			UpdateNextRoundPredictionForCurrentRound(roundType);
@@ -380,7 +380,7 @@ namespace ToNStatTool
 		/// <summary>
 		/// ラウンド情報を同期（途中でフォームを開いた時用）
 		/// </summary>
-		public void SyncRoundInfo(string roundType, DateTime startTime, bool isActive)
+		public void SyncRoundInfo(ToNRoundType roundType, DateTime startTime, bool isActive)
 		{
 			if (this.InvokeRequired)
 			{
@@ -400,7 +400,7 @@ namespace ToNStatTool
 				
 				Color roundColor = GetRoundTypeColor(roundType);
 				labelCurrentRound.ForeColor = roundColor;
-				labelCurrentRound.Text = $"🎮 {roundType}";
+				labelCurrentRound.Text = $"🎮 {ToNRoundTypeHelper.GetDisplayName(roundType)}";
 				
 				// 次ラウンド予測を更新
 				UpdateNextRoundPredictionForCurrentRound(roundType);
@@ -435,7 +435,7 @@ namespace ToNStatTool
 		/// <summary>
 		/// 現在のラウンド種別を考慮して次のラウンド予測を更新
 		/// </summary>
-		private void UpdateNextRoundPredictionForCurrentRound(string currentRoundType)
+		private void UpdateNextRoundPredictionForCurrentRound(ToNRoundType currentRoundType)
 		{
 			if (instanceState == null)
 			{
@@ -448,12 +448,28 @@ namespace ToNStatTool
 			Color color = ThemeManager.IsDark ? ThemeManager.Dark.TerrorNextRound : ThemeManager.Light.TerrorNextRound;
 
 			// 現在のラウンドが特殊なら次は通常
-			if (IsSpecialRound(currentRoundType))
+			if (ToNRoundTypeHelper.IsSpecialRound(currentRoundType))
 			{
 				prediction = "通常";
 				color = ThemeManager.GetPredictionColor("normal");
 			}
-			else if (IsOverrideRound(currentRoundType))
+			// Moonラウンドの場合（2回目以降は特殊枚消費）
+			else if (ToNRoundTypeHelper.IsMoonRound(currentRoundType))
+			{
+				if (instanceState.IsCurrentRoundFirstMoon)
+				{
+					// 初回MoonはOverride系と同じ動作
+					prediction = "通常 or 特殊";
+					color = ThemeManager.GetPredictionColor("special");
+				}
+				else
+				{
+					// 2回目以降Moonは特殊枚消費 → 次は通常
+					prediction = "通常";
+					color = ThemeManager.GetPredictionColor("normal");
+				}
+			}
+			else if (ToNRoundTypeHelper.IsOverrideRound(currentRoundType))
 			{
 				prediction = "通常 or 特殊";
 				color = ThemeManager.GetPredictionColor("special");
@@ -462,12 +478,7 @@ namespace ToNStatTool
 			{
 				// 通常ラウンドの場合、カウントを考慮
 				int normalCount = instanceState.NormalRoundCount + 1; // 現在のラウンドも含む
-				if (normalCount >= 3)
-				{
-					prediction = "特殊";
-					color = ThemeManager.GetPredictionColor("special");
-				}
-				else if (normalCount == 2)
+				if (normalCount >= 2)
 				{
 					prediction = "特殊";
 					color = ThemeManager.GetPredictionColor("special");
@@ -489,7 +500,7 @@ namespace ToNStatTool
 		public void UpdateNextRoundPrediction()
 		{
 			// ラウンドがアクティブな場合は、現在のラウンドを考慮した予測を使用
-			if (isRoundActive && instanceState != null && !string.IsNullOrEmpty(instanceState.CurrentRoundType))
+			if (isRoundActive && instanceState != null && instanceState.HasCurrentRound)
 			{
 				UpdateNextRoundPredictionForCurrentRound(instanceState.CurrentRoundType);
 				return;
@@ -504,6 +515,16 @@ namespace ToNStatTool
 
 			string prediction = "";
 			Color color = ThemeManager.IsDark ? ThemeManager.Dark.TerrorNextRound : ThemeManager.Light.TerrorNextRound;
+
+			// マスター変更時は特殊確定
+			if (instanceState.MasterChanged)
+			{
+				prediction = "特殊(MC)";
+				color = ThemeManager.GetPredictionColor("special");
+				labelNextRound.Text = $"➡️ 次: {prediction}";
+				labelNextRound.ForeColor = color;
+				return;
+			}
 
 			// Moon解禁チェック（優先順位: Twilight > Mystic > Blood）
 			if (instanceState.AllBirdsMet && !instanceState.TwilightUnlocked)
@@ -529,14 +550,30 @@ namespace ToNStatTool
 			else
 			{
 				// 通常の周期予測
-				string lastRound = instanceState.LastRoundType.ToLower();
+				ToNRoundType lastRound = instanceState.LastRoundType;
 				
-				if (IsSpecialRound(lastRound))
+				if (ToNRoundTypeHelper.IsSpecialRound(lastRound))
 				{
 					prediction = "通常";
 					color = ThemeManager.GetPredictionColor("normal");
 				}
-				else if (IsOverrideRound(lastRound))
+				// Moonラウンド終了後の予測
+				else if (ToNRoundTypeHelper.IsMoonRound(lastRound))
+				{
+					if (instanceState.IsCurrentRoundFirstMoon)
+					{
+						// 初回MoonはOverride系と同じ動作
+						prediction = "通常 or 特殊";
+						color = ThemeManager.GetPredictionColor("special");
+					}
+					else
+					{
+						// 2回目以降Moonは特殊枚消費 → 次は通常
+						prediction = "通常";
+						color = ThemeManager.GetPredictionColor("normal");
+					}
+				}
+				else if (ToNRoundTypeHelper.IsOverrideRound(lastRound))
 				{
 					prediction = "通常 or 特殊";
 					color = ThemeManager.GetPredictionColor("special");
@@ -563,85 +600,67 @@ namespace ToNStatTool
 		}
 
 		/// <summary>
-		/// 特殊ラウンドかどうかを判定
-		/// </summary>
-		private bool IsSpecialRound(string roundType)
-		{
-			string lower = roundType.ToLower();
-			string[] specialRounds = {
-				"alternate", "オルタネイト",
-				"punished", "パニッシュ",
-				"cracked", "狂気",
-				"sabotage", "サボタージュ",
-				"fog", "霧",
-				"bloodbath", "ブラッドバス",
-				"double trouble", "ダブルトラブル",
-				"midnight", "ミッドナイト",
-				"blood moon", "ブラッドムーン",
-				"mystic moon", "ミスティックムーン",
-				"twilight", "トワイライト",
-				"solstice", "ソルスティス"
-			};
-
-			foreach (var special in specialRounds)
-			{
-				if (lower.Contains(special))
-					return true;
-			}
-			return false;
-		}
-
-		/// <summary>
-		/// 上書きラウンドかどうかを判定
-		/// </summary>
-		private bool IsOverrideRound(string roundType)
-		{
-			string lower = roundType.ToLower();
-			return lower.Contains("ghost") || lower.Contains("ゴースト") ||
-				   lower.Contains("8 pages") || lower.Contains("8ページ") ||
-				   lower.Contains("unbound") || lower.Contains("アンバウンド");
-		}
-
-		/// <summary>
 		/// ラウンドタイプに応じた色を取得
 		/// </summary>
-		private Color GetRoundTypeColor(string roundType)
+		private Color GetRoundTypeColor(ToNRoundType roundType)
 		{
-			string lower = roundType.ToLower();
 			bool isDark = ThemeManager.IsDark;
 
-			if (lower.Contains("classic") || lower == "run" || lower.Contains("走れ"))
-				return isDark ? Color.White : Color.Black;
-			if (lower.Contains("alternate") || lower.Contains("オルタネイト"))
-				return isDark ? Color.White : Color.Black;
-			if (lower.Contains("punished") || lower.Contains("パニッシュ"))
-				return Color.Yellow;
-			if (lower.Contains("cracked") || lower.Contains("狂気"))
-				return Color.Magenta;
-			if (lower.Contains("sabotage") || lower.Contains("サボタージュ"))
-				return Color.Green;
-			if (lower.Contains("fog") || lower.Contains("霧"))
-				return Color.Gray;
-			if (lower.Contains("bloodbath") || lower.Contains("ブラッドバス"))
-				return Color.Red;
-			if (lower.Contains("midnight") || lower.Contains("ミッドナイト"))
-				return Color.DarkRed;
-			if (lower.Contains("ghost") || lower.Contains("ゴースト"))
-				return Color.DeepSkyBlue;
-			if (lower.Contains("8 pages") || lower.Contains("8ページ"))
-				return isDark ? Color.White : Color.Black;
-			if (lower.Contains("unbound") || lower.Contains("アンバウンド"))
-				return Color.Orange;
-			if (lower.Contains("blood moon") || lower.Contains("ブラッドムーン"))
-				return Color.DarkRed;
-			if (lower.Contains("mystic moon") || lower.Contains("ミスティックムーン"))
-				return isDark ? Color.Cyan : Color.Teal;
-			if (lower.Contains("twilight") || lower.Contains("トワイライト"))
-				return Color.Gold;
-			if (lower.Contains("solstice") || lower.Contains("ソルスティス"))
-				return Color.FromArgb(0, 255, 136);
-
-			return isDark ? Color.Cyan : Color.Teal;
+			switch (roundType)
+			{
+				case ToNRoundType.Classic:
+				case ToNRoundType.RUN:
+				case ToNRoundType.Alternate:
+				case ToNRoundType.Eight_Pages:
+					return isDark ? Color.White : Color.Black;
+					
+				case ToNRoundType.Punished:
+					return Color.Yellow;
+					
+				case ToNRoundType.Cracked:
+					return Color.Magenta;
+					
+				case ToNRoundType.Sabotage:
+					return Color.Green;
+					
+				case ToNRoundType.Fog:
+				case ToNRoundType.Fog_Alternate:
+					return Color.Gray;
+					
+				case ToNRoundType.Bloodbath:
+				case ToNRoundType.Double_Trouble:
+				case ToNRoundType.EX:
+					return Color.Red;
+					
+				case ToNRoundType.Midnight:
+				case ToNRoundType.Blood_Moon:
+					return Color.DarkRed;
+					
+				case ToNRoundType.Ghost:
+				case ToNRoundType.Ghost_Alternate:
+					return Color.DeepSkyBlue;
+					
+				case ToNRoundType.Unbound:
+					return Color.Orange;
+					
+				case ToNRoundType.Mystic_Moon:
+					return isDark ? Color.Cyan : Color.Teal;
+					
+				case ToNRoundType.Twilight:
+					return Color.Gold;
+					
+				case ToNRoundType.Solstice:
+					return Color.FromArgb(0, 255, 136);
+					
+				case ToNRoundType.GIGABYTE:
+					return Color.Lime;
+					
+				case ToNRoundType.Cold_Night:
+					return Color.LightBlue;
+					
+				default:
+					return isDark ? Color.Cyan : Color.Teal;
+			}
 		}
 
 		/// <summary>

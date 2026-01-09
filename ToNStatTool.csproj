@@ -91,6 +91,7 @@
     <Compile Include="AppSettings.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="Models.cs" />
+    <Compile Include="ToNRoundType.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="SettingsForm.cs">
       <SubType>Form</SubType>
@@ -98,6 +99,9 @@
     <Compile Include="TerrorConfiguration.cs" />
     <Compile Include="TerrorControl.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="SessionStatsForm.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="TerrorDisplayForm.cs">
       <SubType>Form</SubType>

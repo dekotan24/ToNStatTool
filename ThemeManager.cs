@@ -45,14 +45,14 @@ namespace ToNStatTool
 			public static readonly Color ButtonBackground = ColorTranslator.FromHtml("#E0E0E0");
 			public static readonly Color ListViewBackground = ColorTranslator.FromHtml("#FFFFFF");
 			
-			// テラー表示フォーム専用（病院・研究施設風の不穏な白）
+			// テラー表示ウィンドウ専用（病院・研究施設風の不穏な白）
 			public static readonly Color TerrorFormBackground = ColorTranslator.FromHtml("#F6F6F6");
 			public static readonly Color TerrorPanelBackground = ColorTranslator.FromHtml("#F6F6F6");
 			public static readonly Color TerrorBottomPanel = ColorTranslator.FromHtml("#E8E8E8");
 			public static readonly Color TerrorDragHandle = ColorTranslator.FromHtml("#D0D0D0");
 			public static readonly Color TerrorDragHandleLine = Color.Gray;
 			
-			// テラー表示フォームのテキスト色
+			// テラー表示ウィンドウのテキスト色
 			public static readonly Color TerrorPlayerCount = Color.Black;
 			public static readonly Color TerrorPlayerCountWarning = Color.DarkRed;
 			public static readonly Color TerrorElapsedTime = Color.DarkGreen;
@@ -90,14 +90,14 @@ namespace ToNStatTool
 			public static readonly Color ButtonBackground = ColorTranslator.FromHtml("#3A3A3A");
 			public static readonly Color ListViewBackground = ColorTranslator.FromHtml("#2A2A2A");
 			
-			// テラー表示フォーム専用（既存のかっこいいダークテーマ）
+			// テラー表示ウィンドウ専用（既存のかっこいいダークテーマ）
 			public static readonly Color TerrorFormBackground = Color.FromArgb(30, 30, 30);
 			public static readonly Color TerrorPanelBackground = Color.FromArgb(30, 30, 30);
 			public static readonly Color TerrorBottomPanel = Color.FromArgb(45, 45, 45);
 			public static readonly Color TerrorDragHandle = Color.FromArgb(70, 70, 70);
 			public static readonly Color TerrorDragHandleLine = Color.LightGray;
 			
-			// テラー表示フォームのテキスト色
+			// テラー表示ウィンドウのテキスト色
 			public static readonly Color TerrorPlayerCount = Color.White;
 			public static readonly Color TerrorPlayerCountWarning = Color.Red;
 			public static readonly Color TerrorElapsedTime = Color.LightGreen;
@@ -255,7 +255,7 @@ namespace ToNStatTool
 					break;
 
 				case Panel panel:
-					// 特定のパネルは除外（テラー表示フォームのパネルなど）
+					// 特定のパネルは除外（テラー表示ウィンドウのパネルなど）
 					if (!panel.Name.Contains("terror") && !panel.Name.Contains("Terror"))
 					{
 						panel.BackColor = IsDark ? Dark.CommonBackground : Light.CommonBackground;
@@ -270,7 +270,7 @@ namespace ToNStatTool
 		}
 
 		/// <summary>
-		/// テラー表示フォーム専用のテーマ適用
+		/// テラー表示ウィンドウ専用のテーマ適用
 		/// </summary>
 		public static void ApplyToTerrorDisplayForm(Form form, Panel terrorPanel, Panel bottomPanel, Label dragHandle,
 			Label labelPlayerCount, Label labelElapsedTime, Label labelCurrentRound, Label labelNextRound)
