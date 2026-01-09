@@ -629,11 +629,27 @@ namespace ToNStatTool
                     if (webSocketClient?.InstanceState != null)
                     {
                         webSocketClient.InstanceState.EstimatedSurvivalCount = newValue;
+                        
+                        // 15以上ならMystic Moonを自動解禁
+                        if (newValue >= 15 && !webSocketClient.InstanceState.MysticMoonUnlocked)
+                        {
+                            webSocketClient.InstanceState.MysticMoonUnlocked = true;
+                            var checkMysticMoon = FindControl("checkMysticMoon") as CheckBox;
+                            if (checkMysticMoon != null)
+                            {
+                                checkMysticMoon.Checked = true;
+                            }
+                            System.Diagnostics.Debug.WriteLine("[InstanceState] Mystic Moon解禁（手動設定で15以上）");
+                        }
+                        
                         var labelSurvivalValue = FindControl("labelSurvivalValue") as Label;
                         if (labelSurvivalValue != null)
                         {
                             labelSurvivalValue.Text = newValue.ToString();
                         }
+                        
+                        // 次ラウンド予測を更新
+                        UpdateNextRoundPrediction();
                     }
                 }
             }
