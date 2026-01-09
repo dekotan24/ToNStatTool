@@ -729,6 +729,11 @@ namespace ToNStatTool
 			{
 				Logger.Info("RoundType", $"ラウンド終了処理: {roundType} ({roundName})");
 				GameData["roundType"] = $"{ToNRoundTypeHelper.GetDisplayName(roundType)} (終了)";
+				
+				// アイテムリマインダーチェック用に終了前のラウンドタイプを保存
+				// (FinishCurrentRound等で値が変わる可能性があるため)
+				var finishedRoundType = InstanceState.CurrentRoundType;
+				
 				FinishCurrentRound();
 				ResetAllPlayersAlive();
 				GameData["saboteur"] = "いいえ";
@@ -738,14 +743,15 @@ namespace ToNStatTool
 				Logger.Info("RoundType", $"ラウンド終了イベントを発火: {roundType}");
 
 				// アイテムリマインダー対象ラウンドかチェック（Punished/8Pages/Unbound）
-				bool isItemReminderRound = ToNRoundTypeHelper.IsItemReminderRound(roundType);
-				Logger.Info("RoundType", $"アイテムリマインダーチェック: roundType={roundType}, IsItemReminderRound={isItemReminderRound}");
-				System.Diagnostics.Debug.WriteLine($"[ITEM_REMINDER] roundType={roundType}, IsItemReminderRound={isItemReminderRound}");
+				// 注意: 受信したroundType(Intermission)ではなく、終了前のラウンドタイプを使用
+				bool isItemReminderRound = ToNRoundTypeHelper.IsItemReminderRound(finishedRoundType);
+				Logger.Info("RoundType", $"アイテムリマインダーチェック: finishedRoundType={finishedRoundType}, IsItemReminderRound={isItemReminderRound}");
+				System.Diagnostics.Debug.WriteLine($"[ITEM_REMINDER] finishedRoundType={finishedRoundType}, IsItemReminderRound={isItemReminderRound}");
 				
 				if (isItemReminderRound)
 				{
-					Logger.Info("RoundType", $"アイテムリマインダーイベントを発火: {roundType}");
-					System.Diagnostics.Debug.WriteLine($"[ITEM_REMINDER] イベント発火: {roundType}");
+					Logger.Info("RoundType", $"アイテムリマインダーイベントを発火: {finishedRoundType}");
+					System.Diagnostics.Debug.WriteLine($"[ITEM_REMINDER] イベント発火: {finishedRoundType}");
 					OnItemReminderRoundEnd?.Invoke();
 				}
 			}
@@ -1398,6 +1404,21 @@ namespace ToNStatTool
 		{
 			try
 			{
+				// eventプロパティをチェック（item_pickup等）
+				string trackerEvent = jsonData["event"]?.ToString() ?? "";
+				
+				if (!string.IsNullOrEmpty(trackerEvent))
+				{
+					Logger.Debug("Tracker", $"TRACKERイベント受信: event='{trackerEvent}'");
+					
+					switch (trackerEvent.ToLower())
+					{
+						case "item_pickup":
+							ProcessItemPickupEvent(jsonData);
+							return;
+					}
+				}
+				
 				// プレイヤートラッキング情報の処理（これが重要！）
 				var playersData = jsonData["Value"] as JArray;
 				if (playersData != null)
@@ -1452,6 +1473,45 @@ namespace ToNStatTool
 			catch (Exception ex)
 			{
 				System.Diagnostics.Debug.WriteLine($"[TRACKER] エラー: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// TRACKERイベントのitem_pickupを処理
+		/// </summary>
+		private void ProcessItemPickupEvent(JObject jsonData)
+		{
+			try
+			{
+				var args = jsonData["args"] as JArray;
+				if (args != null && args.Count > 0)
+				{
+					string itemName = args[0]?.ToString() ?? "";
+					
+					if (!string.IsNullOrEmpty(itemName))
+					{
+						// ラウンド中の取得アイテムに追加
+						if (!currentRoundItems.Contains(itemName))
+						{
+							currentRoundItems.Add(itemName);
+						}
+						
+						// 現在所持アイテムを更新
+						string previousItem = InstanceState.CurrentItem;
+						InstanceState.CurrentItem = itemName;
+						
+						Logger.Info("ItemPickup", $"アイテム取得(TRACKER): '{previousItem}' → '{itemName}'");
+						System.Diagnostics.Debug.WriteLine($"[ITEM_PICKUP] アイテム取得: '{previousItem}' → '{itemName}'");
+						
+						// UI更新のためにイベントを発火
+						OnInstanceStateChanged?.Invoke();
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				Logger.Error("ItemPickup", "アイテム取得処理エラー", ex);
+				System.Diagnostics.Debug.WriteLine($"[ITEM_PICKUP] エラー: {ex.Message}");
 			}
 		}
 

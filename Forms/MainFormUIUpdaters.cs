@@ -57,7 +57,18 @@ namespace ToNStatTool
         {
             var currentTerrors = webSocketClient.CurrentTerrors;
 
-            if (currentTerrors.Count != terrorControls.Count)
+            // テラーの数が変わったか、または内容が変わったかをチェック
+            bool needsUpdate = currentTerrors.Count != terrorControls.Count;
+            
+            if (!needsUpdate && currentTerrors.Count > 0)
+            {
+                // 数が同じでも、テラー名が変わっていれば更新が必要
+                var currentNames = currentTerrors.Select(t => t.Name).ToList();
+                var displayedNames = terrorControls.Select(c => c.TerrorData?.Name ?? "").ToList();
+                needsUpdate = !currentNames.SequenceEqual(displayedNames);
+            }
+
+            if (needsUpdate)
             {
                 foreach (var control in terrorControls)
                 {
