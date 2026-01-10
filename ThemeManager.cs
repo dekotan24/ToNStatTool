@@ -78,6 +78,14 @@ namespace ToNStatTool
 			public static readonly Color PredictionNormal = Color.Green;
 			public static readonly Color PredictionSpecial = Color.OrangeRed;  // DarkOrangeより濃い色
 			public static readonly Color PredictionDisabled = Color.Gray;
+			
+			// テラー特性の色（ライト用）
+			public static readonly Color TraitMovement = Color.Blue;
+			public static readonly Color TraitAttack = Color.Red;
+			public static readonly Color TraitSpecial = Color.Purple;
+			public static readonly Color TraitSpeed = Color.FromArgb(200, 120, 0);  // 暗めのオレンジ
+			public static readonly Color TraitCounter = Color.DarkRed;
+			public static readonly Color TraitDefault = Color.Black;
 		}
 
 		// ===== ダークモード配色 =====
@@ -124,6 +132,14 @@ namespace ToNStatTool
 			public static readonly Color PredictionNormal = Color.LightGreen;
 			public static readonly Color PredictionSpecial = Color.Orange;
 			public static readonly Color PredictionDisabled = Color.Gray;
+			
+			// テラー特性の色（ダーク用 - 暗い背景で見やすい色）
+			public static readonly Color TraitMovement = Color.DeepSkyBlue;
+			public static readonly Color TraitAttack = Color.FromArgb(255, 120, 120);  // 明るい赤
+			public static readonly Color TraitSpecial = Color.Orchid;
+			public static readonly Color TraitSpeed = Color.Orange;
+			public static readonly Color TraitCounter = Color.Salmon;
+			public static readonly Color TraitDefault = Color.WhiteSmoke;
 		}
 
 		/// <summary>
@@ -365,6 +381,28 @@ namespace ToNStatTool
 		public static string GetThemeButtonText()
 		{
 			return IsDark ? "☀" : "🌙";
+		}
+
+		/// <summary>
+		/// テラー特性の色を取得
+		/// </summary>
+		public static Color GetTraitColor(TerrorTraitCategory category)
+		{
+			switch (category)
+			{
+				case TerrorTraitCategory.Movement:
+					return IsDark ? Dark.TraitMovement : Light.TraitMovement;
+				case TerrorTraitCategory.Attack:
+					return IsDark ? Dark.TraitAttack : Light.TraitAttack;
+				case TerrorTraitCategory.Special:
+					return IsDark ? Dark.TraitSpecial : Light.TraitSpecial;
+				case TerrorTraitCategory.Speed:
+					return IsDark ? Dark.TraitSpeed : Light.TraitSpeed;
+				case TerrorTraitCategory.Counter:
+					return IsDark ? Dark.TraitCounter : Light.TraitCounter;
+				default:
+					return IsDark ? Dark.TraitDefault : Light.TraitDefault;
+			}
 		}
 	}
 }

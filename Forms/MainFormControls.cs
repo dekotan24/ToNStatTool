@@ -541,7 +541,7 @@ namespace ToNStatTool
             listViewRoundLog.Columns.Add("ラウンド", 80);
             listViewRoundLog.Columns.Add("マップ", 100);
             listViewRoundLog.Columns.Add("テラー", 120);
-            listViewRoundLog.Columns.Add("アイテム", 65);
+            listViewRoundLog.Columns.Add("アイテム", 60);
             groupBoxRoundLog.Controls.Add(listViewRoundLog);
         }
 

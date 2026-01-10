@@ -89,6 +89,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AppSettings.cs" />
+    <Compile Include="Forms\MainFormControls.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Logger.cs" />
     <Compile Include="Models.cs" />
     <Compile Include="ToNRoundType.cs" />
@@ -117,9 +120,6 @@
     </Compile>
     <Compile Include="ToNStatTool.Designer.cs">
       <DependentUpon>ToNStatTool.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Forms\MainFormControls.cs">
-      <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\MainFormEventHandlers.cs">
       <SubType>Form</SubType>

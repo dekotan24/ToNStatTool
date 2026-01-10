@@ -17,6 +17,7 @@ namespace ToNStatTool
 		private ToolTip toolTip;
 		private FlowLayoutPanel traitsPanel;
 		private List<PictureBox> traitIcons = new List<PictureBox>();
+		private List<(Label label, TerrorTraitCategory category)> traitLabels = new List<(Label, TerrorTraitCategory)>();
 
 
 		public TerrorInfo TerrorData { get; private set; }
@@ -32,7 +33,9 @@ namespace ToNStatTool
 		{
 			this.Size = new Size(180, 200);
 			this.BorderStyle = BorderStyle.FixedSingle;
-			this.BackColor = Color.White;
+			this.BackColor = ThemeManager.IsDark 
+				? ThemeManager.Dark.TerrorPanelBackground 
+				: Color.White;
 
 			toolTip = new ToolTip();
 
@@ -42,7 +45,9 @@ namespace ToNStatTool
 			iconPictureBox.Size = new Size(100, 100);
 			iconPictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
 			iconPictureBox.BorderStyle = BorderStyle.FixedSingle;
-			iconPictureBox.BackColor = Color.LightGray;
+			iconPictureBox.BackColor = ThemeManager.IsDark 
+				? Color.FromArgb(60, 60, 60) 
+				: Color.LightGray;
 			this.Controls.Add(iconPictureBox);
 
 			// テラー名
@@ -51,6 +56,7 @@ namespace ToNStatTool
 			nameLabel.Size = new Size(170, 20);
 			nameLabel.TextAlign = ContentAlignment.MiddleCenter;
 			nameLabel.Font = new Font("Meiryo UI", 9, FontStyle.Bold);
+			nameLabel.ForeColor = ThemeManager.IsDark ? Color.White : Color.Black;
 			this.Controls.Add(nameLabel);
 
 			// スタン状態アイコン
@@ -84,11 +90,11 @@ namespace ToNStatTool
 				nameLabel.Text = displayName;
 			}
 
-			// 背景色の設定
+			// 背景色の設定（テーマに応じた透明度）
 			if (TerrorData.DisplayColor != 0)
 			{
 				var color = ColorFromUInt(TerrorData.DisplayColor);
-				this.BackColor = Color.FromArgb(50, color.R, color.G, color.B);
+				this.BackColor = Color.FromArgb(ThemeManager.IsDark ? 60 : 50, color.R, color.G, color.B);
 			}
 
 			// スタン状態アイコンの設定
@@ -178,6 +184,7 @@ namespace ToNStatTool
 		private void UpdateTraitsDisplay()
 		{
 			traitsPanel.Controls.Clear();
+			traitLabels.Clear();
 
 			// JSONから特性情報を取得
 			var terrorDetail = TerrorJsonLoader.GetTerrorDetail(TerrorData.Name);
@@ -194,10 +201,12 @@ namespace ToNStatTool
 					traitLabel.Text = $"• {trait.TraitType}";
 					traitLabel.Size = new Size(75, 18);
 					traitLabel.Font = new Font("Meiryo UI", 8);
-					traitLabel.ForeColor = GetTraitColor(trait.Category);
+					traitLabel.ForeColor = ThemeManager.GetTraitColor(trait.Category);
 					toolTip.SetToolTip(traitLabel, trait.Description);
 
 					traitsPanel.Controls.Add(traitLabel);
+					// テーマ変更時の更新用に保持
+					traitLabels.Add((traitLabel, trait.Category));
 				}
 
 				if (terrorDetail.Traits.Count > 5)
@@ -217,22 +226,42 @@ namespace ToNStatTool
 			}
 		}
 
-		private Color GetTraitColor(TerrorTraitCategory category)
+		/// <summary>
+		/// テーマを適用する
+		/// </summary>
+		public void ApplyTheme()
 		{
-			switch (category)
+			// 背景色（テラーの色がある場合は半透明で適用）
+			if (TerrorData.DisplayColor != 0)
 			{
-				case TerrorTraitCategory.Movement:
-					return Color.Blue;
-				case TerrorTraitCategory.Attack:
-					return Color.Red;
-				case TerrorTraitCategory.Special:
-					return Color.Purple;
-				case TerrorTraitCategory.Speed:
-					return Color.Orange;
-				case TerrorTraitCategory.Counter:
-					return Color.DarkRed;
-				default:
-					return Color.Black;
+				var color = ColorFromUInt(TerrorData.DisplayColor);
+				this.BackColor = Color.FromArgb(ThemeManager.IsDark ? 60 : 50, color.R, color.G, color.B);
+			}
+			else
+			{
+				this.BackColor = ThemeManager.IsDark 
+					? ThemeManager.Dark.TerrorPanelBackground 
+					: Color.White;
+			}
+
+			// 名前ラベルの色
+			if (nameLabel != null)
+			{
+				nameLabel.ForeColor = ThemeManager.IsDark ? Color.White : Color.Black;
+			}
+
+			// アイコン背景
+			if (iconPictureBox != null)
+			{
+				iconPictureBox.BackColor = ThemeManager.IsDark 
+					? Color.FromArgb(60, 60, 60) 
+					: Color.LightGray;
+			}
+
+			// 特性ラベルの色を更新
+			foreach (var (label, category) in traitLabels)
+			{
+				label.ForeColor = ThemeManager.GetTraitColor(category);
 			}
 		}
 

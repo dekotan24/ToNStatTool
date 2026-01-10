@@ -128,7 +128,7 @@ namespace ToNStatTool
 			// 現在のラウンドラベル
 			labelCurrentRound = new Label();
 			labelCurrentRound.Location = new Point(140, 1);  // 位置調整
-			labelCurrentRound.Size = new Size(115, 16);
+			labelCurrentRound.Size = new Size(160, 16);
 			labelCurrentRound.Text = "🎮 -";
 			labelCurrentRound.ForeColor = ThemeManager.IsDark ? ThemeManager.Dark.TerrorCurrentRound : ThemeManager.Light.TerrorCurrentRound;
 			labelCurrentRound.Font = new Font("Meiryo UI", 8);
@@ -137,7 +137,7 @@ namespace ToNStatTool
 
 			// 次のラウンド予測ラベル
 			labelNextRound = new Label();
-			labelNextRound.Location = new Point(255, 1);  // 位置調整
+			labelNextRound.Location = new Point(300, 1);
 			labelNextRound.Size = new Size(200, 16);
 			labelNextRound.Text = "➡️ 次: -";
 			labelNextRound.ForeColor = ThemeManager.IsDark ? ThemeManager.Dark.TerrorNextRound : ThemeManager.Light.TerrorNextRound;
@@ -212,12 +212,12 @@ namespace ToNStatTool
 
 			isShowingReminder = true;
 
-			// リマインダーメッセージを表示（画像2のように）
+			// リマインダーメッセージを表示
 			labelPlayerCount.Text = "⚠";
 			labelPlayerCount.ForeColor = Color.Orange;
 			labelElapsedTime.Text = "アイテムを持ち直してください。";
 			labelElapsedTime.ForeColor = Color.Orange;
-			labelElapsedTime.Size = new Size(190, 16);  // 幅を一時的に広げる
+			labelElapsedTime.Size = new Size(180, 16);  // 幅を一時的に広げる
 			labelCurrentRound.Text = "";
 
 			// タイマーで元に戻す

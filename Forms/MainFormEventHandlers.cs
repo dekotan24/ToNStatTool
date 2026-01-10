@@ -266,6 +266,12 @@ namespace ToNStatTool
                 terrorDisplayForm.ApplyTheme();
             }
 
+            // メインフォームのテラーコントロールのテーマを更新
+            foreach (var terrorControl in terrorControls)
+            {
+                terrorControl.ApplyTheme();
+            }
+
             UpdatePlayerList();
             UpdateNextRoundPrediction();
         }
