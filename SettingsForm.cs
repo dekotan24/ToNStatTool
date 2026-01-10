@@ -411,7 +411,7 @@ namespace ToNStatTool
 			numReminderDuration.Size = new Size(60, 23);
 			numReminderDuration.Minimum = 1;
 			numReminderDuration.Maximum = 10;
-			numReminderDuration.Value = 7;
+			numReminderDuration.Value = 10;
 			groupReminder.Controls.Add(numReminderDuration);
 
 			var labelSeconds = new Label();

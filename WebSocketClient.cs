@@ -68,6 +68,7 @@ namespace ToNStatTool
 		public event Action<string, bool> OnPlayerJoinLeave; // プレイヤー名, join=true/leave=false
 		private bool isRoundActive = false;
 		private bool wasDeadDuringRound = false; // ラウンド中に死亡したかを追跡
+		private bool wasSaboteurDuringRound = false; // ラウンド中にサボタージュキラー側になったかを追跡
 		private bool isCurrentRoundFirstMoon = false; // 今回のラウンドが初回Moonかどうか
 		private bool wasOverrideInUncertainState = false; // N=1でOverrideが出た（どちらの枠か不明）
 
@@ -790,13 +791,18 @@ namespace ToNStatTool
 				// アイテムリマインダー対象ラウンドかチェック（Punished/8Pages）
 				// 注意: 受信したroundType(Intermission)ではなく、終了前のラウンドタイプを使用
 				bool isItemReminderRound = ToNRoundTypeHelper.IsItemReminderRound(finishedRoundType);
-				Logger.Info("RoundType", $"アイテムリマインダーチェック: finishedRoundType={finishedRoundType}, IsItemReminderRound={isItemReminderRound}");
-				System.Diagnostics.Debug.WriteLine($"[ITEM_REMINDER] finishedRoundType={finishedRoundType}, IsItemReminderRound={isItemReminderRound}");
 				
-				if (isItemReminderRound)
+				// サボタージュでキラー側になった場合もアイテムリマインダー対象
+				bool shouldRemindItem = isItemReminderRound || wasSaboteurDuringRound;
+				
+				Logger.Info("RoundType", $"アイテムリマインダーチェック: finishedRoundType={finishedRoundType}, IsItemReminderRound={isItemReminderRound}, wasSaboteur={wasSaboteurDuringRound}");
+				System.Diagnostics.Debug.WriteLine($"[ITEM_REMINDER] finishedRoundType={finishedRoundType}, IsItemReminderRound={isItemReminderRound}, wasSaboteur={wasSaboteurDuringRound}");
+				
+				if (shouldRemindItem)
 				{
-					Logger.Info("RoundType", $"アイテムリマインダーイベントを発火: {finishedRoundType}");
-					System.Diagnostics.Debug.WriteLine($"[ITEM_REMINDER] イベント発火: {finishedRoundType}");
+					string reason = wasSaboteurDuringRound ? "サボタージュキラー" : finishedRoundType.ToString();
+					Logger.Info("RoundType", $"アイテムリマインダーイベントを発火: {reason}");
+					System.Diagnostics.Debug.WriteLine($"[ITEM_REMINDER] イベント発火: {reason}");
 					OnItemReminderRoundEnd?.Invoke();
 				}
 			}
@@ -813,6 +819,7 @@ namespace ToNStatTool
 			
 			currentRoundItems.Clear();
 			wasDeadDuringRound = false; // ラウンド開始時に死亡フラグをリセット
+			wasSaboteurDuringRound = false; // ラウンド開始時にサボタージュフラグをリセット
 			
 			// 上書きフラグを設定（通常確定時にOverrideラウンドまたは特殊ラウンドが出た場合）
 			// ただしMasterChanged（MC）による特殊の場合は上書きではない
@@ -1402,6 +1409,7 @@ namespace ToNStatTool
 			if (isSaboteur && isRoundActive)
 			{
 				Logger.Info("Saboteur", "サボタージュでキラー側になりました");
+				wasSaboteurDuringRound = true; // アイテムリマインダー用にフラグをセット
 			}
 			
 			// UI更新のためにイベントを発火

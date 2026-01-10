@@ -543,6 +543,14 @@ namespace ToNStatTool
                 return;
             }
 
+            // マスター変更時は特殊確定（ラウンド進行中でも即座に反映）
+            if (instanceState.MasterChanged)
+            {
+                textBoxNextRound.Text = "特殊(MC)";
+                textBoxNextRound.ForeColor = ThemeManager.GetPredictionColor("special");
+                return;
+            }
+
             string prediction = "";
             Color color = ThemeManager.IsDark ? ThemeManager.Dark.Text : ThemeManager.Light.Text;
 

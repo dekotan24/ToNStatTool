@@ -192,7 +192,7 @@ namespace ToNStatTool
 		/// <summary>
 		/// アイテムリマインダーを表示（8ページ/アンバウンド終了時）
 		/// </summary>
-		public void ShowItemReminder(int durationSeconds = 7)
+		public void ShowItemReminder(int durationSeconds = 10)
 		{
 			if (this.InvokeRequired)
 			{

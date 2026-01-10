@@ -47,7 +47,7 @@ namespace ToNStatTool
 		public bool EnableItemReminder { get; set; } = true;
 		public bool EnableItemReminderSound { get; set; } = true;
 		public string ItemReminderSoundPath { get; set; } = "";
-		public int ItemReminderDurationSeconds { get; set; } = 7;
+		public int ItemReminderDurationSeconds { get; set; } = 10;
 		// マスター変更音設定
 		public bool EnableMasterChangeSound { get; set; } = true;
 		public string MasterChangeSoundPath { get; set; } = "";
