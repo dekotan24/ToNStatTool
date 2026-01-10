@@ -42,7 +42,7 @@ namespace ToNStatTool
             // 統計表示ボタン（テラー表示ウィンドウの左側）
             var buttonStats = new Button();
             buttonStats.Name = "buttonStats";
-            buttonStats.Location = new Point(760, 10);
+            buttonStats.Location = new Point(787, 10);
             buttonStats.Size = new Size(26, 26);
             buttonStats.Text = "📊";
             buttonStats.Font = new Font("Segoe UI Emoji", 9);
@@ -54,7 +54,7 @@ namespace ToNStatTool
             // インスタンスURLコピーボタン
             var buttonCopyInstanceUrl = new Button();
             buttonCopyInstanceUrl.Name = "buttonCopyInstanceUrl";
-            buttonCopyInstanceUrl.Location = new Point(790, 10);
+            buttonCopyInstanceUrl.Location = new Point(817, 10);
             buttonCopyInstanceUrl.Size = new Size(26, 26);
             buttonCopyInstanceUrl.Text = "🔗";
             buttonCopyInstanceUrl.Font = new Font("Segoe UI Emoji", 9);
@@ -66,7 +66,7 @@ namespace ToNStatTool
             // セーブコードボタン
             var buttonSaveCodes = new Button();
             buttonSaveCodes.Name = "buttonSaveCodes";
-            buttonSaveCodes.Location = new Point(820, 10);
+            buttonSaveCodes.Location = new Point(847, 10);
             buttonSaveCodes.Size = new Size(26, 26);
             buttonSaveCodes.Text = "💾";
             buttonSaveCodes.Font = new Font("Segoe UI Emoji", 9);
@@ -78,7 +78,7 @@ namespace ToNStatTool
             // テラー表示ウィンドウボタン（チェックボックススタイル）
             var buttonTerrorWindow = new CheckBox();
             buttonTerrorWindow.Name = "buttonTerrorWindow";
-            buttonTerrorWindow.Location = new Point(860, 11);
+            buttonTerrorWindow.Location = new Point(887, 11);
             buttonTerrorWindow.Size = new Size(130, 25);
             buttonTerrorWindow.Text = "テラー表示ウィンドウ";
             buttonTerrorWindow.Appearance = Appearance.Button;
@@ -89,7 +89,7 @@ namespace ToNStatTool
             // 透明度ラベル
             var labelOpacity = new Label();
             labelOpacity.Text = "透明度:";
-            labelOpacity.Location = new Point(1000, 15);
+            labelOpacity.Location = new Point(1027, 15);
             labelOpacity.Size = new Size(50, 20);
             labelOpacity.Font = new Font("Meiryo UI", 9);
             this.Controls.Add(labelOpacity);
@@ -97,7 +97,7 @@ namespace ToNStatTool
             // 透明度スライダー
             var trackBarOpacity = new TrackBar();
             trackBarOpacity.Name = "trackBarOpacity";
-            trackBarOpacity.Location = new Point(1045, 8);
+            trackBarOpacity.Location = new Point(1072, 8);
             trackBarOpacity.Size = new Size(80, 30);
             trackBarOpacity.Minimum = 10;
             trackBarOpacity.Maximum = 100;
@@ -117,7 +117,7 @@ namespace ToNStatTool
             // 設定ボタン
             var btnSettings = new Button();
             btnSettings.Name = "btnSettings";
-            btnSettings.Location = new Point(1127, 10);
+            btnSettings.Location = new Point(1154, 10);
             btnSettings.Size = new Size(26, 26);
             btnSettings.Text = "🛠";
             btnSettings.Font = new Font("Segoe UI Emoji", 9);
@@ -413,7 +413,7 @@ namespace ToNStatTool
             var labelPlayerCount = new Label();
             labelPlayerCount.Name = "labelPlayerCount";
             labelPlayerCount.Location = new Point(10, 25);
-            labelPlayerCount.Size = new Size(260, 20);
+            labelPlayerCount.Size = new Size(200, 20);
             labelPlayerCount.Text = "総人数: 0人 | 生存: 0人";
             labelPlayerCount.Font = new Font("Meiryo UI", 9, FontStyle.Bold);
             labelPlayerCount.TextAlign = ContentAlignment.MiddleLeft;
@@ -421,7 +421,7 @@ namespace ToNStatTool
 
             var buttonShowWarningUsers = new Button();
             buttonShowWarningUsers.Name = "buttonShowWarningUsers";
-            buttonShowWarningUsers.Location = new Point(330, 20);
+            buttonShowWarningUsers.Location = new Point(320, 20);
             buttonShowWarningUsers.Size = new Size(30, 25);
             buttonShowWarningUsers.Text = "👤";
             buttonShowWarningUsers.Font = new Font("Segoe UI Emoji", 9);
@@ -431,7 +431,7 @@ namespace ToNStatTool
 
             var buttonReloadWarningUsers = new Button();
             buttonReloadWarningUsers.Name = "buttonReloadWarningUsers";
-            buttonReloadWarningUsers.Location = new Point(365, 20);
+            buttonReloadWarningUsers.Location = new Point(355, 20);
             buttonReloadWarningUsers.Size = new Size(30, 25);
             buttonReloadWarningUsers.Text = "🔄";
             buttonReloadWarningUsers.Font = new Font("Segoe UI Emoji", 9);
@@ -537,8 +537,8 @@ namespace ToNStatTool
             listViewRoundLog.View = View.Details;
             listViewRoundLog.FullRowSelect = true;
             listViewRoundLog.GridLines = true;
-            listViewRoundLog.Columns.Add("時刻", 50);
-            listViewRoundLog.Columns.Add("ラウンド", 85);
+            listViewRoundLog.Columns.Add("時刻", 45);
+            listViewRoundLog.Columns.Add("ラウンド", 80);
             listViewRoundLog.Columns.Add("マップ", 100);
             listViewRoundLog.Columns.Add("テラー", 120);
             listViewRoundLog.Columns.Add("アイテム", 65);
