@@ -62,6 +62,7 @@ namespace ToNStatTool
 
 		// Round tracking
 		private RoundLog currentRound = null;
+		private string lastFinishedRoundTerrorNames = ""; // セーブコード用に最後のラウンドのテラー名を保持
 		private readonly List<string> currentRoundItems = new List<string>();
 		public event Action<string> OnWarningUserJoined;
 		public event Action<string, bool> OnPlayerJoinLeave; // プレイヤー名, join=true/leave=false
@@ -973,6 +974,11 @@ namespace ToNStatTool
 			}
 			finally
 			{
+				// セーブコード用にテラー名を保存（currentRoundをnullにする前に）
+				if (currentRound != null)
+				{
+					lastFinishedRoundTerrorNames = currentRound.TerrorNames ?? "";
+				}
 				currentRound = null;
 			}
 		}
@@ -1660,11 +1666,15 @@ namespace ToNStatTool
 						roundTypeName = ToNRoundTypeHelper.GetDisplayName(InstanceState.CurrentRoundType);
 					}
 					
-					// テラー名を取得（currentRoundがあればそこから、なければCurrentTerrorsから）
+					// テラー名を取得（優先順位: currentRound > lastFinishedRoundTerrorNames > CurrentTerrors）
 					string terrorNames = "";
 					if (currentRound != null && !string.IsNullOrEmpty(currentRound.TerrorNames))
 					{
 						terrorNames = currentRound.TerrorNames;
+					}
+					else if (!string.IsNullOrEmpty(lastFinishedRoundTerrorNames))
+					{
+						terrorNames = lastFinishedRoundTerrorNames;
 					}
 					else if (CurrentTerrors.Count > 0)
 					{

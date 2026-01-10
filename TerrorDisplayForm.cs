@@ -212,7 +212,7 @@ namespace ToNStatTool
 
 			isShowingReminder = true;
 
-			// リマインダーメッセージを表示
+			// リマインダーメッセージを表示（画像2のように）
 			labelPlayerCount.Text = "⚠";
 			labelPlayerCount.ForeColor = Color.Orange;
 			labelElapsedTime.Text = "アイテムを持ち直してください。";
