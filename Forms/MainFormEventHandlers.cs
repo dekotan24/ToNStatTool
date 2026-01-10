@@ -136,6 +136,14 @@ namespace ToNStatTool
             Logger.Info("ItemReminder", $"アイテムリマインダーイベント受信: EnableItemReminder={webSocketClient.SoundSettings.EnableItemReminder}");
             System.Diagnostics.Debug.WriteLine($"[ITEM_REMINDER_UI] イベント受信: EnableItemReminder={webSocketClient.SoundSettings.EnableItemReminder}");
             
+            // バッファ処理中またはインスタンス移動中はスキップ
+            if (webSocketClient.ShouldMuteNotificationSounds())
+            {
+                Logger.Info("ItemReminder", "サウンドミュート期間中のためスキップ");
+                System.Diagnostics.Debug.WriteLine("[ITEM_REMINDER_UI] サウンドミュート期間中のためスキップ");
+                return;
+            }
+            
             if (!webSocketClient.SoundSettings.EnableItemReminder)
             {
                 Logger.Info("ItemReminder", "リマインダーが無効のためスキップ");
@@ -178,7 +186,14 @@ namespace ToNStatTool
                 return;
             }
             
-            if (webSocketClient.SoundSettings.EnableMasterChangeSound)
+            // バッファ処理中またはインスタンス移動中はサウンドをスキップ（UIは更新）
+            bool shouldMute = webSocketClient.ShouldMuteNotificationSounds();
+            if (shouldMute)
+            {
+                Logger.Info("MasterChange", "サウンドミュート期間中のためサウンドスキップ");
+            }
+            
+            if (webSocketClient.SoundSettings.EnableMasterChangeSound && !shouldMute)
             {
                 webSocketClient.PlayCustomSound(webSocketClient.SoundSettings.MasterChangeSoundPath, "masterchange.mp3");
             }

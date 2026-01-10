@@ -217,7 +217,7 @@ namespace ToNStatTool
 			labelPlayerCount.ForeColor = Color.Orange;
 			labelElapsedTime.Text = "アイテムを持ち直してください。";
 			labelElapsedTime.ForeColor = Color.Orange;
-			labelElapsedTime.Size = new Size(200, 16);  // 幅を一時的に広げる
+			labelElapsedTime.Size = new Size(190, 16);  // 幅を一時的に広げる
 			labelCurrentRound.Text = "";
 
 			// タイマーで元に戻す

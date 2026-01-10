@@ -76,6 +76,12 @@ namespace ToNStatTool
 		private const int MAX_ROUND_LOGS = 2000; // ラウンドログの最大保持数
 		private bool isProcessingBufferedEvents = false; // バッファイベント処理中フラグ
 		private readonly object audioLock = new object(); // 音声再生の排他制御用
+		
+		// インスタンス移動時のサウンドミュート用
+		private bool isInstanceTransitioning = false; // インスタンス移動中フラグ
+		private DateTime instanceTransitionStartTime = DateTime.MinValue; // 移動開始時刻
+		private const int INSTANCE_TRANSITION_MUTE_SECONDS = 10; // ミュートする秒数
+		private string lastInstanceUrl = ""; // 前回のインスタンスURL
 
 		public WebSocketClient()
 		{
@@ -220,6 +226,34 @@ namespace ToNStatTool
 				System.Diagnostics.Debug.WriteLine($"[SOUND] サウンド再生エラー: {ex.Message}");
 				System.Media.SystemSounds.Exclamation.Play();
 			}
+		}
+
+		/// <summary>
+		/// インスタンス移動中（サウンドミュート期間中）かどうかを判定
+		/// </summary>
+		private bool IsInInstanceTransition()
+		{
+			if (!isInstanceTransitioning)
+				return false;
+			
+			// 指定秒数経過していたらフラグを解除
+			if ((DateTime.Now - instanceTransitionStartTime).TotalSeconds > INSTANCE_TRANSITION_MUTE_SECONDS)
+			{
+				isInstanceTransitioning = false;
+				Logger.Info("Instance", $"インスタンス移動ミュート期間終了（{INSTANCE_TRANSITION_MUTE_SECONDS}秒経過）");
+				return false;
+			}
+			
+			return true;
+		}
+
+		/// <summary>
+		/// 通知サウンドをミュートすべきかどうかを判定（パブリック）
+		/// バッファイベント処理中またはインスタンス移動中の場合はtrueを返す
+		/// </summary>
+		public bool ShouldMuteNotificationSounds()
+		{
+			return isProcessingBufferedEvents || IsInInstanceTransition();
 		}
 
 		/// <summary>
@@ -708,6 +742,13 @@ namespace ToNStatTool
 			{
 				Logger.Info("RoundType", $"ラウンド開始処理: {roundType} ({roundName})");
 				GameData["roundType"] = $"{ToNRoundTypeHelper.GetDisplayName(roundType)} (開始)";
+				
+				// インスタンス移動ミュート期間を終了
+				if (isInstanceTransitioning)
+				{
+					isInstanceTransitioning = false;
+					Logger.Info("RoundType", "ラウンド開始によりインスタンス移動ミュート期間を終了");
+				}
 				
 				// 現在のラウンド種別を記録（次ラウンド予測用）
 				InstanceState.CurrentRoundType = roundType;
@@ -1372,6 +1413,27 @@ namespace ToNStatTool
 				
 				if (!string.IsNullOrEmpty(instanceUrl))
 				{
+					// インスタンスURLが変わった場合（インスタンス移動）
+					if (!string.IsNullOrEmpty(lastInstanceUrl) && lastInstanceUrl != instanceUrl)
+					{
+						// インスタンス移動を検知 - サウンドミュート期間開始
+						isInstanceTransitioning = true;
+						instanceTransitionStartTime = DateTime.Now;
+						Logger.Info("Instance", $"インスタンス移動を検知 - サウンドミュート開始（{INSTANCE_TRANSITION_MUTE_SECONDS}秒間）");
+						System.Diagnostics.Debug.WriteLine($"[INSTANCE] インスタンス移動検知: {lastInstanceUrl} → {instanceUrl}");
+						
+						// プレイヤーリストをクリア（新しいインスタンスのプレイヤーリストを受け取るため）
+						// ローカルプレイヤーは保持
+						var localPlayer = Players.Values.FirstOrDefault(p => p.IsLocal);
+						Players.Clear();
+						if (localPlayer != null)
+						{
+							Players[localPlayer.UserId] = localPlayer;
+						}
+						Logger.Debug("Instance", "インスタンス移動のためプレイヤーリストをクリア（ローカルプレイヤーは保持）");
+					}
+					
+					lastInstanceUrl = instanceUrl;
 					InstanceState.InstanceUrl = instanceUrl;
 					Logger.Info("Instance", $"インスタンスURL更新: {instanceUrl}");
 					
@@ -1711,8 +1773,15 @@ namespace ToNStatTool
 
 				System.Diagnostics.Debug.WriteLine($"[PLAYER_JOIN] 名前: '{playerName}', ID: '{playerId}'");
 
-				// 警告ユーザーチェック（バッファイベント処理中でない場合のみ）
-				if (IsWarningUser(playerName) && !isProcessingBufferedEvents)
+				// サウンドをスキップするかどうかの判定
+				bool shouldSkipSound = isProcessingBufferedEvents || IsInInstanceTransition();
+				if (shouldSkipSound)
+				{
+					System.Diagnostics.Debug.WriteLine($"[PLAYER_JOIN] サウンドスキップ: バッファ処理中={isProcessingBufferedEvents}, インスタンス移動中={isInstanceTransitioning}");
+				}
+
+				// 警告ユーザーチェック（サウンドスキップ条件でない場合のみ）
+				if (IsWarningUser(playerName) && !shouldSkipSound)
 				{
 					System.Diagnostics.Debug.WriteLine($"[WARNING] 警告対象ユーザーが参加: {playerName}");
 					PlayWarningSound();
@@ -1743,15 +1812,16 @@ namespace ToNStatTool
 					JoinedAt = DateTime.Now
 				};
 
-				// バッファイベント処理中でない場合のみJoinサウンドを再生
-				if (!isProcessingBufferedEvents)
+				// サウンドスキップ条件でない場合のみJoinサウンドを再生
+				if (!shouldSkipSound)
 				{
 					PlayJoinLeaveSound(true);
 					// イベントを発火
 					OnPlayerJoinLeave?.Invoke(playerName, true);
-					// プレイヤー数変更イベントを発火
-					OnPlayerCountChanged?.Invoke();
 				}
+				
+				// プレイヤー数変更イベントは常に発火（UIは更新する）
+				OnPlayerCountChanged?.Invoke();
 
 				System.Diagnostics.Debug.WriteLine($"プレイヤー参加: {playerName} - ラウンド中: {isRoundActive} - 初期状態: {(initialAliveState ? "生存" : "死亡")}");
 			}
@@ -1771,6 +1841,13 @@ namespace ToNStatTool
 
 				System.Diagnostics.Debug.WriteLine($"[PLAYER_LEAVE] 名前: '{playerName}'");
 
+				// サウンドをスキップするかどうかの判定
+				bool shouldSkipSound = isProcessingBufferedEvents || IsInInstanceTransition();
+				if (shouldSkipSound)
+				{
+					System.Diagnostics.Debug.WriteLine($"[PLAYER_LEAVE] サウンドスキップ: バッファ処理中={isProcessingBufferedEvents}, インスタンス移動中={isInstanceTransitioning}");
+				}
+
 				// 名前またはIDで検索
 				var playerToRemove = Players.FirstOrDefault(p =>
 					p.Value.Name == playerName ||
@@ -1784,15 +1861,16 @@ namespace ToNStatTool
 					System.Diagnostics.Debug.WriteLine($"プレイヤー退出: {removedPlayerName}");
 					Players.Remove(playerToRemove.Key);
 
-					// バッファイベント処理中でない場合のみLeaveサウンドを再生
-					if (!isProcessingBufferedEvents)
+					// サウンドスキップ条件でない場合のみLeaveサウンドを再生
+					if (!shouldSkipSound)
 					{
 						PlayJoinLeaveSound(false);
 						// イベントを発火
 						OnPlayerJoinLeave?.Invoke(removedPlayerName, false);
-						// プレイヤー数変更イベントを発火
-						OnPlayerCountChanged?.Invoke();
 					}
+					
+					// プレイヤー数変更イベントは常に発火（UIは更新する）
+					OnPlayerCountChanged?.Invoke();
 				}
 				else
 				{
