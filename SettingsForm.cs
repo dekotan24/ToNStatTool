@@ -12,6 +12,7 @@ namespace ToNStatTool
 	public class SettingsForm : Form
 	{
 		private SoundSettings soundSettings;
+		private AppSettings appSettings;
 		private TabControl tabControl;
 
 		// サウンド設定コントロール
@@ -44,6 +45,7 @@ namespace ToNStatTool
 		public SettingsForm(SoundSettings settings)
 		{
 			soundSettings = settings;
+			appSettings = AppSettings.Load();
 			InitializeComponent();
 			LoadSettings();
 			ApplyTheme();
@@ -585,8 +587,8 @@ namespace ToNStatTool
 				radioThemeLight.Checked = true;
 			}
 
-			// 詳細ログ設定
-			checkVerboseLog.Checked = Logger.IsVerboseLoggingEnabled();
+			// 詳細ログ設定（AppSettingsから読み込み）
+			checkVerboseLog.Checked = appSettings.EnableVerboseLog;
 
 			UpdateReminderControlsState();
 		}
@@ -624,7 +626,9 @@ namespace ToNStatTool
 			               (radioThemeLight.Checked && ThemeManager.IsDark);
 			NewThemeIsDark = radioThemeDark.Checked;
 
-			// 詳細ログ設定を更新
+			// 詳細ログ設定を更新（AppSettingsに保存）
+			appSettings.EnableVerboseLog = checkVerboseLog.Checked;
+			appSettings.Save();
 			VerboseLogEnabled = checkVerboseLog.Checked;
 
 			// 再生中のサウンドを停止

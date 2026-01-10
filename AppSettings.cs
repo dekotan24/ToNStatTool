@@ -28,6 +28,11 @@ namespace ToNStatTool
 		public string WebSocketUrl { get; set; } = "ws://localhost:11398";
 
 		/// <summary>
+		/// 詳細ログを有効にするか
+		/// </summary>
+		public bool EnableVerboseLog { get; set; } = false;
+
+		/// <summary>
 		/// 設定をファイルから読み込む
 		/// </summary>
 		public static AppSettings Load()

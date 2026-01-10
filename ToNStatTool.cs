@@ -68,6 +68,12 @@ namespace ToNStatTool
             ThemeManager.ThemeChanged += OnThemeChanged;
             ThemeManager.Apply(this);
             
+            // 保存された詳細ログ設定を復元
+            if (appSettings.EnableVerboseLog)
+            {
+                Logger.EnableVerboseLogging();
+            }
+            
             // 保存されたURLを復元
             if (!string.IsNullOrEmpty(appSettings.WebSocketUrl))
             {

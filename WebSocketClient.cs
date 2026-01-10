@@ -69,6 +69,7 @@ namespace ToNStatTool
 		private bool isRoundActive = false;
 		private bool wasDeadDuringRound = false; // ラウンド中に死亡したかを追跡
 		private bool wasSaboteurDuringRound = false; // ラウンド中にサボタージュキラー側になったかを追跡
+		private bool pendingSaboteurFlag = false; // ラウンド開始前のサボタージュ状態を保持
 		private bool isCurrentRoundFirstMoon = false; // 今回のラウンドが初回Moonかどうか
 		private bool wasOverrideInUncertainState = false; // N=1でOverrideが出た（どちらの枠か不明）
 
@@ -819,7 +820,20 @@ namespace ToNStatTool
 			
 			currentRoundItems.Clear();
 			wasDeadDuringRound = false; // ラウンド開始時に死亡フラグをリセット
-			wasSaboteurDuringRound = false; // ラウンド開始時にサボタージュフラグをリセット
+			
+			// サボタージュフラグの処理
+			// Sabotageラウンドの場合、ラウンド開始前にIS_SABOTEUR=Trueが来ている可能性があるので
+			// pendingSaboteurFlagを引き継ぐ
+			if (roundType == ToNRoundType.Sabotage && pendingSaboteurFlag)
+			{
+				wasSaboteurDuringRound = true;
+				Logger.Info("Round", "Sabotageラウンド開始: pendingSaboteurFlagからwasSaboteurDuringRoundをセット");
+			}
+			else
+			{
+				wasSaboteurDuringRound = false;
+			}
+			pendingSaboteurFlag = false; // pendingフラグは常にリセット
 			
 			// 上書きフラグを設定（通常確定時にOverrideラウンドまたは特殊ラウンドが出た場合）
 			// ただしMasterChanged（MC）による特殊の場合は上書きではない
@@ -1405,11 +1419,32 @@ namespace ToNStatTool
 			// サボタージュ状態を常に更新
 			GameData["saboteur"] = isSaboteur ? "はい" : "いいえ";
 			
-			// サボタージュでキラー側になった場合は未参加扱いになる
-			if (isSaboteur && isRoundActive)
+			// サボタージュでキラー側になった場合
+			if (isSaboteur)
 			{
-				Logger.Info("Saboteur", "サボタージュでキラー側になりました");
-				wasSaboteurDuringRound = true; // アイテムリマインダー用にフラグをセット
+				// バッファイベント処理中でなければフラグをセット
+				if (!isProcessingBufferedEvents)
+				{
+					// ラウンド開始前のイベントはpendingSaboteurFlagに保持
+					// ラウンド開始後のイベントはwasSaboteurDuringRoundに直接セット
+					if (isRoundActive)
+					{
+						Logger.Info("Saboteur", "サボタージュでキラー側になりました（ラウンド中）");
+						wasSaboteurDuringRound = true;
+					}
+					else
+					{
+						Logger.Info("Saboteur", "サボタージュでキラー側になりました（ラウンド開始前、pending）");
+						pendingSaboteurFlag = true;
+					}
+				}
+			}
+			else
+			{
+				// サボタージュ解除時はフラグをクリア
+				pendingSaboteurFlag = false;
+				wasSaboteurDuringRound = false;
+				Logger.Info("Saboteur", "サボタージュ解除（サバイバー側）");
 			}
 			
 			// UI更新のためにイベントを発火
