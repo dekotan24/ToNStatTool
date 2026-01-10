@@ -814,8 +814,9 @@ namespace ToNStatTool
 			wasDeadDuringRound = false; // ラウンド開始時に死亡フラグをリセット
 			
 			// 上書きフラグを設定（通常確定時にOverrideラウンドまたは特殊ラウンドが出た場合）
+			// ただしMasterChanged（MC）による特殊の場合は上書きではない
 			InstanceState.IsCurrentRoundOverride = false;
-			if (InstanceState.NormalRoundCount == 0)
+			if (InstanceState.NormalRoundCount == 0 && !InstanceState.MasterChanged)
 			{
 				if (ToNRoundTypeHelper.IsOverrideRound(roundType) || ToNRoundTypeHelper.IsSpecialRound(roundType))
 				{
@@ -1274,10 +1275,21 @@ namespace ToNStatTool
 			}
 			else if (ToNRoundTypeHelper.IsSpecialRound(roundType))
 			{
-				// 特殊ラウンド → N=0
-				InstanceState.NormalRoundCount = 0;
-				wasOverrideInUncertainState = false;
-				System.Diagnostics.Debug.WriteLine("[InstanceState] 特殊ラウンド: NormalRoundCount=0");
+				// 特殊ラウンド
+				if (InstanceState.IsCurrentRoundOverride)
+				{
+					// 上書きで出た特殊（MCなしで通常確定時に出現）→ 通常枠を消費したのでN=1
+					InstanceState.NormalRoundCount = 1;
+					wasOverrideInUncertainState = false;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] 特殊ラウンド(上書き): NormalRoundCount=1");
+				}
+				else
+				{
+					// 通常の特殊ラウンド（MCまたは通常枠2消費後）→ 特殊枠消費でN=0
+					InstanceState.NormalRoundCount = 0;
+					wasOverrideInUncertainState = false;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] 特殊ラウンド: NormalRoundCount=0");
+				}
 			}
 
 			InstanceState.LastRoundType = roundType;

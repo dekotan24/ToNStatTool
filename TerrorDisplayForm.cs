@@ -212,7 +212,7 @@ namespace ToNStatTool
 
 			isShowingReminder = true;
 
-			// リマインダーメッセージを表示（画像2のように）
+			// リマインダーメッセージを表示
 			labelPlayerCount.Text = "⚠";
 			labelPlayerCount.ForeColor = Color.Orange;
 			labelElapsedTime.Text = "アイテムを持ち直してください。";
@@ -455,6 +455,14 @@ namespace ToNStatTool
 			{
 				labelNextRound.Text = "➡️ 次: -";
 				labelNextRound.ForeColor = ThemeManager.GetPredictionColor("disabled");
+				return;
+			}
+
+			// マスター変更時は特殊確定（ラウンド進行中でも即座に反映）
+			if (instanceState.MasterChanged)
+			{
+				labelNextRound.Text = "➡️ 次: 特殊(MC)";
+				labelNextRound.ForeColor = ThemeManager.GetPredictionColor("special");
 				return;
 			}
 
