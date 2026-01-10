@@ -72,6 +72,10 @@ namespace ToNStatTool
 		private bool pendingSaboteurFlag = false; // ラウンド開始前のサボタージュ状態を保持
 		private bool isCurrentRoundFirstMoon = false; // 今回のラウンドが初回Moonかどうか
 		private bool wasOverrideInUncertainState = false; // N=1でOverrideが出た（どちらの枠か不明）
+		
+		// ダブルドラブル検出用
+		private bool isDoubleTroubleActive = false; // ダブルドラブルラウンド中かどうか
+		private DateTime doubleTroubleStartTime = DateTime.MinValue; // ダブルドラブル開始時刻
 
 		// Sound settings
 		public SoundSettings SoundSettings { get; private set; } = new SoundSettings();
@@ -746,6 +750,13 @@ namespace ToNStatTool
 				Logger.Info("RoundType", $"ラウンド開始処理: {roundType} ({roundName})");
 				GameData["roundType"] = $"{ToNRoundTypeHelper.GetDisplayName(roundType)} (開始)";
 				
+				// ダブルドラブルがアクティブなら終了させる
+				if (isDoubleTroubleActive)
+				{
+					Logger.Info("RoundType", "ダブルドラブルがアクティブのため終了処理を実行");
+					FinishDoubleTroubleRound();
+				}
+				
 				// インスタンス移動ミュート期間を終了
 				if (isInstanceTransitioning)
 				{
@@ -1002,6 +1013,127 @@ namespace ToNStatTool
 				}
 				currentRound = null;
 			}
+		}
+
+		/// <summary>
+		/// ダブルドラブルラウンドを開始する（Intermission中にDEATHイベントが来た場合）
+		/// </summary>
+		private void StartDoubleTroubleRound()
+		{
+			Logger.Info("DoubleTrouble", "StartDoubleTroubleRound呼び出し");
+			
+			isDoubleTroubleActive = true;
+			doubleTroubleStartTime = DateTime.Now;
+			
+			// ダブルドラブル用のラウンドログを作成
+			string mapName = GetGameDataValue("location", "Unknown").Split('(')[0].Trim();
+			string startingItem = InstanceState.CurrentItem ?? "";
+			
+			currentRound = new RoundLog
+			{
+				Timestamp = DateTime.Now,
+				RoundType = ToNRoundType.Double_Trouble,
+				MapName = mapName,
+				TerrorNames = "", // 後でテラー情報が来たら更新
+				Items = string.IsNullOrEmpty(startingItem) ? "なし" : startingItem,
+				Survived = false, // ダブルドラブルは全員死亡前提
+				WasOptedIn = InstanceState.IsOptedIn
+			};
+			
+			// フラグ設定
+			currentRoundItems.Clear();
+			wasDeadDuringRound = true; // ダブルドラブルは確実に死亡
+			wasSaboteurDuringRound = false;
+			pendingSaboteurFlag = false;
+			
+			// 現在のラウンド種別を記録
+			InstanceState.CurrentRoundType = ToNRoundType.Double_Trouble;
+			InstanceState.NormalRoundCountAtRoundStart = InstanceState.NormalRoundCount;
+			
+			// ラウンド開始イベントを発火
+			OnRoundStart?.Invoke(ToNRoundType.Double_Trouble);
+			
+			Logger.Info("DoubleTrouble", $"ダブルドラブルラウンド開始: マップ={mapName}");
+		}
+		
+		/// <summary>
+		/// ダブルドラブルラウンドを終了する（次のラウンド開始時に呼び出される）
+		/// </summary>
+		private void FinishDoubleTroubleRound()
+		{
+			if (!isDoubleTroubleActive)
+			{
+				return;
+			}
+			
+			Logger.Info("DoubleTrouble", "FinishDoubleTroubleRound呼び出し");
+			
+			isDoubleTroubleActive = false;
+			
+			if (currentRound != null)
+			{
+				// テラー名を設定（利用可能な場合）
+				if (CurrentTerrors.Count > 0)
+				{
+					currentRound.TerrorNames = string.Join(", ", CurrentTerrors.Select(t => t.Name));
+				}
+				else
+				{
+					currentRound.TerrorNames = "Unknown (Double Trouble)";
+				}
+				
+				// ダブルドラブルは全員死亡
+				currentRound.Survived = false;
+				
+				// ログに追加
+				RoundLogs.Add(currentRound);
+				Logger.Info("DoubleTrouble", $"ラウンドログに記録: {currentRound.RoundTypeDisplayName} - 死亡 - テラー: {currentRound.TerrorNames}");
+				
+				// 統計を更新
+				RoundStats.TotalRounds++;
+				// 生存カウントは増やさない（全員死亡のため）
+				
+				// ラウンド種別の統計も更新
+				RoundStats.IncrementCount(currentRound.RoundType);
+				
+				// テラー統計更新
+				string roundTerrorKey = currentRound.TerrorNames;
+				var splitNames = roundTerrorKey.Split(new[] { ", " }, StringSplitOptions.RemoveEmptyEntries);
+				foreach (string terror in splitNames)
+				{
+					if (TerrorStats.TerrorTypeCounts.ContainsKey(terror))
+					{
+						TerrorStats.TerrorTypeCounts[terror]++;
+					}
+					else
+					{
+						TerrorStats.TerrorTypeCounts[terror] = 1;
+					}
+				}
+				
+				// InstanceState更新（Double_Troubleは特殊ラウンド扱い）
+				UpdateInstanceState(currentRound.RoundType, false, splitNames);
+				
+				// ラウンドログを最大件数に制限
+				while (RoundLogs.Count > MAX_ROUND_LOGS)
+				{
+					RoundLogs.RemoveAt(0);
+				}
+				
+				// セーブコード用にテラー名を保存
+				lastFinishedRoundTerrorNames = currentRound.TerrorNames ?? "";
+				
+				Logger.Info("DoubleTrouble", "FinishDoubleTroubleRound完了");
+			}
+			
+			// ラウンド終了イベントを発火
+			OnRoundEnd?.Invoke();
+			
+			// プレイヤーの生存状態をリセット
+			ResetAllPlayersAlive();
+			GameData["saboteur"] = "いいえ";
+			
+			currentRound = null;
 		}
 
 		/// <summary>
@@ -1331,6 +1463,15 @@ namespace ToNStatTool
 		public void ResetInstanceState()
 		{
 			InstanceState.Reset();
+			
+			// ダブルドラブルフラグもリセット
+			if (isDoubleTroubleActive)
+			{
+				Logger.Info("DoubleTrouble", "インスタンスリセットによりダブルドラブルを終了");
+				isDoubleTroubleActive = false;
+				currentRound = null;
+			}
+			
 			System.Diagnostics.Debug.WriteLine("[InstanceState] リセット");
 		}
 
@@ -1386,6 +1527,14 @@ namespace ToNStatTool
 			isRoundActive = isActive;
 			
 			Logger.Info("RoundActive", $"ラウンドアクティブ状態を更新: {(isActive ? "アクティブ" : "非アクティブ")}");
+			
+			// ROUND_ACTIVE=Falseが来た時、ダブルドラブルがアクティブなら終了する
+			// （ダブルドラブルはROUND_TYPE Intermissionが来ないため、ここで終了処理を行う）
+			if (!isActive && isDoubleTroubleActive)
+			{
+				Logger.Info("RoundActive", "ROUND_ACTIVE=Falseによりダブルドラブル終了処理を実行");
+				FinishDoubleTroubleRound();
+			}
 		}
 
 		private void ProcessAliveEvent(JObject jsonData)
@@ -1482,6 +1631,14 @@ namespace ToNStatTool
 						instanceTransitionStartTime = DateTime.Now;
 						Logger.Info("Instance", $"インスタンス移動を検知 - サウンドミュート開始（{INSTANCE_TRANSITION_MUTE_SECONDS}秒間）");
 						System.Diagnostics.Debug.WriteLine($"[INSTANCE] インスタンス移動検知: {lastInstanceUrl} → {instanceUrl}");
+						
+						// ダブルドラブルがアクティブなら終了（ログに残さず破棄）
+						if (isDoubleTroubleActive)
+						{
+							Logger.Info("DoubleTrouble", "インスタンス移動によりダブルドラブルを破棄");
+							isDoubleTroubleActive = false;
+							currentRound = null;
+						}
 						
 						// プレイヤーリストをクリア（新しいインスタンスのプレイヤーリストを受け取るため）
 						// ローカルプレイヤーは保持
@@ -1959,6 +2116,15 @@ namespace ToNStatTool
 				playerName = SanitizePlayerName(playerName);
 
 				System.Diagnostics.Debug.WriteLine($"[DEATH] 名前: '{playerName}', メッセージ: '{message}'");
+				
+				// ダブルドラブル検出: currentRoundがnullなのにDEATHイベントが来た場合
+				// （ROUND_TYPEが来ていないのにラウンドが進行している = ダブルドラブル）
+				// かつゲーム参加中（IsOptedIn=true）の場合
+				if (currentRound == null && InstanceState.IsOptedIn && !isDoubleTroubleActive && !isProcessingBufferedEvents)
+				{
+					Logger.Info("DoubleTrouble", "currentRoundがnullの状態でDEATHイベント検出 - ダブルドラブル開始");
+					StartDoubleTroubleRound();
+				}
 
 				// より柔軟な検索
 				var player = Players.Values.FirstOrDefault(p =>
