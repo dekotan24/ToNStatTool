@@ -1543,6 +1543,15 @@ namespace ToNStatTool
 					locationInfo += $" [{origin}]";
 
 				GameData["location"] = locationInfo;
+				
+				// ラウンド中でcurrentRoundのマップ名が空または"-"の場合は更新
+				// （サボタージュキラー側ではROUND_TYPEがLOCATIONより先に来る場合がある）
+				if (isRoundActive && currentRound != null && 
+				    (string.IsNullOrEmpty(currentRound.MapName) || currentRound.MapName == "-"))
+				{
+					currentRound.MapName = mapName;
+					Logger.Info("Location", $"currentRoundのマップ名を後から更新: {mapName}");
+				}
 			}
 			else if (command == 0) // Reset
 			{
