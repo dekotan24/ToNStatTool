@@ -431,7 +431,7 @@ namespace ToNStatTool
             var labelPlayerCount = new Label();
             labelPlayerCount.Name = "labelPlayerCount";
             labelPlayerCount.Location = new Point(10, 25);
-            labelPlayerCount.Size = new Size(200, 20);
+            labelPlayerCount.Size = new Size(250, 20);
             labelPlayerCount.Text = "総人数: 0人 | 生存: 0人";
             labelPlayerCount.Font = new Font("Meiryo UI", 9, FontStyle.Bold);
             labelPlayerCount.TextAlign = ContentAlignment.MiddleLeft;
@@ -622,11 +622,11 @@ namespace ToNStatTool
             listViewRoundLog.View = View.Details;
             listViewRoundLog.FullRowSelect = true;
             listViewRoundLog.GridLines = true;
-            listViewRoundLog.Columns.Add("時刻", 45);
-            listViewRoundLog.Columns.Add("ラウンド", 80);
-            listViewRoundLog.Columns.Add("マップ", 100);
+            listViewRoundLog.Columns.Add("時刻", 40);
+            listViewRoundLog.Columns.Add("ラウンド", 75);
+            listViewRoundLog.Columns.Add("マップ", 95);
             listViewRoundLog.Columns.Add("テラー", 120);
-            listViewRoundLog.Columns.Add("アイテム", 60);
+            listViewRoundLog.Columns.Add("アイテム", 78);
             groupBoxRoundLog.Controls.Add(listViewRoundLog);
 
             // ツールチップ設定
