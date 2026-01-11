@@ -79,13 +79,13 @@ namespace ToNStatTool
 			public static readonly Color PredictionSpecial = Color.OrangeRed;  // DarkOrangeより濃い色
 			public static readonly Color PredictionDisabled = Color.Gray;
 			
-			// テラー特性の色（ライト用）
-			public static readonly Color TraitMovement = Color.Blue;
-			public static readonly Color TraitAttack = Color.Red;
-			public static readonly Color TraitSpecial = Color.Purple;
-			public static readonly Color TraitSpeed = Color.FromArgb(200, 120, 0);  // 暗めのオレンジ
-			public static readonly Color TraitCounter = Color.DarkRed;
-			public static readonly Color TraitDefault = Color.Black;
+			// テラー特性の色（ライト用 - 白背景で見やすい濃いめの色）
+			public static readonly Color TraitMovement = Color.FromArgb(0, 100, 180);       // 濃い青
+			public static readonly Color TraitAttack = Color.FromArgb(180, 0, 0);           // 濃い赤
+			public static readonly Color TraitSpecial = Color.FromArgb(128, 0, 128);        // 紫
+			public static readonly Color TraitSpeed = Color.FromArgb(180, 100, 0);          // 濃いオレンジ
+			public static readonly Color TraitCounter = Color.FromArgb(150, 0, 50);         // 濃い赤紫
+			public static readonly Color TraitDefault = Color.FromArgb(60, 60, 60);         // 濃いグレー
 		}
 
 		// ===== ダークモード配色 =====
@@ -133,13 +133,13 @@ namespace ToNStatTool
 			public static readonly Color PredictionSpecial = Color.Orange;
 			public static readonly Color PredictionDisabled = Color.Gray;
 			
-			// テラー特性の色（ダーク用 - 暗い背景で見やすい色）
-			public static readonly Color TraitMovement = Color.DeepSkyBlue;
-			public static readonly Color TraitAttack = Color.FromArgb(255, 120, 120);  // 明るい赤
-			public static readonly Color TraitSpecial = Color.Orchid;
-			public static readonly Color TraitSpeed = Color.Orange;
-			public static readonly Color TraitCounter = Color.Salmon;
-			public static readonly Color TraitDefault = Color.WhiteSmoke;
+			// テラー特性の色（ダーク用 - 暗い背景で見やすい明るめの色）
+			public static readonly Color TraitMovement = Color.FromArgb(100, 180, 255);     // 明るい青
+			public static readonly Color TraitAttack = Color.FromArgb(255, 150, 150);       // 明るいサーモンピンク
+			public static readonly Color TraitSpecial = Color.FromArgb(220, 150, 255);      // 明るいラベンダー
+			public static readonly Color TraitSpeed = Color.FromArgb(255, 200, 100);        // 明るいオレンジ
+			public static readonly Color TraitCounter = Color.FromArgb(255, 180, 180);      // 明るいピンク
+			public static readonly Color TraitDefault = Color.FromArgb(200, 200, 200);      // 明るいグレー
 		}
 
 		/// <summary>
