@@ -51,6 +51,9 @@ namespace ToNStatTool
         private bool isUpdatingEvents = false;
         private bool isUpdatingPlayers = false;
 
+        // コントロールキャッシュ（FindControl高速化用）
+        private readonly Dictionary<string, Control> controlCache = new Dictionary<string, Control>();
+
         // アプリケーション設定
         private AppSettings appSettings;
 
@@ -337,11 +340,23 @@ namespace ToNStatTool
         }
 
         /// <summary>
-        /// 指定された名前のコントロールを検索
+        /// 指定された名前のコントロールを検索（キャッシュ使用）
         /// </summary>
         private Control FindControl(string name)
         {
-            return ControlFinder.FindControlRecursive(this, name);
+            // キャッシュにあればそれを返す
+            if (controlCache.TryGetValue(name, out Control cached))
+            {
+                return cached;
+            }
+
+            // キャッシュにない場合は検索してキャッシュに追加
+            var control = ControlFinder.FindControlRecursive(this, name);
+            if (control != null)
+            {
+                controlCache[name] = control;
+            }
+            return control;
         }
 
         /// <summary>

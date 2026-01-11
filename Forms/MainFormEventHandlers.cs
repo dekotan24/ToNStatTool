@@ -9,31 +9,65 @@ namespace ToNStatTool
     // イベントハンドラ部分
     public partial class ToNStatTool
     {
+        /// <summary>
+        /// スレッドセーフにUIを更新するヘルパーメソッド
+        /// ハンドルが作成されていない場合やフォームが破棄中の場合は何もしない
+        /// </summary>
+        private void SafeInvoke(Action action)
+        {
+            try
+            {
+                if (this.IsDisposed || this.Disposing)
+                    return;
+                
+                // UIスレッドから呼ばれている場合は直接実行（ハンドル不要）
+                if (!this.InvokeRequired)
+                {
+                    action();
+                    return;
+                }
+                
+                // 別スレッドからの場合はハンドルが必要
+                if (!this.IsHandleCreated)
+                    return;
+                    
+                this.BeginInvoke(action);
+            }
+            catch (ObjectDisposedException)
+            {
+                // フォームが破棄された場合は無視
+            }
+            catch (InvalidOperationException)
+            {
+                // ハンドルが無効な場合は無視
+            }
+        }
+
         private void OnWebSocketConnected(string playerName)
         {
-            this.Invoke(new Action(() =>
+            SafeInvoke(() =>
             {
                 labelStatus.Text = $"接続済み - プレイヤー: {playerName}";
                 labelStatus.ForeColor = Color.Green;
                 buttonConnect.Text = "切断";
                 buttonConnect.Enabled = true;
-            }));
+            });
         }
 
         private void OnWebSocketDisconnected()
         {
-            this.Invoke(new Action(() =>
+            SafeInvoke(() =>
             {
                 labelStatus.Text = "切断済み";
                 labelStatus.ForeColor = Color.Red;
                 buttonConnect.Text = "接続";
                 buttonConnect.Enabled = true;
-            }));
+            });
         }
 
         private void OnWebSocketMessageReceived(string message)
         {
-            this.Invoke(new Action(() =>
+            SafeInvoke(() =>
             {
                 var shortMessage = message.Length > 500 ? message.Substring(0, 500) + "..." : message;
                 textBoxRawData.Text = FormatJson(shortMessage);
@@ -41,32 +75,32 @@ namespace ToNStatTool
                 textBoxRawData.ScrollToCaret();
 
                 ScheduleUIUpdate();
-            }));
+            });
         }
 
         private void OnWebSocketError(string error)
         {
-            this.Invoke(new Action(() =>
+            SafeInvoke(() =>
             {
                 MessageBox.Show($"エラー: {error}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 labelStatus.Text = "接続失敗";
                 labelStatus.ForeColor = Color.Red;
                 buttonConnect.Text = "接続";
                 buttonConnect.Enabled = true;
-            }));
+            });
         }
 
         private void OnTerrorUpdate()
         {
-            this.Invoke(new Action(() =>
+            SafeInvoke(() =>
             {
                 UpdateTerrorDisplay();
-            }));
+            });
         }
 
         private void OnRoundEnd()
         {
-            this.Invoke(new Action(() =>
+            SafeInvoke(() =>
             {
                 UpdateStatsDisplay();
                 UpdateRoundLogDisplay();
@@ -80,12 +114,12 @@ namespace ToNStatTool
                 {
                     terrorDisplayForm.OnRoundEnd();
                 }
-            }));
+            });
         }
 
         private void OnRoundStart(ToNRoundType roundType)
         {
-            this.Invoke(new Action(() =>
+            SafeInvoke(() =>
             {
                 mainFormRoundStartTime = DateTime.Now;
                 mainFormRoundActive = true;
@@ -97,12 +131,12 @@ namespace ToNStatTool
                 {
                     terrorDisplayForm.OnRoundStart(roundType);
                 }
-            }));
+            });
         }
 
         private void OnInstanceStateChanged()
         {
-            this.Invoke(new Action(() =>
+            SafeInvoke(() =>
             {
                 string currentItem = webSocketClient?.InstanceState?.CurrentItem ?? "";
                 System.Diagnostics.Debug.WriteLine($"[INSTANCE_STATE] OnInstanceStateChanged呼び出し: CurrentItem='{currentItem}'");
@@ -115,20 +149,31 @@ namespace ToNStatTool
                 {
                     terrorDisplayForm.UpdateNextRoundPrediction();
                 }
-            }));
+            });
         }
 
         private void OnPlayerCountChanged()
         {
-            this.Invoke(new Action(() =>
+            SafeInvoke(() =>
             {
                 if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
                 {
-                    int aliveCount = webSocketClient.Players.Values.Count(p => p.IsAlive);
-                    int totalCount = webSocketClient.Players.Count;
+                    // スレッドセーフにコレクションをコピー
+                    List<PlayerInfo> playerList;
+                    try
+                    {
+                        playerList = webSocketClient.Players.Values.ToList();
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        return;
+                    }
+                    
+                    int aliveCount = playerList.Count(p => p.IsAlive);
+                    int totalCount = playerList.Count;
                     terrorDisplayForm.UpdatePlayerCount(aliveCount, totalCount);
                 }
-            }));
+            });
         }
 
         private void OnItemReminderRoundEnd()
@@ -487,10 +532,25 @@ namespace ToNStatTool
                 {
                     terrorDisplayForm = new TerrorDisplayForm();
                     terrorDisplayForm.SetInstanceState(webSocketClient.InstanceState);
-                    terrorDisplayForm.UpdateTerrors(webSocketClient.CurrentTerrors);
                     
-                    int aliveCount = webSocketClient.Players.Values.Count(p => p.IsAlive);
-                    int totalCount = webSocketClient.Players.Count;
+                    // スレッドセーフにコレクションをコピー
+                    List<TerrorInfo> terrorsCopy;
+                    List<PlayerInfo> playerList;
+                    try
+                    {
+                        terrorsCopy = webSocketClient.CurrentTerrors?.ToList() ?? new List<TerrorInfo>();
+                        playerList = webSocketClient.Players?.Values.ToList() ?? new List<PlayerInfo>();
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        terrorsCopy = new List<TerrorInfo>();
+                        playerList = new List<PlayerInfo>();
+                    }
+                    
+                    terrorDisplayForm.UpdateTerrors(terrorsCopy);
+                    
+                    int aliveCount = playerList.Count(p => p.IsAlive);
+                    int totalCount = playerList.Count;
                     terrorDisplayForm.UpdatePlayerCount(aliveCount, totalCount);
                     
                     if (mainFormRoundActive && webSocketClient.InstanceState.HasCurrentRound)

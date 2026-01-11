@@ -9,6 +9,17 @@ namespace ToNStatTool
     // UI更新処理部分
     public partial class ToNStatTool
     {
+        // プレイヤーリスト差分更新用
+        private string lastPlayerListHash = "";
+        
+        // イベントリスト差分更新用
+        private int lastEventCount = 0;
+        private DateTime lastEventTimestamp = DateTime.MinValue;
+        
+        // ラウンドログ差分更新用
+        private int lastRoundLogCount = 0;
+        private string lastRoundLogFilter = "";
+        
         private void ScheduleUIUpdate()
         {
             if (DateTime.Now - lastUIUpdate < minUIUpdateInterval)
@@ -55,7 +66,16 @@ namespace ToNStatTool
 
         private void UpdateTerrorDisplay()
         {
-            var currentTerrors = webSocketClient.CurrentTerrors;
+            // スレッドセーフにリストをコピー
+            List<TerrorInfo> currentTerrors;
+            try
+            {
+                currentTerrors = webSocketClient.CurrentTerrors?.ToList() ?? new List<TerrorInfo>();
+            }
+            catch (InvalidOperationException)
+            {
+                return; // コレクションが変更中の場合はスキップ
+            }
 
             // テラーの数が変わったか、または内容が変わったかをチェック
             bool needsUpdate = currentTerrors.Count != terrorControls.Count;
@@ -94,8 +114,19 @@ namespace ToNStatTool
                 {
                     terrorDisplayForm.UpdateTerrors(currentTerrors);
                     
-                    int aliveCount = webSocketClient.Players.Values.Count(p => p.IsAlive);
-                    int totalCount = webSocketClient.Players.Count;
+                    // スレッドセーフにプレイヤーリストをコピー
+                    List<PlayerInfo> playerList;
+                    try
+                    {
+                        playerList = webSocketClient.Players?.Values.ToList() ?? new List<PlayerInfo>();
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        return;
+                    }
+                    
+                    int aliveCount = playerList.Count(p => p.IsAlive);
+                    int totalCount = playerList.Count;
                     terrorDisplayForm.UpdatePlayerCount(aliveCount, totalCount);
                 }
             }
@@ -126,8 +157,38 @@ namespace ToNStatTool
                 var labelPlayerCount = FindControl("labelPlayerCount") as Label;
                 if (listView == null || labelPlayerCount == null) return;
 
+                // スレッドセーフにコレクションをコピー
                 var players = webSocketClient.Players;
+                if (players == null) return;
+                
+                List<PlayerInfo> playerList;
+                try
+                {
+                    playerList = players.Values.ToList();
+                }
+                catch (InvalidOperationException)
+                {
+                    // コレクションが変更中の場合はスキップ
+                    return;
+                }
+                
                 var localPlayerUserId = webSocketClient.LocalPlayerUserId;
+
+                // 変更検出用ハッシュを計算（テーマも含める）
+                var hashBuilder = new System.Text.StringBuilder();
+                hashBuilder.Append(ThemeManager.IsDark ? "D" : "L");
+                foreach (var player in playerList.OrderBy(p => p.Name))
+                {
+                    hashBuilder.Append($"|{player.Name}:{player.IsAlive}:{player.UserId == localPlayerUserId}:{webSocketClient.IsWarningUser(player.Name)}");
+                }
+                string currentHash = hashBuilder.ToString();
+
+                // ハッシュが同じなら更新をスキップ
+                if (currentHash == lastPlayerListHash)
+                {
+                    return;
+                }
+                lastPlayerListHash = currentHash;
 
                 var selectedIndices = new List<int>();
                 foreach (int index in listView.SelectedIndices)
@@ -138,13 +199,15 @@ namespace ToNStatTool
                 listView.BeginUpdate();
                 listView.Items.Clear();
 
-                int totalPlayers = players.Count;
+                int totalPlayers = playerList.Count;
                 int alivePlayers = 0;
                 int warningPlayers = 0;
 
+#if DEBUG
                 System.Diagnostics.Debug.WriteLine($"[UI] プレイヤー一覧更新 - 総数: {totalPlayers}");
+#endif
 
-                foreach (var player in players.Values.OrderBy(p => p.Name))
+                foreach (var player in playerList.OrderBy(p => p.Name))
                 {
                     try
                     {
@@ -190,12 +253,16 @@ namespace ToNStatTool
 
                         listView.Items.Add(item);
 
+#if DEBUG
                         string warningFlag = isWarningUser ? " [警告]" : "";
                         System.Diagnostics.Debug.WriteLine($"[UI] プレイヤー追加: '{displayName}'{warningFlag} - {(player.IsAlive ? "生存" : "死亡")}");
+#endif
                     }
                     catch (Exception ex)
                     {
+#if DEBUG
                         System.Diagnostics.Debug.WriteLine($"[UI] プレイヤー表示エラー: {player.Name} - {ex.Message}");
+#endif
 
                         var errorItem = new ListViewItem($"[表示エラー] {player.UserId}");
                         errorItem.SubItems.Add(player.IsAlive ? "生存" : "死亡");
@@ -227,7 +294,9 @@ namespace ToNStatTool
             }
             catch (Exception ex)
             {
+#if DEBUG
                 System.Diagnostics.Debug.WriteLine($"[UI] プレイヤーリスト更新エラー: {ex.Message}");
+#endif
             }
             finally
             {
@@ -264,6 +333,19 @@ namespace ToNStatTool
             try
             {
                 var recentEvents = webSocketClient.RecentEvents;
+
+                // 変更検出：イベント数とタイムスタンプで判定
+                int currentEventCount = recentEvents.Count;
+                DateTime currentLastTimestamp = recentEvents.Count > 0 
+                    ? recentEvents.Max(e => e.Timestamp) 
+                    : DateTime.MinValue;
+
+                if (currentEventCount == lastEventCount && currentLastTimestamp == lastEventTimestamp)
+                {
+                    return;
+                }
+                lastEventCount = currentEventCount;
+                lastEventTimestamp = currentLastTimestamp;
 
                 int topIndex = listBoxEvents.TopIndex;
                 bool wasAtBottom = (topIndex + listBoxEvents.ClientSize.Height / listBoxEvents.ItemHeight) >= listBoxEvents.Items.Count - 1;
@@ -363,6 +445,15 @@ namespace ToNStatTool
             string terrorFilter = !string.IsNullOrWhiteSpace(textTerrorFilter?.Text) 
                 ? textTerrorFilter.Text.Trim().ToLower() 
                 : null;
+
+            // 変更検出用ハッシュを計算（テーマ + ログ数 + フィルター条件）
+            string currentFilter = $"{(ThemeManager.IsDark ? "D" : "L")}|{roundLogs.Count}|{roundTypeFilter ?? ""}|{terrorFilter ?? ""}";
+            if (currentFilter == lastRoundLogFilter && roundLogs.Count == lastRoundLogCount)
+            {
+                return;
+            }
+            lastRoundLogCount = roundLogs.Count;
+            lastRoundLogFilter = currentFilter;
 
             listView.BeginUpdate();
             listView.Items.Clear();
