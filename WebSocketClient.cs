@@ -1611,10 +1611,20 @@ namespace ToNStatTool
 			}
 			else
 			{
-				// サボタージュ解除時はフラグをクリア
+				// サボタージュ解除時
 				pendingSaboteurFlag = false;
-				wasSaboteurDuringRound = false;
-				Logger.Info("Saboteur", "サボタージュ解除（サバイバー側）");
+				// ラウンドがアクティブ中は wasSaboteurDuringRound を保持
+				// （ラウンド終了後のアイテムリマインダーで必要なため）
+				// ラウンド終了後は StartNewRound でリセットされる
+				if (!isRoundActive)
+				{
+					wasSaboteurDuringRound = false;
+					Logger.Info("Saboteur", "サボタージュ解除（サバイバー側）: フラグをクリア");
+				}
+				else
+				{
+					Logger.Info("Saboteur", "サボタージュ解除（サバイバー側）: ラウンドアクティブ中のためフラグを保持");
+				}
 			}
 			
 			// UI更新のためにイベントを発火
@@ -1727,6 +1737,23 @@ namespace ToNStatTool
 						break;
 					case "DamageTaken":
 						SessionStats.DamageTaken = valueToken.ToObject<int>();
+						break;
+					case "LobbySurvivals":
+						// ロビー生存数が15以上ならMystic Moon解禁
+						int lobbySurvivals = valueToken.ToObject<int?>() ?? 0;
+						if (lobbySurvivals >= 15 && !InstanceState.MysticMoonUnlocked)
+						{
+							InstanceState.MysticMoonUnlocked = true;
+							Logger.Info("Stats", $"LobbySurvivalsが15以上({lobbySurvivals})のためMystic Moon解禁");
+							System.Diagnostics.Debug.WriteLine($"[InstanceState] LobbySurvivals={lobbySurvivals} → Mystic Moon解禁");
+							OnInstanceStateChanged?.Invoke();
+						}
+						// EstimatedSurvivalCountも更新（接続時の初期値として）
+						if (lobbySurvivals > InstanceState.EstimatedSurvivalCount)
+						{
+							InstanceState.EstimatedSurvivalCount = lobbySurvivals;
+							Logger.Debug("Stats", $"EstimatedSurvivalCountを{lobbySurvivals}に更新");
+						}
 						break;
 				}
 				
