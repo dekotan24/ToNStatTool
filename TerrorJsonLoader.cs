@@ -83,8 +83,8 @@ namespace ToNStatTool
 					}
 				}
 
-				// テラー名の分割処理（Mona & The Mountainは例外）
-				if (terrorEntry.Key == "Mona & The Mountain")
+				// テラー名の分割処理
+				if (terrorEntry.Key == "Mona & The Mountain" || terrorEntry.Key == "Luigi & Luigi Dolls")
 				{
 					// このテラーは分割しない
 					terrorDetails[terrorDetail.Name] = terrorDetail;

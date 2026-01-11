@@ -623,6 +623,13 @@ namespace ToNStatTool
 
 				System.Diagnostics.Debug.WriteLine($"[CONNECTED] ローカルプレイヤー: '{LocalPlayerName}', ID: '{LocalPlayerUserId}'");
 
+				// ラウンド統計、ラウンドログをリセット（接続時にリプレイデータが送られてくるため）
+				ResetRoundStats();
+				
+				// 推定生存回数をリセット（他のインスタンス状態設定値はそのまま）
+				InstanceState.EstimatedSurvivalCount = 0;
+				System.Diagnostics.Debug.WriteLine("[CONNECTED] ラウンド統計、ラウンドログ、推定生存回数をリセットしました");
+
 				// 既存のプレイヤーデータをクリア（接続時にリセット）
 				Players.Clear();
 
@@ -2553,12 +2560,12 @@ namespace ToNStatTool
 		}
 
 		/// <summary>
-		/// テラー名からTerrorInfoを追加する（Mona & The Mountain例外処理付き）
+		/// テラー名からTerrorInfoを追加する
 		/// </summary>
 		private void AddTerrorFromName(string terrorName, JObject jsonData)
 		{
-			// Mona & The Mountainは分割しない
-			if (terrorName == "Mona & The Mountain")
+			// Mona & The Mountain、Luigi & Luigi Dollsは分割しない
+			if (terrorName == "Mona & The Mountain" || terrorName == "Luigi & Luigi Dolls")
 			{
 				var terrorInfo = new TerrorInfo
 				{

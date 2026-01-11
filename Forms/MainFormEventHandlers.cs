@@ -51,6 +51,11 @@ namespace ToNStatTool
                 labelStatus.ForeColor = Color.Green;
                 buttonConnect.Text = "切断";
                 buttonConnect.Enabled = true;
+                
+                // 接続時にUIをリセット（ラウンド統計、ラウンドログ、推定生存回数がWebSocket側でリセットされているのでUIに反映）
+                UpdateBirdCheckboxes();
+                UpdateStatsDisplay();
+                UpdateRoundLogDisplay();
             });
         }
 
