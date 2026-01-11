@@ -901,7 +901,8 @@ namespace ToNStatTool
 				TerrorNames = "",
 				Items = string.IsNullOrEmpty(startingItem) ? "なし" : startingItem,
 				Survived = false,
-				WasOptedIn = InstanceState.IsOptedIn  // ラウンド開始時の参加状態を記録
+				WasOptedIn = InstanceState.IsOptedIn,  // ラウンド開始時の参加状態を記録
+				IsReplay = isProcessingBufferedEvents  // リプレイ（バッファ処理中）かどうか
 			};
 
 			// ラウンド開始イベントを発火
@@ -1044,7 +1045,8 @@ namespace ToNStatTool
 				TerrorNames = "???", // ダブルドラブルはテラー名がアナウンスされない
 				Items = string.IsNullOrEmpty(startingItem) ? "なし" : startingItem,
 				Survived = true, // 通常と同じく、初期値は生存
-				WasOptedIn = InstanceState.IsOptedIn
+				WasOptedIn = InstanceState.IsOptedIn,
+				IsReplay = isProcessingBufferedEvents  // リプレイ（バッファ処理中）かどうか
 			};
 			
 			// フラグ設定（通常のラウンドと同じ）

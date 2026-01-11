@@ -215,6 +215,11 @@ namespace ToNStatTool
 		/// ラウンド開始時にゲームに参加していたか
 		/// </summary>
 		public bool WasOptedIn { get; set; } = true;
+		
+		/// <summary>
+		/// リプレイ（バッファイベント処理）から取得したログかどうか
+		/// </summary>
+		public bool IsReplay { get; set; } = false;
 	}
 
 	/// <summary>

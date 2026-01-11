@@ -390,7 +390,9 @@ namespace ToNStatTool
 
                 filteredCount++;
 
-                var item = new ListViewItem(log.Timestamp.ToString("HH:mm"));
+                // リプレイの場合は「RP」、リアルタイムの場合は時間を表示
+                string timeDisplay = log.IsReplay ? "RP" : log.Timestamp.ToString("HH:mm");
+                var item = new ListViewItem(timeDisplay);
                 item.SubItems.Add(log.RoundTypeDisplayName);
                 item.SubItems.Add(log.MapName);
                 item.SubItems.Add(log.TerrorNames);
