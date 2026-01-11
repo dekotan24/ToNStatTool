@@ -675,6 +675,9 @@ namespace ToNStatTool
 					finally
 					{
 						isProcessingBufferedEvents = false;
+						
+						// リプレイ終了後、最終的なテラー情報を反映するために1回だけ更新イベントを発火
+						OnTerrorUpdate?.Invoke();
 					}
 				}
 			}
@@ -721,8 +724,11 @@ namespace ToNStatTool
 				CheckBirdEncounters();
 			}
 
-			// テラー更新イベントを発火
-			OnTerrorUpdate?.Invoke();
+			// テラー更新イベントを発火（リプレイ中はスキップ）
+			if (!isProcessingBufferedEvents)
+			{
+				OnTerrorUpdate?.Invoke();
+			}
 		}
 
 		private void ProcessRoundTypeEvent(JObject jsonData)
@@ -1952,8 +1958,11 @@ namespace ToNStatTool
 							
 							Logger.Info("DoubleTrouble", $"テラー名を追加: '{terrorName}' → 現在のテラー: '{currentRound.TerrorNames}'");
 							
-							// テラー更新イベントを発火
-							OnTerrorUpdate?.Invoke();
+							// テラー更新イベントを発火（リプレイ中はスキップ）
+							if (!isProcessingBufferedEvents)
+							{
+								OnTerrorUpdate?.Invoke();
+							}
 						}
 					}
 				}
