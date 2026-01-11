@@ -43,11 +43,13 @@ namespace ToNStatTool
 		// 警告ユーザー参加時サウンド
 		public bool EnableWarningUserSound { get; set; } = true;
 		public string WarningUserSoundPath { get; set; } = "";
-		// アイテムリマインダー設定
+		// アイテムリマインダー設定（8ページ/アンバウンド/サボタージュ）
 		public bool EnableItemReminder { get; set; } = true;
 		public bool EnableItemReminderSound { get; set; } = true;
 		public string ItemReminderSoundPath { get; set; } = "";
 		public int ItemReminderDurationSeconds { get; set; } = 10;
+		// リスポーン後リマインダー設定
+		public bool EnableRespawnReminder { get; set; } = true;
 		// マスター変更音設定
 		public bool EnableMasterChangeSound { get; set; } = true;
 		public string MasterChangeSoundPath { get; set; } = "";
@@ -104,6 +106,11 @@ namespace ToNStatTool
 		
 		// ローカルプレイヤーのゲーム参加状態
 		public bool IsOptedIn { get; set; } = true;
+		
+		// リスポーン追跡用フラグ
+		public bool WasOptedInThisInstance { get; set; } = false;  // このインスタンスで一度でもopted_inしたか
+		public bool HadRespawnedInRound { get; set; } = false;     // リスポーン後の再参加待ち状態
+		public bool IsRespawnSaveCode { get; set; } = false;       // 次のセーブコードがリスポーン用か
 		
 		// 現在所持しているアイテム名
 		public string CurrentItem { get; set; } = "";

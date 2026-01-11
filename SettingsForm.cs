@@ -28,6 +28,8 @@ namespace ToNStatTool
 		private CheckBox checkReminderSoundEnabled;
 		private TextBox textReminderSoundPath;
 		private NumericUpDown numReminderDuration;
+		// リスポーン後リマインダー設定コントロール
+		private CheckBox checkRespawnReminderEnabled;
 
 		// テーマ設定コントロール
 		private RadioButton radioThemeLight;
@@ -349,7 +351,7 @@ namespace ToNStatTool
 			var groupReminder = new GroupBox();
 			groupReminder.Text = "8ページ / アンバウンド終了時のリマインダー";
 			groupReminder.Location = new Point(10, 10);
-			groupReminder.Size = new Size(415, 200);
+			groupReminder.Size = new Size(415, 220);
 			tab.Controls.Add(groupReminder);
 
 			// 有効/無効
@@ -362,41 +364,41 @@ namespace ToNStatTool
 
 			// 説明ラベル
 			var labelDescription = new Label();
-			labelDescription.Text = "8ページ・アンバウンド終了後、テラー表示ウィンドウに\n「アイテムを持ち直してください」と表示します。";
+			labelDescription.Text = "8ページ・アンバウンド終了後、テラー表示ウィンドウに\n「アイテムを持ち直してください」と表示します。\nサボタージュでキラー側になった時も通知します。";
 			labelDescription.Location = new Point(15, 55);
-			labelDescription.Size = new Size(380, 35);
+			labelDescription.Size = new Size(380, 50);
 			labelDescription.ForeColor = Color.Gray;
 			groupReminder.Controls.Add(labelDescription);
 
 			// サウンド設定
 			checkReminderSoundEnabled = new CheckBox();
 			checkReminderSoundEnabled.Text = "通知音を鳴らす";
-			checkReminderSoundEnabled.Location = new Point(15, 95);
+			checkReminderSoundEnabled.Location = new Point(15, 110);
 			checkReminderSoundEnabled.Size = new Size(120, 20);
 			groupReminder.Controls.Add(checkReminderSoundEnabled);
 
 			textReminderSoundPath = new TextBox();
-			textReminderSoundPath.Location = new Point(140, 93);
+			textReminderSoundPath.Location = new Point(140, 108);
 			textReminderSoundPath.Size = new Size(150, 23);
 			groupReminder.Controls.Add(textReminderSoundPath);
 
 			var buttonReminderBrowse = new Button();
 			buttonReminderBrowse.Text = "参照...";
-			buttonReminderBrowse.Location = new Point(295, 92);
+			buttonReminderBrowse.Location = new Point(295, 107);
 			buttonReminderBrowse.Size = new Size(55, 25);
 			buttonReminderBrowse.Click += (s, e) => BrowseSoundFile(textReminderSoundPath);
 			groupReminder.Controls.Add(buttonReminderBrowse);
 
 			var buttonReminderTest = new Button();
 			buttonReminderTest.Text = "▶";
-			buttonReminderTest.Location = new Point(355, 92);
+			buttonReminderTest.Location = new Point(355, 107);
 			buttonReminderTest.Size = new Size(40, 25);
 			buttonReminderTest.Click += (s, e) => TestSound(textReminderSoundPath.Text, "item.mp3");
 			groupReminder.Controls.Add(buttonReminderTest);
 
 			var labelSoundNote = new Label();
 			labelSoundNote.Text = "※ 空の場合はitem.mp3を使用";
-			labelSoundNote.Location = new Point(140, 118);
+			labelSoundNote.Location = new Point(140, 133);
 			labelSoundNote.Size = new Size(250, 20);
 			labelSoundNote.ForeColor = Color.Gray;
 			groupReminder.Controls.Add(labelSoundNote);
@@ -404,12 +406,12 @@ namespace ToNStatTool
 			// 表示時間
 			var labelDuration = new Label();
 			labelDuration.Text = "表示時間:";
-			labelDuration.Location = new Point(15, 148);
+			labelDuration.Location = new Point(15, 163);
 			labelDuration.Size = new Size(60, 20);
 			groupReminder.Controls.Add(labelDuration);
 
 			numReminderDuration = new NumericUpDown();
-			numReminderDuration.Location = new Point(80, 145);
+			numReminderDuration.Location = new Point(80, 160);
 			numReminderDuration.Size = new Size(60, 23);
 			numReminderDuration.Minimum = 1;
 			numReminderDuration.Maximum = 10;
@@ -418,9 +420,31 @@ namespace ToNStatTool
 
 			var labelSeconds = new Label();
 			labelSeconds.Text = "秒";
-			labelSeconds.Location = new Point(145, 148);
+			labelSeconds.Location = new Point(145, 163);
 			labelSeconds.Size = new Size(30, 20);
 			groupReminder.Controls.Add(labelSeconds);
+
+			// リスポーン後リマインダー設定グループ
+			var groupRespawn = new GroupBox();
+			groupRespawn.Text = "リスポーン後の再参加時のリマインダー";
+			groupRespawn.Location = new Point(10, 240);
+			groupRespawn.Size = new Size(415, 100);
+			tab.Controls.Add(groupRespawn);
+
+			// 有効/無効
+			checkRespawnReminderEnabled = new CheckBox();
+			checkRespawnReminderEnabled.Text = "リマインダーを有効にする";
+			checkRespawnReminderEnabled.Location = new Point(15, 30);
+			checkRespawnReminderEnabled.Size = new Size(200, 20);
+			groupRespawn.Controls.Add(checkRespawnReminderEnabled);
+
+			// 説明ラベル
+			var labelRespawnDescription = new Label();
+			labelRespawnDescription.Text = "リスポーン後にゲームへ再参加した際に\n「アイテムを持ち直してください」と表示します。\n※ 通知音は上記の設定を共有します";
+			labelRespawnDescription.Location = new Point(15, 55);
+			labelRespawnDescription.Size = new Size(380, 40);
+			labelRespawnDescription.ForeColor = Color.Gray;
+			groupRespawn.Controls.Add(labelRespawnDescription);
 		}
 
 		private void CreateThemeSettingsTab(TabPage tab)
@@ -572,6 +596,9 @@ namespace ToNStatTool
 			checkReminderSoundEnabled.Checked = soundSettings.EnableItemReminderSound;
 			textReminderSoundPath.Text = soundSettings.ItemReminderSoundPath;
 			numReminderDuration.Value = Math.Max(1, Math.Min(10, soundSettings.ItemReminderDurationSeconds));
+			
+			// リスポーン後リマインダー設定
+			checkRespawnReminderEnabled.Checked = soundSettings.EnableRespawnReminder;
 
 			// マスター変更音設定（SoundSettingsから読み込み）
 			checkMasterChangeEnabled.Checked = soundSettings.EnableMasterChangeSound;
@@ -616,6 +643,9 @@ namespace ToNStatTool
 			soundSettings.EnableItemReminderSound = checkReminderSoundEnabled.Checked;
 			soundSettings.ItemReminderSoundPath = textReminderSoundPath.Text;
 			soundSettings.ItemReminderDurationSeconds = (int)numReminderDuration.Value;
+			
+			// リスポーン後リマインダー設定を更新
+			soundSettings.EnableRespawnReminder = checkRespawnReminderEnabled.Checked;
 
 			// マスター変更音設定を更新（SoundSettingsに保存）
 			soundSettings.EnableMasterChangeSound = checkMasterChangeEnabled.Checked;

@@ -1679,6 +1679,11 @@ namespace ToNStatTool
 					// インスタンス変更時は状態をリセット
 					InstanceState.MasterChanged = false;
 					
+					// リスポーン追跡用フラグをリセット（新しいインスタンスでは初めからやり直し）
+					InstanceState.WasOptedInThisInstance = false;
+					InstanceState.HadRespawnedInRound = false;
+					InstanceState.IsRespawnSaveCode = false;
+					
 					OnInstanceStateChanged?.Invoke();
 				}
 				
@@ -1938,26 +1943,41 @@ namespace ToNStatTool
 				
 				if (!string.IsNullOrEmpty(saveCode))
 				{
-					// 直前のラウンドタイプを取得
-					string roundTypeName = ToNRoundTypeHelper.GetDisplayName(InstanceState.LastRoundType);
-					if (InstanceState.LastRoundType == ToNRoundType.Intermission)
-					{
-						roundTypeName = ToNRoundTypeHelper.GetDisplayName(InstanceState.CurrentRoundType);
-					}
+					string roundTypeName;
+					string terrorNames;
 					
-					// テラー名を取得（優先順位: currentRound > lastFinishedRoundTerrorNames > CurrentTerrors）
-					string terrorNames = "";
-					if (currentRound != null && !string.IsNullOrEmpty(currentRound.TerrorNames))
+					// リスポーン時のセーブコードかどうかをチェック
+					if (InstanceState.IsRespawnSaveCode)
 					{
-						terrorNames = currentRound.TerrorNames;
+						// リスポーン時のセーブコード
+						roundTypeName = "リスポーン";
+						terrorNames = "";  // テラー名は空
+						InstanceState.IsRespawnSaveCode = false;  // フラグをリセット
+						Logger.Info("SaveCode", "リスポーン用セーブコードとして処理");
 					}
-					else if (!string.IsNullOrEmpty(lastFinishedRoundTerrorNames))
+					else
 					{
-						terrorNames = lastFinishedRoundTerrorNames;
-					}
-					else if (CurrentTerrors.Count > 0)
-					{
-						terrorNames = string.Join(", ", CurrentTerrors.Select(t => t.Name));
+						// 通常のセーブコード: 直前のラウンドタイプを取得
+						roundTypeName = ToNRoundTypeHelper.GetDisplayName(InstanceState.LastRoundType);
+						if (InstanceState.LastRoundType == ToNRoundType.Intermission)
+						{
+							roundTypeName = ToNRoundTypeHelper.GetDisplayName(InstanceState.CurrentRoundType);
+						}
+						
+						// テラー名を取得（優先順位: currentRound > lastFinishedRoundTerrorNames > CurrentTerrors）
+						terrorNames = "";
+						if (currentRound != null && !string.IsNullOrEmpty(currentRound.TerrorNames))
+						{
+							terrorNames = currentRound.TerrorNames;
+						}
+						else if (!string.IsNullOrEmpty(lastFinishedRoundTerrorNames))
+						{
+							terrorNames = lastFinishedRoundTerrorNames;
+						}
+						else if (CurrentTerrors.Count > 0)
+						{
+							terrorNames = string.Join(", ", CurrentTerrors.Select(t => t.Name));
+						}
 					}
 					
 					var saveCodeInfo = new SaveCodeInfo
@@ -1997,6 +2017,43 @@ namespace ToNStatTool
 			try
 			{
 				bool isOptedIn = jsonData["Value"]?.ToObject<bool>() ?? true;
+				
+				// リスポーン検出: 一度opted_inしていた状態からopted_outになった場合
+				if (!isOptedIn && InstanceState.WasOptedInThisInstance)
+				{
+					// これはリスポーン（死亡してリスポーン地点へ）
+					InstanceState.HadRespawnedInRound = true;
+					InstanceState.IsRespawnSaveCode = true;
+					Logger.Info("OptedIn", "リスポーン検出: opted_out");
+				}
+				else if (isOptedIn)
+				{
+					// opted_inになった
+					if (InstanceState.HadRespawnedInRound)
+					{
+						// リスポーン後の再参加 → 設定が有効ならアイテムリマインダーを発行
+						if (SoundSettings.EnableRespawnReminder)
+						{
+							Logger.Info("OptedIn", "リスポーン後の再参加検出: アイテムリマインダーを発行");
+							System.Diagnostics.Debug.WriteLine("[OPTED_IN] リスポーン後の再参加 → アイテムリマインダー発行");
+							
+							// ミュート期間中でなければリマインダーを発行
+							if (!ShouldMuteNotificationSounds())
+							{
+								OnItemReminderRoundEnd?.Invoke();
+							}
+						}
+						else
+						{
+							Logger.Info("OptedIn", "リスポーン後の再参加検出: リマインダー設定が無効のためスキップ");
+						}
+						
+						InstanceState.HadRespawnedInRound = false;
+					}
+					
+					// このインスタンスでopted_inしたことを記録
+					InstanceState.WasOptedInThisInstance = true;
+				}
 				
 				InstanceState.IsOptedIn = isOptedIn;
 				
