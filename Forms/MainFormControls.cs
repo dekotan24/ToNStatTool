@@ -10,6 +10,12 @@ namespace ToNStatTool
     {
         private void CreateConnectionControls()
         {
+            // ToolTipオブジェクトを作成（このメソッド全体で共有）
+            var mainToolTip = new ToolTip();
+            mainToolTip.AutoPopDelay = 5000;
+            mainToolTip.InitialDelay = 500;
+            mainToolTip.ReshowDelay = 200;
+
             // URL入力
             var labelUrl = new Label();
             labelUrl.Text = "WebSocket URL:";
@@ -29,6 +35,7 @@ namespace ToNStatTool
             buttonConnect.Size = new Size(100, 25);
             buttonConnect.Text = "接続";
             buttonConnect.Click += ButtonConnect_Click;
+            mainToolTip.SetToolTip(buttonConnect, "ToNSaveManagerに接続/切断");
             this.Controls.Add(buttonConnect);
 
             // ステータス表示
@@ -49,6 +56,7 @@ namespace ToNStatTool
             buttonStats.FlatStyle = FlatStyle.Flat;
             buttonStats.FlatAppearance.BorderSize = 1;
             buttonStats.Click += ButtonStats_Click;
+            mainToolTip.SetToolTip(buttonStats, "セッション統計を表示");
             this.Controls.Add(buttonStats);
 
             // インスタンスURLコピーボタン
@@ -61,6 +69,7 @@ namespace ToNStatTool
             buttonCopyInstanceUrl.FlatStyle = FlatStyle.Flat;
             buttonCopyInstanceUrl.FlatAppearance.BorderSize = 1;
             buttonCopyInstanceUrl.Click += ButtonCopyInstanceUrl_Click;
+            mainToolTip.SetToolTip(buttonCopyInstanceUrl, "インスタンスURLをクリップボードにコピー");
             this.Controls.Add(buttonCopyInstanceUrl);
 
             // セーブコードボタン
@@ -73,6 +82,7 @@ namespace ToNStatTool
             buttonSaveCodes.FlatStyle = FlatStyle.Flat;
             buttonSaveCodes.FlatAppearance.BorderSize = 1;
             buttonSaveCodes.Click += ButtonSaveCodes_Click;
+            mainToolTip.SetToolTip(buttonSaveCodes, "最近のセーブコードを表示");
             this.Controls.Add(buttonSaveCodes);
 
             // テラー表示ウィンドウボタン（チェックボックススタイル）
@@ -84,6 +94,7 @@ namespace ToNStatTool
             buttonTerrorWindow.Appearance = Appearance.Button;
             buttonTerrorWindow.TextAlign = ContentAlignment.MiddleCenter;
             buttonTerrorWindow.CheckedChanged += ButtonTerrorWindow_CheckedChanged;
+            mainToolTip.SetToolTip(buttonTerrorWindow, "テラー情報を別ウィンドウで表示");
             this.Controls.Add(buttonTerrorWindow);
 
             // 透明度ラベル
@@ -112,6 +123,7 @@ namespace ToNStatTool
                     terrorDisplayForm.SetOpacity(trackBarOpacity.Value / 100.0);
                 }
             };
+            mainToolTip.SetToolTip(trackBarOpacity, "テラー表示ウィンドウの透明度を調整 (10-100%)");
             this.Controls.Add(trackBarOpacity);
 
             // 設定ボタン
@@ -124,6 +136,7 @@ namespace ToNStatTool
             btnSettings.FlatStyle = FlatStyle.Flat;
             btnSettings.FlatAppearance.BorderSize = 1;
             btnSettings.Click += ButtonSoundSettings_Click;
+            mainToolTip.SetToolTip(btnSettings, "設定を開く（テーマ・通知音など）");
             this.Controls.Add(btnSettings);
         }
 
@@ -400,6 +413,11 @@ namespace ToNStatTool
             buttonResetInstanceState.Size = new Size(65, 25);
             buttonResetInstanceState.Click += ButtonResetInstanceState_Click;
             groupBoxInstanceState.Controls.Add(buttonResetInstanceState);
+
+            // インスタンス状態設定のToolTip
+            var instanceStateToolTip = new ToolTip();
+            instanceStateToolTip.SetToolTip(buttonEditSurvival, "推定生存回数を手動で編集");
+            instanceStateToolTip.SetToolTip(buttonResetInstanceState, "インスタンス状態をすべてリセット");
         }
 
         private void CreatePlayerListControls()
@@ -499,6 +517,10 @@ namespace ToNStatTool
             buttonResetStats.Click += ButtonResetStats_Click;
             tabPageRounds.Controls.Add(buttonResetStats);
 
+            // 統計リセットボタンのToolTip
+            var statsToolTip = new ToolTip();
+            statsToolTip.SetToolTip(buttonResetStats, "ラウンド統計をリセット");
+
             var listViewStats = new DoubleBufferedListView();
             listViewStats.Name = "listViewStats";
             listViewStats.Location = new Point(5, 30);
@@ -530,10 +552,73 @@ namespace ToNStatTool
             groupBoxRoundLog.Size = new Size(450, 415);
             this.Controls.Add(groupBoxRoundLog);
 
+            // フィルターパネル
+            var filterPanel = new Panel();
+            filterPanel.Location = new Point(10, 20);
+            filterPanel.Size = new Size(430, 30);
+            groupBoxRoundLog.Controls.Add(filterPanel);
+
+            // ラウンド種別フィルター
+            var labelRoundFilter = new Label();
+            labelRoundFilter.Text = "種別:";
+            labelRoundFilter.Location = new Point(0, 5);
+            labelRoundFilter.Size = new Size(35, 20);
+            filterPanel.Controls.Add(labelRoundFilter);
+
+            var comboRoundFilter = new ComboBox();
+            comboRoundFilter.Name = "comboRoundFilter";
+            comboRoundFilter.Location = new Point(35, 2);
+            comboRoundFilter.Size = new Size(120, 23);
+            comboRoundFilter.DropDownStyle = ComboBoxStyle.DropDownList;
+            comboRoundFilter.Items.Add("(すべて)");
+            // ラウンド種別を追加
+            foreach (ToNRoundType roundType in Enum.GetValues(typeof(ToNRoundType)))
+            {
+                if (roundType != ToNRoundType.Intermission)
+                {
+                    comboRoundFilter.Items.Add(ToNRoundTypeHelper.GetDisplayName(roundType));
+                }
+            }
+            comboRoundFilter.SelectedIndex = 0;
+            comboRoundFilter.SelectedIndexChanged += ComboRoundFilter_SelectedIndexChanged;
+            filterPanel.Controls.Add(comboRoundFilter);
+
+            // テラー名フィルター
+            var labelTerrorFilter = new Label();
+            labelTerrorFilter.Text = "テラー:";
+            labelTerrorFilter.Location = new Point(165, 5);
+            labelTerrorFilter.Size = new Size(45, 20);
+            filterPanel.Controls.Add(labelTerrorFilter);
+
+            var textTerrorFilter = new TextBox();
+            textTerrorFilter.Name = "textTerrorFilter";
+            textTerrorFilter.Location = new Point(210, 2);
+            textTerrorFilter.Size = new Size(140, 23);
+            textTerrorFilter.TextChanged += TextTerrorFilter_TextChanged;
+            filterPanel.Controls.Add(textTerrorFilter);
+
+            // フィルタークリアボタン
+            var buttonClearFilter = new Button();
+            buttonClearFilter.Name = "buttonClearFilter";
+            buttonClearFilter.Text = "×";
+            buttonClearFilter.Location = new Point(355, 1);
+            buttonClearFilter.Size = new Size(25, 25);
+            buttonClearFilter.Click += ButtonClearFilter_Click;
+            filterPanel.Controls.Add(buttonClearFilter);
+
+            // フィルター件数表示
+            var labelFilterCount = new Label();
+            labelFilterCount.Name = "labelFilterCount";
+            labelFilterCount.Text = "";
+            labelFilterCount.Location = new Point(385, 5);
+            labelFilterCount.Size = new Size(45, 20);
+            labelFilterCount.TextAlign = ContentAlignment.MiddleRight;
+            filterPanel.Controls.Add(labelFilterCount);
+
             var listViewRoundLog = new DoubleBufferedListView();
             listViewRoundLog.Name = "listViewRoundLog";
-            listViewRoundLog.Location = new Point(10, 25);
-            listViewRoundLog.Size = new Size(430, 375);
+            listViewRoundLog.Location = new Point(10, 55);
+            listViewRoundLog.Size = new Size(430, 345);
             listViewRoundLog.View = View.Details;
             listViewRoundLog.FullRowSelect = true;
             listViewRoundLog.GridLines = true;
@@ -543,6 +628,31 @@ namespace ToNStatTool
             listViewRoundLog.Columns.Add("テラー", 120);
             listViewRoundLog.Columns.Add("アイテム", 60);
             groupBoxRoundLog.Controls.Add(listViewRoundLog);
+
+            // ツールチップ設定
+            var toolTipRoundLog = new ToolTip();
+            toolTipRoundLog.SetToolTip(comboRoundFilter, "ラウンド種別でフィルタリング");
+            toolTipRoundLog.SetToolTip(textTerrorFilter, "テラー名で部分一致検索");
+            toolTipRoundLog.SetToolTip(buttonClearFilter, "フィルターをクリア");
+        }
+
+        private void ComboRoundFilter_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            UpdateRoundLogDisplay();
+        }
+
+        private void TextTerrorFilter_TextChanged(object sender, EventArgs e)
+        {
+            UpdateRoundLogDisplay();
+        }
+
+        private void ButtonClearFilter_Click(object sender, EventArgs e)
+        {
+            var comboRoundFilter = FindControl("comboRoundFilter") as ComboBox;
+            var textTerrorFilter = FindControl("textTerrorFilter") as TextBox;
+
+            if (comboRoundFilter != null) comboRoundFilter.SelectedIndex = 0;
+            if (textTerrorFilter != null) textTerrorFilter.Text = "";
         }
 
         private void CreateEventControls()

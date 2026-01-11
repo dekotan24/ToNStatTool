@@ -352,11 +352,44 @@ namespace ToNStatTool
 
             var roundLogs = webSocketClient.RoundLogs;
 
+            // フィルター条件を取得
+            var comboRoundFilter = FindControl("comboRoundFilter") as ComboBox;
+            var textTerrorFilter = FindControl("textTerrorFilter") as TextBox;
+            var labelFilterCount = FindControl("labelFilterCount") as Label;
+
+            string roundTypeFilter = comboRoundFilter?.SelectedIndex > 0 
+                ? comboRoundFilter.SelectedItem?.ToString() 
+                : null;
+            string terrorFilter = !string.IsNullOrWhiteSpace(textTerrorFilter?.Text) 
+                ? textTerrorFilter.Text.Trim().ToLower() 
+                : null;
+
             listView.BeginUpdate();
             listView.Items.Clear();
 
+            int totalCount = 0;
+            int filteredCount = 0;
+
             foreach (var log in roundLogs.OrderByDescending(l => l.Timestamp).Take(1000))
             {
+                totalCount++;
+
+                // ラウンド種別フィルター
+                if (roundTypeFilter != null && log.RoundTypeDisplayName != roundTypeFilter)
+                {
+                    continue;
+                }
+
+                // テラー名フィルター（部分一致）
+                if (terrorFilter != null && 
+                    (string.IsNullOrEmpty(log.TerrorNames) || 
+                     !log.TerrorNames.ToLower().Contains(terrorFilter)))
+                {
+                    continue;
+                }
+
+                filteredCount++;
+
                 var item = new ListViewItem(log.Timestamp.ToString("HH:mm"));
                 item.SubItems.Add(log.RoundTypeDisplayName);
                 item.SubItems.Add(log.MapName);
@@ -380,6 +413,20 @@ namespace ToNStatTool
             }
 
             listView.EndUpdate();
+
+            // フィルター件数を更新
+            if (labelFilterCount != null)
+            {
+                if (roundTypeFilter != null || terrorFilter != null)
+                {
+                    labelFilterCount.Text = $"{filteredCount}/{totalCount}";
+                    labelFilterCount.ForeColor = ThemeManager.IsDark ? Color.LightBlue : Color.Blue;
+                }
+                else
+                {
+                    labelFilterCount.Text = "";
+                }
+            }
         }
 
         private void UpdateBirdCheckboxes()

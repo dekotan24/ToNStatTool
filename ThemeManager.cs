@@ -268,6 +268,12 @@ namespace ToNStatTool
 					numericUpDown.ForeColor = IsDark ? Dark.Text : Light.Text;
 					break;
 
+				case ComboBox comboBox:
+					comboBox.BackColor = IsDark ? Dark.TextBoxBackground : Light.TextBoxBackground;
+					comboBox.ForeColor = IsDark ? Dark.Text : Light.Text;
+					comboBox.FlatStyle = FlatStyle.Flat;
+					break;
+
 				case TrackBar trackBar:
 					trackBar.BackColor = IsDark ? Dark.FormBackground : Light.FormBackground;
 					break;
