@@ -1034,15 +1034,16 @@ namespace ToNStatTool
 				Timestamp = DateTime.Now,
 				RoundType = ToNRoundType.Double_Trouble,
 				MapName = mapName,
-				TerrorNames = "", // 後でテラー情報が来たら更新
+				TerrorNames = "???", // ダブルドラブルはテラー名がアナウンスされない
 				Items = string.IsNullOrEmpty(startingItem) ? "なし" : startingItem,
-				Survived = false, // ダブルドラブルは全員死亡前提
+				Survived = true, // 通常と同じく、初期値は生存
 				WasOptedIn = InstanceState.IsOptedIn
 			};
 			
-			// フラグ設定
+			// フラグ設定（通常のラウンドと同じ）
 			currentRoundItems.Clear();
-			wasDeadDuringRound = true; // ダブルドラブルは確実に死亡
+			CurrentTerrors.Clear(); // 前ラウンドのテラー情報をクリア
+			wasDeadDuringRound = false; // 通常と同じく、初期値は生存
 			wasSaboteurDuringRound = false;
 			pendingSaboteurFlag = false;
 			
@@ -1050,8 +1051,15 @@ namespace ToNStatTool
 			InstanceState.CurrentRoundType = ToNRoundType.Double_Trouble;
 			InstanceState.NormalRoundCountAtRoundStart = InstanceState.NormalRoundCount;
 			
+			// UI表示用のGameDataを更新（メインフォームに反映）
+			GameData["roundType"] = "Double Trouble";
+			GameData["roundActive"] = "アクティブ";
+			
 			// ラウンド開始イベントを発火
 			OnRoundStart?.Invoke(ToNRoundType.Double_Trouble);
+			
+			// インスタンス状態変更を通知（UI更新用）
+			OnInstanceStateChanged?.Invoke();
 			
 			Logger.Info("DoubleTrouble", $"ダブルドラブルラウンド開始: マップ={mapName}");
 		}
@@ -1082,37 +1090,50 @@ namespace ToNStatTool
 					currentRound.TerrorNames = "Unknown (Double Trouble)";
 				}
 				
-				// ダブルドラブルは全員死亡
-				currentRound.Survived = false;
+				// 通常のラウンドと同じ生死判定
+				// wasDeadDuringRoundフラグで判定（ALIVE=falseが来たかどうか）
+				bool survived = !wasDeadDuringRound && !wasSaboteurDuringRound;
+				currentRound.Survived = survived;
 				
 				// ログに追加
 				RoundLogs.Add(currentRound);
-				Logger.Info("DoubleTrouble", $"ラウンドログに記録: {currentRound.RoundTypeDisplayName} - 死亡 - テラー: {currentRound.TerrorNames}");
+				Logger.Info("DoubleTrouble", $"ラウンドログに記録: {currentRound.RoundTypeDisplayName} - {(survived ? "生存" : "死亡")} - テラー: {currentRound.TerrorNames}");
 				
 				// 統計を更新
 				RoundStats.TotalRounds++;
-				// 生存カウントは増やさない（全員死亡のため）
+				if (survived)
+				{
+					RoundStats.SurvivedRounds++;
+				}
 				
 				// ラウンド種別の統計も更新
 				RoundStats.IncrementCount(currentRound.RoundType);
 				
-				// テラー統計更新
-				string roundTerrorKey = currentRound.TerrorNames;
-				var splitNames = roundTerrorKey.Split(new[] { ", " }, StringSplitOptions.RemoveEmptyEntries);
-				foreach (string terror in splitNames)
+				// テラー統計更新（Unknown (Double Trouble)の場合はスキップ）
+				if (currentRound.TerrorNames != "Unknown (Double Trouble)")
 				{
-					if (TerrorStats.TerrorTypeCounts.ContainsKey(terror))
+					string roundTerrorKey = currentRound.TerrorNames;
+					var splitNames = roundTerrorKey.Split(new[] { ", " }, StringSplitOptions.RemoveEmptyEntries);
+					foreach (string terror in splitNames)
 					{
-						TerrorStats.TerrorTypeCounts[terror]++;
+						if (TerrorStats.TerrorTypeCounts.ContainsKey(terror))
+						{
+							TerrorStats.TerrorTypeCounts[terror]++;
+						}
+						else
+						{
+							TerrorStats.TerrorTypeCounts[terror] = 1;
+						}
 					}
-					else
-					{
-						TerrorStats.TerrorTypeCounts[terror] = 1;
-					}
+					
+					// InstanceState更新（Double_Troubleは特殊ラウンド扱い）
+					UpdateInstanceState(currentRound.RoundType, survived, splitNames);
 				}
-				
-				// InstanceState更新（Double_Troubleは特殊ラウンド扱い）
-				UpdateInstanceState(currentRound.RoundType, false, splitNames);
+				else
+				{
+					// テラー名がUnknown (Double Trouble)の場合はテラーなしでInstanceState更新
+					UpdateInstanceState(currentRound.RoundType, survived, new string[0]);
+				}
 				
 				// ラウンドログを最大件数に制限
 				while (RoundLogs.Count > MAX_ROUND_LOGS)
@@ -1730,6 +1751,9 @@ namespace ToNStatTool
 						case "item_pickup":
 							ProcessItemPickupEvent(jsonData);
 							return;
+						case "enemy_enraged":
+							ProcessEnemyEnragedEvent(jsonData);
+							return;
 					}
 				}
 				
@@ -1826,6 +1850,61 @@ namespace ToNStatTool
 			{
 				Logger.Error("ItemPickup", "アイテム取得処理エラー", ex);
 				System.Diagnostics.Debug.WriteLine($"[ITEM_PICKUP] エラー: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// TRACKERイベントのenemy_enragedを処理（ダブルドラブル時のテラー名取得用）
+		/// </summary>
+		private void ProcessEnemyEnragedEvent(JObject jsonData)
+		{
+			try
+			{
+				var args = jsonData["args"] as JArray;
+				if (args != null && args.Count > 0)
+				{
+					string terrorName = args[0]?.ToString() ?? "";
+					
+					if (!string.IsNullOrEmpty(terrorName))
+					{
+						Logger.Debug("EnemyEnraged", $"enemy_enraged受信: テラー名='{terrorName}'");
+						
+						// ダブルドラブル中の場合、テラー名を収集
+						if (isDoubleTroubleActive && currentRound != null)
+						{
+							// 既存のテラー名リストに追加（重複チェック）
+							if (string.IsNullOrEmpty(currentRound.TerrorNames))
+							{
+								currentRound.TerrorNames = terrorName;
+							}
+							else if (!currentRound.TerrorNames.Contains(terrorName))
+							{
+								currentRound.TerrorNames += ", " + terrorName;
+							}
+							
+							// CurrentTerrorsリストにも追加
+							if (!CurrentTerrors.Any(t => t.Name == terrorName))
+							{
+								CurrentTerrors.Add(new TerrorInfo
+								{
+									Name = terrorName,
+									DisplayName = terrorName,
+									DisplayColor = 0,
+									StunType = TerrorConfiguration.GetTerrorStunType(terrorName)
+								});
+							}
+							
+							Logger.Info("DoubleTrouble", $"テラー名を追加: '{terrorName}' → 現在のテラー: '{currentRound.TerrorNames}'");
+							
+							// テラー更新イベントを発火
+							OnTerrorUpdate?.Invoke();
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				Logger.Error("EnemyEnraged", "enemy_enraged処理エラー", ex);
 			}
 		}
 
