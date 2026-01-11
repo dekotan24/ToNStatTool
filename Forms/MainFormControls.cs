@@ -468,6 +468,29 @@ namespace ToNStatTool
             listViewPlayers.Columns.Add("状態", 60);
             listViewPlayers.Columns.Add("種別", 70);
             listViewPlayers.DoubleClick += ListViewPlayers_DoubleClick;
+            
+            // 右クリックメニューの作成
+            var contextMenu = new ContextMenuStrip();
+            contextMenu.Name = "contextMenuPlayers";
+            
+            var menuItemWarning = new ToolStripMenuItem();
+            menuItemWarning.Name = "menuItemToggleWarning";
+            menuItemWarning.Text = "警告ユーザーに追加";
+            menuItemWarning.Click += MenuItemToggleWarning_Click;
+            contextMenu.Items.Add(menuItemWarning);
+            
+            contextMenu.Items.Add(new ToolStripSeparator());
+            
+            var menuItemRemove = new ToolStripMenuItem();
+            menuItemRemove.Name = "menuItemRemovePlayer";
+            menuItemRemove.Text = "プレイヤーを一覧から削除";
+            menuItemRemove.Click += MenuItemRemovePlayer_Click;
+            contextMenu.Items.Add(menuItemRemove);
+            
+            // メニュー表示時にテキストを動的に更新
+            contextMenu.Opening += ContextMenuPlayers_Opening;
+            
+            listViewPlayers.ContextMenuStrip = contextMenu;
             groupBoxPlayerList.Controls.Add(listViewPlayers);
 
             var toolTip = new ToolTip();

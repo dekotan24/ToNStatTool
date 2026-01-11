@@ -652,6 +652,109 @@ namespace ToNStatTool
             }
         }
 
+        // 右クリックメニュー表示時の処理
+        private void ContextMenuPlayers_Opening(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            var contextMenu = sender as ContextMenuStrip;
+            var listView = contextMenu?.SourceControl as ListView;
+            
+            if (listView?.SelectedItems.Count == 0)
+            {
+                // アイテムが選択されていない場合はメニューを表示しない
+                e.Cancel = true;
+                return;
+            }
+            
+            string playerName = listView.SelectedItems[0].Text;
+            
+            // 警告ユーザーのメニューテキストを動的に更新
+            var menuItemWarning = contextMenu.Items["menuItemToggleWarning"] as ToolStripMenuItem;
+            if (menuItemWarning != null)
+            {
+                if (webSocketClient.IsWarningUser(playerName))
+                {
+                    menuItemWarning.Text = "警告ユーザーから削除";
+                }
+                else
+                {
+                    menuItemWarning.Text = "警告ユーザーに追加";
+                }
+            }
+        }
+
+        // 警告ユーザー追加/削除メニュークリック
+        private void MenuItemToggleWarning_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var menuItem = sender as ToolStripMenuItem;
+                var contextMenu = menuItem?.Owner as ContextMenuStrip;
+                var listView = contextMenu?.SourceControl as ListView;
+                
+                if (listView?.SelectedItems.Count > 0)
+                {
+                    string playerName = listView.SelectedItems[0].Text;
+                    
+                    if (webSocketClient.IsWarningUser(playerName))
+                    {
+                        if (webSocketClient.RemoveWarningUser(playerName))
+                        {
+                            UpdatePlayerList();
+                        }
+                    }
+                    else
+                    {
+                        if (webSocketClient.AddWarningUser(playerName))
+                        {
+                            UpdatePlayerList();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"エラー: {ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        // プレイヤー削除メニュークリック
+        private void MenuItemRemovePlayer_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var menuItem = sender as ToolStripMenuItem;
+                var contextMenu = menuItem?.Owner as ContextMenuStrip;
+                var listView = contextMenu?.SourceControl as ListView;
+                
+                if (listView?.SelectedItems.Count > 0)
+                {
+                    string playerName = listView.SelectedItems[0].Text;
+                    
+                    var result = MessageBox.Show(
+                        $"{playerName} をプレイヤー一覧から削除しますか？\n\n※この操作は、leave通知が来なかった場合に手動で\nプレイヤーを削除するためのものです。",
+                        "プレイヤー削除確認",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question);
+                    
+                    if (result == DialogResult.Yes)
+                    {
+                        if (webSocketClient.RemovePlayerManually(playerName))
+                        {
+                            UpdatePlayerList();
+                        }
+                        else
+                        {
+                            MessageBox.Show($"プレイヤー '{playerName}' の削除に失敗しました。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"エラー: {ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         private void UiUpdateTimer_Tick(object sender, EventArgs e)
         {
             webSocketClient.CleanupOldData();

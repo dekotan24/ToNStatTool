@@ -2340,12 +2340,34 @@ namespace ToNStatTool
 				}
 				else
 				{
-					System.Diagnostics.Debug.WriteLine($"[DEATH] 警告: プレイヤー '{playerName}' が見つかりません");
-					System.Diagnostics.Debug.WriteLine($"[DEATH] 現在のプレイヤー一覧:");
-					foreach (var p in Players.Values)
+					// プレイヤーが見つからない場合、自動追加する（TSMからのPLAYER_JOIN漏れ対策）
+					System.Diagnostics.Debug.WriteLine($"[DEATH] 警告: プレイヤー '{playerName}' が見つかりません - 自動追加します");
+					Logger.Info("Death", $"プレイヤー '{playerName}' がPLAYER_JOINなしでDEATH受信 - 自動追加");
+					
+					// 仮のIDを生成（実際のUserIDが不明なため）
+					string tempId = $"temp_{playerName}_{DateTime.Now.Ticks}";
+					
+					Players[tempId] = new PlayerInfo
 					{
-						System.Diagnostics.Debug.WriteLine($"  - '{p.Name}' (ID: {p.UserId})");
+						Name = playerName,
+						UserId = tempId,
+						IsLocal = false,
+						IsAlive = false, // 死亡状態で追加
+						LastSeen = DateTime.Now,
+						JoinedAt = DateTime.Now
+					};
+					
+					System.Diagnostics.Debug.WriteLine($"[DEATH] プレイヤー自動追加完了: {playerName} (ID: {tempId})");
+					
+					// 警告ユーザーチェック
+					if (IsWarningUser(playerName))
+					{
+						System.Diagnostics.Debug.WriteLine($"[WARNING] 警告対象ユーザーが自動追加されました: {playerName}");
+						OnWarningUserJoined?.Invoke(playerName);
 					}
+					
+					// プレイヤー数変更イベントを発火
+					OnPlayerCountChanged?.Invoke();
 				}
 			}
 			catch (Exception ex)
@@ -2765,6 +2787,46 @@ namespace ToNStatTool
 			catch (Exception ex)
 			{
 				System.Diagnostics.Debug.WriteLine($"[SOUND] サウンド再生エラー: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// プレイヤーを一覧から手動で削除する（leave通知漏れ対策）
+		/// </summary>
+		public bool RemovePlayerManually(string playerName)
+		{
+			try
+			{
+				if (string.IsNullOrWhiteSpace(playerName))
+					return false;
+
+				// プレイヤーを検索
+				var playerEntry = Players.FirstOrDefault(p =>
+					p.Value.Name == playerName ||
+					p.Value.Name.Contains(playerName) ||
+					playerName.Contains(p.Value.Name) ||
+					NormalizePlayerName(p.Value.Name) == NormalizePlayerName(playerName));
+
+				if (playerEntry.Key != null)
+				{
+					Players.Remove(playerEntry.Key);
+					System.Diagnostics.Debug.WriteLine($"[PLAYER] プレイヤーを手動削除: {playerName} (ID: {playerEntry.Key})");
+					Logger.Info("Player", $"プレイヤーを手動削除: {playerName}");
+					
+					// プレイヤー数変更イベントを発火
+					OnPlayerCountChanged?.Invoke();
+					return true;
+				}
+				else
+				{
+					System.Diagnostics.Debug.WriteLine($"[PLAYER] 削除対象プレイヤーが見つかりません: {playerName}");
+					return false;
+				}
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[PLAYER] プレイヤー削除エラー: {ex.Message}");
+				return false;
 			}
 		}
 
