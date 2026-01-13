@@ -89,8 +89,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AppSettings.cs" />
+    <Compile Include="Forms\MainFormControls.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Logger.cs" />
     <Compile Include="Models.cs" />
+    <Compile Include="ToNRoundType.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="SettingsForm.cs">
       <SubType>Form</SubType>
@@ -98,6 +102,9 @@
     <Compile Include="TerrorConfiguration.cs" />
     <Compile Include="TerrorControl.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="SessionStatsForm.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="TerrorDisplayForm.cs">
       <SubType>Form</SubType>
@@ -114,12 +121,27 @@
     <Compile Include="ToNStatTool.Designer.cs">
       <DependentUpon>ToNStatTool.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\MainFormEventHandlers.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\MainFormUIUpdaters.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Helpers\ControlHelper.cs" />
+    <Compile Include="Services\SoundPlayer.cs" />
+    <Compile Include="Services\WarningUserManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="WebSocketClient.cs" />
     <Compile Include="Controls\DoubleBufferedListView.cs">
       <SubType>Component</SubType>
     </Compile>
     <Content Include="icon.ico" />
+    <Content Include="item.mp3">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="masterchange.mp3">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="player_join.mp3">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

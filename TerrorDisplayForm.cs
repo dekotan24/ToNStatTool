@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace ToNStatTool
@@ -41,6 +42,40 @@ namespace ToNStatTool
 
 		private const int BOTTOM_PANEL_HEIGHT = 18;
 		private const int TERROR_PANEL_HEIGHT = 140;  // 元のサイズに戻す
+
+		/// <summary>
+		/// スレッドセーフにUIを更新するヘルパーメソッド
+		/// ハンドルが作成されていない場合やフォームが破棄中の場合は何もしない
+		/// </summary>
+		private void SafeInvoke(Action action)
+		{
+			try
+			{
+				if (this.IsDisposed || this.Disposing)
+					return;
+				
+				// UIスレッドから呼ばれている場合は直接実行（ハンドル不要）
+				if (!this.InvokeRequired)
+				{
+					action();
+					return;
+				}
+				
+				// 別スレッドからの場合はハンドルが必要
+				if (!this.IsHandleCreated)
+					return;
+					
+				this.BeginInvoke(action);
+			}
+			catch (ObjectDisposedException)
+			{
+				// フォームが破棄された場合は無視
+			}
+			catch (InvalidOperationException)
+			{
+				// ハンドルが無効な場合は無視
+			}
+		}
 
 		public TerrorDisplayForm()
 		{
@@ -128,7 +163,7 @@ namespace ToNStatTool
 			// 現在のラウンドラベル
 			labelCurrentRound = new Label();
 			labelCurrentRound.Location = new Point(140, 1);  // 位置調整
-			labelCurrentRound.Size = new Size(115, 16);
+			labelCurrentRound.Size = new Size(160, 16);
 			labelCurrentRound.Text = "🎮 -";
 			labelCurrentRound.ForeColor = ThemeManager.IsDark ? ThemeManager.Dark.TerrorCurrentRound : ThemeManager.Light.TerrorCurrentRound;
 			labelCurrentRound.Font = new Font("Meiryo UI", 8);
@@ -137,7 +172,7 @@ namespace ToNStatTool
 
 			// 次のラウンド予測ラベル
 			labelNextRound = new Label();
-			labelNextRound.Location = new Point(255, 1);  // 位置調整
+			labelNextRound.Location = new Point(300, 1);
 			labelNextRound.Size = new Size(200, 16);
 			labelNextRound.Text = "➡️ 次: -";
 			labelNextRound.ForeColor = ThemeManager.IsDark ? ThemeManager.Dark.TerrorNextRound : ThemeManager.Light.TerrorNextRound;
@@ -192,37 +227,34 @@ namespace ToNStatTool
 		/// <summary>
 		/// アイテムリマインダーを表示（8ページ/アンバウンド終了時）
 		/// </summary>
-		public void ShowItemReminder(int durationSeconds = 7)
+		public void ShowItemReminder(int durationSeconds = 10)
 		{
-			if (this.InvokeRequired)
+			SafeInvoke(() =>
 			{
-				this.BeginInvoke(new Action(() => ShowItemReminder(durationSeconds)));
-				return;
-			}
+				if (isShowingReminder) return;
 
-			if (isShowingReminder) return;
+				// 現在の表示内容を保存
+				savedPlayerCountText = labelPlayerCount.Text;
+				savedElapsedTimeText = labelElapsedTime.Text;
+				savedCurrentRoundText = labelCurrentRound.Text;
+				savedPlayerCountColor = labelPlayerCount.ForeColor;
+				savedElapsedTimeColor = labelElapsedTime.ForeColor;
+				savedCurrentRoundColor = labelCurrentRound.ForeColor;
 
-			// 現在の表示内容を保存
-			savedPlayerCountText = labelPlayerCount.Text;
-			savedElapsedTimeText = labelElapsedTime.Text;
-			savedCurrentRoundText = labelCurrentRound.Text;
-			savedPlayerCountColor = labelPlayerCount.ForeColor;
-			savedElapsedTimeColor = labelElapsedTime.ForeColor;
-			savedCurrentRoundColor = labelCurrentRound.ForeColor;
+				isShowingReminder = true;
 
-			isShowingReminder = true;
+				// リマインダーメッセージを表示
+				labelPlayerCount.Text = "⚠";
+				labelPlayerCount.ForeColor = Color.Orange;
+				labelElapsedTime.Text = "アイテムを持ち直してください。";
+				labelElapsedTime.ForeColor = Color.Orange;
+				labelElapsedTime.Size = new Size(180, 16);  // 幅を一時的に広げる
+				labelCurrentRound.Text = "";
 
-			// リマインダーメッセージを表示（画像2のように）
-			labelPlayerCount.Text = "⚠";
-			labelPlayerCount.ForeColor = Color.Orange;
-			labelElapsedTime.Text = "アイテムを持ち直してください。";
-			labelElapsedTime.ForeColor = Color.Orange;
-			labelElapsedTime.Size = new Size(200, 16);  // 幅を一時的に広げる
-			labelCurrentRound.Text = "";
-
-			// タイマーで元に戻す
-			reminderTimer.Interval = durationSeconds * 1000;
-			reminderTimer.Start();
+				// タイマーで元に戻す
+				reminderTimer.Interval = durationSeconds * 1000;
+				reminderTimer.Start();
+			});
 		}
 
 		/// <summary>
@@ -230,24 +262,21 @@ namespace ToNStatTool
 		/// </summary>
 		private void HideItemReminder()
 		{
-			if (this.InvokeRequired)
+			SafeInvoke(() =>
 			{
-				this.BeginInvoke(new Action(HideItemReminder));
-				return;
-			}
+				if (!isShowingReminder) return;
 
-			if (!isShowingReminder) return;
+				isShowingReminder = false;
 
-			isShowingReminder = false;
-
-			// 元の表示内容に戻す
-			labelPlayerCount.Text = savedPlayerCountText;
-			labelPlayerCount.ForeColor = savedPlayerCountColor;
-			labelElapsedTime.Text = savedElapsedTimeText;
-			labelElapsedTime.ForeColor = savedElapsedTimeColor;
-			labelElapsedTime.Size = new Size(58, 16);  // 元のサイズに戻す
-			labelCurrentRound.Text = savedCurrentRoundText;
-			labelCurrentRound.ForeColor = savedCurrentRoundColor;
+				// 元の表示内容に戻す
+				labelPlayerCount.Text = savedPlayerCountText;
+				labelPlayerCount.ForeColor = savedPlayerCountColor;
+				labelElapsedTime.Text = savedElapsedTimeText;
+				labelElapsedTime.ForeColor = savedElapsedTimeColor;
+				labelElapsedTime.Size = new Size(58, 16);  // 元のサイズに戻す
+				labelCurrentRound.Text = savedCurrentRoundText;
+				labelCurrentRound.ForeColor = savedCurrentRoundColor;
+			});
 		}
 
 		private void DragHandle_MouseDown(object sender, MouseEventArgs e)
@@ -314,19 +343,40 @@ namespace ToNStatTool
 		/// </summary>
 		public void UpdateTerrors(List<TerrorInfo> terrors)
 		{
-			foreach (var control in terrorControls)
+			// スレッドセーフにリストをコピー
+			List<TerrorInfo> terrorsCopy;
+			try
 			{
-				control.Dispose();
+				terrorsCopy = terrors?.ToList() ?? new List<TerrorInfo>();
 			}
-			terrorControls.Clear();
-			terrorPanel.Controls.Clear();
+			catch (InvalidOperationException)
+			{
+				return; // コレクションが変更中の場合はスキップ
+			}
 
-			foreach (var terror in terrors)
+			SafeInvoke(() =>
 			{
-				var control = new CompactTerrorControl(terror);
-				terrorControls.Add(control);
-				terrorPanel.Controls.Add(control);
-			}
+				try
+				{
+					foreach (var control in terrorControls)
+					{
+						control.Dispose();
+					}
+					terrorControls.Clear();
+					terrorPanel.Controls.Clear();
+
+					foreach (var terror in terrorsCopy)
+					{
+						var control = new CompactTerrorControl(terror);
+						terrorControls.Add(control);
+						terrorPanel.Controls.Add(control);
+					}
+				}
+				catch (Exception ex)
+				{
+					System.Diagnostics.Debug.WriteLine($"[TerrorDisplayForm] UpdateTerrors error: {ex.Message}");
+				}
+			});
 		}
 
 		/// <summary>
@@ -334,84 +384,89 @@ namespace ToNStatTool
 		/// </summary>
 		public void UpdatePlayerCount(int alive, int total)
 		{
-			if (this.InvokeRequired)
+			SafeInvoke(() =>
 			{
-				this.BeginInvoke(new Action(() => UpdatePlayerCount(alive, total)));
-				return;
-			}
-
-			if (labelPlayerCount != null && !labelPlayerCount.IsDisposed)
-			{
-				labelPlayerCount.Text = $"👥 {alive}/{total}";
-				if (total > 0 && alive <= total / 3)
+				if (labelPlayerCount != null && !labelPlayerCount.IsDisposed)
 				{
-					labelPlayerCount.ForeColor = ThemeManager.IsDark ? Color.Red : Color.DarkRed;
+					labelPlayerCount.Text = $"👥 {alive}/{total}";
+					if (total > 0 && alive <= total / 3)
+					{
+						labelPlayerCount.ForeColor = ThemeManager.IsDark ? Color.Red : Color.DarkRed;
+					}
+					else
+					{
+						labelPlayerCount.ForeColor = ThemeManager.IsDark ? Color.White : Color.Black;
+					}
 				}
-				else
-				{
-					labelPlayerCount.ForeColor = ThemeManager.IsDark ? Color.White : Color.Black;
-				}
-			}
+			});
 		}
 
 		/// <summary>
 		/// ラウンド開始時に呼び出す
 		/// </summary>
-		public void OnRoundStart(string roundType)
+		public void OnRoundStart(ToNRoundType roundType)
 		{
-			if (this.InvokeRequired)
+			SafeInvoke(() =>
 			{
-				this.BeginInvoke(new Action(() => OnRoundStart(roundType)));
-				return;
-			}
+				isRoundActive = true;
+				roundStartTime = DateTime.Now;
+				elapsedTimer.Start();
 
-			isRoundActive = true;
-			roundStartTime = DateTime.Now;
-			elapsedTimer.Start();
+				Color roundColor = GetRoundTypeColor(roundType);
+				labelCurrentRound.ForeColor = roundColor;
+				
+				// 上書きフラグをチェックして表示を変更
+				string displayName = ToNRoundTypeHelper.GetDisplayName(roundType);
+				if (instanceState?.IsCurrentRoundOverride == true)
+				{
+					displayName += " (上書き)";
+				}
+				labelCurrentRound.Text = $"🎮 {displayName}";
 
-			Color roundColor = GetRoundTypeColor(roundType);
-			labelCurrentRound.ForeColor = roundColor;
-			labelCurrentRound.Text = $"🎮 {roundType}";
-
-			// 次のラウンド予測を更新（現在のラウンド種別を考慮）
-			UpdateNextRoundPredictionForCurrentRound(roundType);
+				// 次のラウンド予測を更新（現在のラウンド種別を考慮）
+				UpdateNextRoundPredictionForCurrentRound(roundType);
+			});
 		}
 
 		/// <summary>
 		/// ラウンド情報を同期（途中でフォームを開いた時用）
 		/// </summary>
-		public void SyncRoundInfo(string roundType, DateTime startTime, bool isActive)
+		public void SyncRoundInfo(ToNRoundType roundType, DateTime startTime, bool isActive)
 		{
-			if (this.InvokeRequired)
+			SafeInvoke(() =>
 			{
-				this.BeginInvoke(new Action(() => SyncRoundInfo(roundType, startTime, isActive)));
-				return;
-			}
+				isRoundActive = isActive;
+				roundStartTime = startTime;
 
-			isRoundActive = isActive;
-			roundStartTime = startTime;
-
-			if (isActive)
-			{
-				elapsedTimer.Start();
-				// 経過時間を即座に更新
-				TimeSpan elapsed = DateTime.Now - roundStartTime;
-				labelElapsedTime.Text = $"⏱️ {elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
-				
-				Color roundColor = GetRoundTypeColor(roundType);
-				labelCurrentRound.ForeColor = roundColor;
-				labelCurrentRound.Text = $"🎮 {roundType}";
-				
-				// 次ラウンド予測を更新
-				UpdateNextRoundPredictionForCurrentRound(roundType);
-			}
-			else
-			{
-				elapsedTimer.Stop();
-				labelElapsedTime.Text = "⏱️ 00:00";
-				labelCurrentRound.Text = "🎮 -";
-				UpdateNextRoundPrediction();
-			}
+				if (isActive)
+				{
+					elapsedTimer.Start();
+					// 経過時間を即座に更新
+					TimeSpan elapsed = DateTime.Now - roundStartTime;
+					labelElapsedTime.Text = $"⏱️ {elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
+					
+					Color roundColor = GetRoundTypeColor(roundType);
+					labelCurrentRound.ForeColor = roundColor;
+					
+					// 上書きフラグをチェックして表示を変更
+					string displayName = ToNRoundTypeHelper.GetDisplayName(roundType);
+					if (instanceState?.IsCurrentRoundOverride == true)
+					{
+						displayName += " (上書き)";
+					}
+					labelCurrentRound.Text = $"🎮 {displayName}";
+					
+					// 次ラウンド予測を更新
+					UpdateNextRoundPredictionForCurrentRound(roundType);
+				}
+				else
+				{
+					elapsedTimer.Stop();
+					labelElapsedTime.Text = "⏱️ 00:00";
+					labelCurrentRound.Text = "🎮 -";
+					UpdateNextRoundPrediction();
+				}
+			});
 		}
 
 		/// <summary>
@@ -419,23 +474,20 @@ namespace ToNStatTool
 		/// </summary>
 		public void OnRoundEnd()
 		{
-			if (this.InvokeRequired)
+			SafeInvoke(() =>
 			{
-				this.BeginInvoke(new Action(() => OnRoundEnd()));
-				return;
-			}
-
-			isRoundActive = false;
-			elapsedTimer.Stop();
-			
-			// 予測を再更新
-			UpdateNextRoundPrediction();
+				isRoundActive = false;
+				elapsedTimer.Stop();
+				
+				// 予測を再更新
+				UpdateNextRoundPrediction();
+			});
 		}
 
 		/// <summary>
 		/// 現在のラウンド種別を考慮して次のラウンド予測を更新
 		/// </summary>
-		private void UpdateNextRoundPredictionForCurrentRound(string currentRoundType)
+		private void UpdateNextRoundPredictionForCurrentRound(ToNRoundType currentRoundType)
 		{
 			if (instanceState == null)
 			{
@@ -444,16 +496,40 @@ namespace ToNStatTool
 				return;
 			}
 
+			// マスター変更時は特殊確定（ラウンド進行中でも即座に反映）
+			if (instanceState.MasterChanged)
+			{
+				labelNextRound.Text = "➡️ 次: 特殊(MC)";
+				labelNextRound.ForeColor = ThemeManager.GetPredictionColor("special");
+				return;
+			}
+
 			string prediction = "";
 			Color color = ThemeManager.IsDark ? ThemeManager.Dark.TerrorNextRound : ThemeManager.Light.TerrorNextRound;
 
 			// 現在のラウンドが特殊なら次は通常
-			if (IsSpecialRound(currentRoundType))
+			if (ToNRoundTypeHelper.IsSpecialRound(currentRoundType))
 			{
 				prediction = "通常";
 				color = ThemeManager.GetPredictionColor("normal");
 			}
-			else if (IsOverrideRound(currentRoundType))
+			// Moonラウンドの場合（2回目以降は特殊枚消費）
+			else if (ToNRoundTypeHelper.IsMoonRound(currentRoundType))
+			{
+				if (instanceState.IsCurrentRoundFirstMoon)
+				{
+					// 初回MoonはOverride系と同じ動作
+					prediction = "通常 or 特殊";
+					color = ThemeManager.GetPredictionColor("special");
+				}
+				else
+				{
+					// 2回目以降Moonは特殊枚消費 → 次は通常
+					prediction = "通常";
+					color = ThemeManager.GetPredictionColor("normal");
+				}
+			}
+			else if (ToNRoundTypeHelper.IsOverrideRound(currentRoundType))
 			{
 				prediction = "通常 or 特殊";
 				color = ThemeManager.GetPredictionColor("special");
@@ -462,12 +538,7 @@ namespace ToNStatTool
 			{
 				// 通常ラウンドの場合、カウントを考慮
 				int normalCount = instanceState.NormalRoundCount + 1; // 現在のラウンドも含む
-				if (normalCount >= 3)
-				{
-					prediction = "特殊";
-					color = ThemeManager.GetPredictionColor("special");
-				}
-				else if (normalCount == 2)
+				if (normalCount >= 2)
 				{
 					prediction = "特殊";
 					color = ThemeManager.GetPredictionColor("special");
@@ -488,160 +559,171 @@ namespace ToNStatTool
 		/// </summary>
 		public void UpdateNextRoundPrediction()
 		{
-			// ラウンドがアクティブな場合は、現在のラウンドを考慮した予測を使用
-			if (isRoundActive && instanceState != null && !string.IsNullOrEmpty(instanceState.CurrentRoundType))
+			SafeInvoke(() =>
 			{
-				UpdateNextRoundPredictionForCurrentRound(instanceState.CurrentRoundType);
-				return;
-			}
+				// ラウンドがアクティブな場合は、現在のラウンドを考慮した予測を使用
+				if (isRoundActive && instanceState != null && instanceState.HasCurrentRound)
+				{
+					UpdateNextRoundPredictionForCurrentRound(instanceState.CurrentRoundType);
+					return;
+				}
 
-			if (instanceState == null)
-			{
-				labelNextRound.Text = "➡️ 次: -";
-				labelNextRound.ForeColor = ThemeManager.GetPredictionColor("disabled");
-				return;
-			}
+				if (instanceState == null)
+				{
+					labelNextRound.Text = "➡️ 次: -";
+					labelNextRound.ForeColor = ThemeManager.GetPredictionColor("disabled");
+					return;
+				}
 
-			string prediction = "";
-			Color color = ThemeManager.IsDark ? ThemeManager.Dark.TerrorNextRound : ThemeManager.Light.TerrorNextRound;
+				string prediction = "";
+				Color color = ThemeManager.IsDark ? ThemeManager.Dark.TerrorNextRound : ThemeManager.Light.TerrorNextRound;
 
-			// Moon解禁チェック（優先順位: Twilight > Mystic > Blood）
-			if (instanceState.AllBirdsMet && !instanceState.TwilightUnlocked)
-			{
-				prediction = "Twilight";
-				color = ThemeManager.GetPredictionColor("twilight");
-			}
-			else if (instanceState.EstimatedSurvivalCount >= 15 && !instanceState.MysticMoonUnlocked)
-			{
-				prediction = "Mystic Moon";
-				color = ThemeManager.GetPredictionColor("mystic");
-			}
-			else if (instanceState.AllMoonsUnlocked && !instanceState.SolsticeUnlocked)
-			{
-				prediction = "Solstice";
-				color = ThemeManager.GetPredictionColor("solstice");
-			}
-			else if (!instanceState.SpecialUnlocked)
-			{
-				prediction = "通常";
-				color = ThemeManager.GetPredictionColor("disabled");
-			}
-			else
-			{
-				// 通常の周期予測
-				string lastRound = instanceState.LastRoundType.ToLower();
-				
-				if (IsSpecialRound(lastRound))
+				// マスター変更時は特殊確定
+				if (instanceState.MasterChanged)
+				{
+					prediction = "特殊(MC)";
+					color = ThemeManager.GetPredictionColor("special");
+					labelNextRound.Text = $"➡️ 次: {prediction}";
+					labelNextRound.ForeColor = color;
+					return;
+				}
+
+				// Moon解禁チェック（優先順位: Twilight > Mystic > Blood）
+				if (instanceState.AllBirdsMet && !instanceState.TwilightUnlocked)
+				{
+					prediction = "Twilight";
+					color = ThemeManager.GetPredictionColor("twilight");
+				}
+				else if (instanceState.EstimatedSurvivalCount >= 15 && !instanceState.MysticMoonUnlocked)
+				{
+					prediction = "Mystic Moon";
+					color = ThemeManager.GetPredictionColor("mystic");
+				}
+				else if (instanceState.AllMoonsUnlocked && !instanceState.SolsticeUnlocked)
+				{
+					prediction = "Solstice";
+					color = ThemeManager.GetPredictionColor("solstice");
+				}
+				else if (!instanceState.SpecialUnlocked)
 				{
 					prediction = "通常";
-					color = ThemeManager.GetPredictionColor("normal");
-				}
-				else if (IsOverrideRound(lastRound))
-				{
-					prediction = "通常 or 特殊";
-					color = ThemeManager.GetPredictionColor("special");
-				}
-				else if (instanceState.NormalRoundCount >= 2)
-				{
-					prediction = "特殊";
-					color = ThemeManager.GetPredictionColor("special");
-				}
-				else if (instanceState.NormalRoundCount == 1)
-				{
-					prediction = "通常 or 特殊";
-					color = ThemeManager.GetPredictionColor("special");
+					color = ThemeManager.GetPredictionColor("disabled");
 				}
 				else
 				{
-					prediction = "通常 or 特殊";
-					color = ThemeManager.GetPredictionColor("special");
+					// 通常の周期予測
+					ToNRoundType lastRound = instanceState.LastRoundType;
+					
+					if (ToNRoundTypeHelper.IsSpecialRound(lastRound))
+					{
+						prediction = "通常";
+						color = ThemeManager.GetPredictionColor("normal");
+					}
+					// Moonラウンド終了後の予測
+					else if (ToNRoundTypeHelper.IsMoonRound(lastRound))
+					{
+						if (instanceState.IsCurrentRoundFirstMoon)
+						{
+							// 初回MoonはOverride系と同じ動作
+							prediction = "通常 or 特殊";
+							color = ThemeManager.GetPredictionColor("special");
+						}
+						else
+						{
+							// 2回目以降Moonは特殊枚消費 → 次は通常
+							prediction = "通常";
+							color = ThemeManager.GetPredictionColor("normal");
+						}
+					}
+					else if (ToNRoundTypeHelper.IsOverrideRound(lastRound))
+					{
+						prediction = "通常 or 特殊";
+						color = ThemeManager.GetPredictionColor("special");
+					}
+					else if (instanceState.NormalRoundCount >= 2)
+					{
+						prediction = "特殊";
+						color = ThemeManager.GetPredictionColor("special");
+					}
+					else if (instanceState.NormalRoundCount == 1)
+					{
+						prediction = "通常 or 特殊";
+						color = ThemeManager.GetPredictionColor("special");
+					}
+					else
+					{
+						prediction = "通常 or 特殊";
+						color = ThemeManager.GetPredictionColor("special");
+					}
 				}
-			}
 
-			labelNextRound.Text = $"➡️ 次: {prediction}";
-			labelNextRound.ForeColor = color;
-		}
-
-		/// <summary>
-		/// 特殊ラウンドかどうかを判定
-		/// </summary>
-		private bool IsSpecialRound(string roundType)
-		{
-			string lower = roundType.ToLower();
-			string[] specialRounds = {
-				"alternate", "オルタネイト",
-				"punished", "パニッシュ",
-				"cracked", "狂気",
-				"sabotage", "サボタージュ",
-				"fog", "霧",
-				"bloodbath", "ブラッドバス",
-				"double trouble", "ダブルトラブル",
-				"midnight", "ミッドナイト",
-				"blood moon", "ブラッドムーン",
-				"mystic moon", "ミスティックムーン",
-				"twilight", "トワイライト",
-				"solstice", "ソルスティス"
-			};
-
-			foreach (var special in specialRounds)
-			{
-				if (lower.Contains(special))
-					return true;
-			}
-			return false;
-		}
-
-		/// <summary>
-		/// 上書きラウンドかどうかを判定
-		/// </summary>
-		private bool IsOverrideRound(string roundType)
-		{
-			string lower = roundType.ToLower();
-			return lower.Contains("ghost") || lower.Contains("ゴースト") ||
-				   lower.Contains("8 pages") || lower.Contains("8ページ") ||
-				   lower.Contains("unbound") || lower.Contains("アンバウンド");
+				labelNextRound.Text = $"➡️ 次: {prediction}";
+				labelNextRound.ForeColor = color;
+			});
 		}
 
 		/// <summary>
 		/// ラウンドタイプに応じた色を取得
 		/// </summary>
-		private Color GetRoundTypeColor(string roundType)
+		private Color GetRoundTypeColor(ToNRoundType roundType)
 		{
-			string lower = roundType.ToLower();
 			bool isDark = ThemeManager.IsDark;
 
-			if (lower.Contains("classic") || lower == "run" || lower.Contains("走れ"))
-				return isDark ? Color.White : Color.Black;
-			if (lower.Contains("alternate") || lower.Contains("オルタネイト"))
-				return isDark ? Color.White : Color.Black;
-			if (lower.Contains("punished") || lower.Contains("パニッシュ"))
-				return Color.Yellow;
-			if (lower.Contains("cracked") || lower.Contains("狂気"))
-				return Color.Magenta;
-			if (lower.Contains("sabotage") || lower.Contains("サボタージュ"))
-				return Color.Green;
-			if (lower.Contains("fog") || lower.Contains("霧"))
-				return Color.Gray;
-			if (lower.Contains("bloodbath") || lower.Contains("ブラッドバス"))
-				return Color.Red;
-			if (lower.Contains("midnight") || lower.Contains("ミッドナイト"))
-				return Color.DarkRed;
-			if (lower.Contains("ghost") || lower.Contains("ゴースト"))
-				return Color.DeepSkyBlue;
-			if (lower.Contains("8 pages") || lower.Contains("8ページ"))
-				return isDark ? Color.White : Color.Black;
-			if (lower.Contains("unbound") || lower.Contains("アンバウンド"))
-				return Color.Orange;
-			if (lower.Contains("blood moon") || lower.Contains("ブラッドムーン"))
-				return Color.DarkRed;
-			if (lower.Contains("mystic moon") || lower.Contains("ミスティックムーン"))
-				return isDark ? Color.Cyan : Color.Teal;
-			if (lower.Contains("twilight") || lower.Contains("トワイライト"))
-				return Color.Gold;
-			if (lower.Contains("solstice") || lower.Contains("ソルスティス"))
-				return Color.FromArgb(0, 255, 136);
-
-			return isDark ? Color.Cyan : Color.Teal;
+			switch (roundType)
+			{
+				case ToNRoundType.Classic:
+				case ToNRoundType.RUN:
+				case ToNRoundType.Alternate:
+				case ToNRoundType.Eight_Pages:
+					return isDark ? Color.White : Color.Black;
+					
+				case ToNRoundType.Punished:
+					return Color.Yellow;
+					
+				case ToNRoundType.Cracked:
+					return Color.Magenta;
+					
+				case ToNRoundType.Sabotage:
+					return Color.Green;
+					
+				case ToNRoundType.Fog:
+				case ToNRoundType.Fog_Alternate:
+					return Color.Gray;
+					
+				case ToNRoundType.Bloodbath:
+				case ToNRoundType.Double_Trouble:
+				case ToNRoundType.EX:
+					return Color.Red;
+					
+				case ToNRoundType.Midnight:
+				case ToNRoundType.Blood_Moon:
+					return Color.DarkRed;
+					
+				case ToNRoundType.Ghost:
+				case ToNRoundType.Ghost_Alternate:
+					return Color.DeepSkyBlue;
+					
+				case ToNRoundType.Unbound:
+					return Color.Orange;
+					
+				case ToNRoundType.Mystic_Moon:
+					return isDark ? Color.Cyan : Color.Teal;
+					
+				case ToNRoundType.Twilight:
+					return Color.Gold;
+					
+				case ToNRoundType.Solstice:
+					return Color.FromArgb(0, 255, 136);
+					
+				case ToNRoundType.GIGABYTE:
+					return Color.Lime;
+					
+				case ToNRoundType.Cold_Night:
+					return Color.LightBlue;
+					
+				default:
+					return isDark ? Color.Cyan : Color.Teal;
+			}
 		}
 
 		/// <summary>

@@ -45,14 +45,14 @@ namespace ToNStatTool
 			public static readonly Color ButtonBackground = ColorTranslator.FromHtml("#E0E0E0");
 			public static readonly Color ListViewBackground = ColorTranslator.FromHtml("#FFFFFF");
 			
-			// テラー表示フォーム専用（病院・研究施設風の不穏な白）
+			// テラー表示ウィンドウ専用（病院・研究施設風の不穏な白）
 			public static readonly Color TerrorFormBackground = ColorTranslator.FromHtml("#F6F6F6");
 			public static readonly Color TerrorPanelBackground = ColorTranslator.FromHtml("#F6F6F6");
 			public static readonly Color TerrorBottomPanel = ColorTranslator.FromHtml("#E8E8E8");
 			public static readonly Color TerrorDragHandle = ColorTranslator.FromHtml("#D0D0D0");
 			public static readonly Color TerrorDragHandleLine = Color.Gray;
 			
-			// テラー表示フォームのテキスト色
+			// テラー表示ウィンドウのテキスト色
 			public static readonly Color TerrorPlayerCount = Color.Black;
 			public static readonly Color TerrorPlayerCountWarning = Color.DarkRed;
 			public static readonly Color TerrorElapsedTime = Color.DarkGreen;
@@ -71,12 +71,21 @@ namespace ToNStatTool
 			public static readonly Color RoundLogDied = Color.Red;
 			
 			// 次ラウンド予測の色（ライト用）
+			public static readonly Color PredictionBloodMoon = Color.DarkRed;
 			public static readonly Color PredictionTwilight = Color.Goldenrod;
 			public static readonly Color PredictionMysticMoon = Color.Teal;
 			public static readonly Color PredictionSolstice = Color.DarkGreen;
 			public static readonly Color PredictionNormal = Color.Green;
 			public static readonly Color PredictionSpecial = Color.OrangeRed;  // DarkOrangeより濃い色
 			public static readonly Color PredictionDisabled = Color.Gray;
+			
+			// テラー特性の色（ライト用 - 白背景で見やすい濃いめの色）
+			public static readonly Color TraitMovement = Color.FromArgb(0, 100, 180);       // 濃い青
+			public static readonly Color TraitAttack = Color.FromArgb(180, 0, 0);           // 濃い赤
+			public static readonly Color TraitSpecial = Color.FromArgb(128, 0, 128);        // 紫
+			public static readonly Color TraitSpeed = Color.FromArgb(180, 100, 0);          // 濃いオレンジ
+			public static readonly Color TraitCounter = Color.FromArgb(150, 0, 50);         // 濃い赤紫
+			public static readonly Color TraitDefault = Color.FromArgb(60, 60, 60);         // 濃いグレー
 		}
 
 		// ===== ダークモード配色 =====
@@ -90,14 +99,14 @@ namespace ToNStatTool
 			public static readonly Color ButtonBackground = ColorTranslator.FromHtml("#3A3A3A");
 			public static readonly Color ListViewBackground = ColorTranslator.FromHtml("#2A2A2A");
 			
-			// テラー表示フォーム専用（既存のかっこいいダークテーマ）
+			// テラー表示ウィンドウ専用（既存のかっこいいダークテーマ）
 			public static readonly Color TerrorFormBackground = Color.FromArgb(30, 30, 30);
 			public static readonly Color TerrorPanelBackground = Color.FromArgb(30, 30, 30);
 			public static readonly Color TerrorBottomPanel = Color.FromArgb(45, 45, 45);
 			public static readonly Color TerrorDragHandle = Color.FromArgb(70, 70, 70);
 			public static readonly Color TerrorDragHandleLine = Color.LightGray;
 			
-			// テラー表示フォームのテキスト色
+			// テラー表示ウィンドウのテキスト色
 			public static readonly Color TerrorPlayerCount = Color.White;
 			public static readonly Color TerrorPlayerCountWarning = Color.Red;
 			public static readonly Color TerrorElapsedTime = Color.LightGreen;
@@ -116,12 +125,21 @@ namespace ToNStatTool
 			public static readonly Color RoundLogDied = Color.FromArgb(255, 120, 120);      // 明るい赤
 			
 			// 次ラウンド予測の色（ダーク用）
+			public static readonly Color PredictionBloodMoon = Color.FromArgb(255, 100, 120);
 			public static readonly Color PredictionTwilight = Color.Gold;
 			public static readonly Color PredictionMysticMoon = Color.Cyan;
 			public static readonly Color PredictionSolstice = Color.FromArgb(0, 255, 136);
 			public static readonly Color PredictionNormal = Color.LightGreen;
 			public static readonly Color PredictionSpecial = Color.Orange;
 			public static readonly Color PredictionDisabled = Color.Gray;
+			
+			// テラー特性の色（ダーク用 - 暗い背景で見やすい明るめの色）
+			public static readonly Color TraitMovement = Color.FromArgb(100, 180, 255);     // 明るい青
+			public static readonly Color TraitAttack = Color.FromArgb(255, 150, 150);       // 明るいサーモンピンク
+			public static readonly Color TraitSpecial = Color.FromArgb(220, 150, 255);      // 明るいラベンダー
+			public static readonly Color TraitSpeed = Color.FromArgb(255, 200, 100);        // 明るいオレンジ
+			public static readonly Color TraitCounter = Color.FromArgb(255, 180, 180);      // 明るいピンク
+			public static readonly Color TraitDefault = Color.FromArgb(200, 200, 200);      // 明るいグレー
 		}
 
 		/// <summary>
@@ -226,6 +244,11 @@ namespace ToNStatTool
 					listView.ForeColor = IsDark ? Dark.Text : Light.Text;
 					break;
 
+				case ListBox listBox:
+					listBox.BackColor = IsDark ? Dark.ListViewBackground : Light.ListViewBackground;
+					listBox.ForeColor = IsDark ? Dark.Text : Light.Text;
+					break;
+
 				case DataGridView dataGridView:
 					dataGridView.BackgroundColor = IsDark ? Dark.CommonBackground : Light.CommonBackground;
 					dataGridView.DefaultCellStyle.BackColor = IsDark ? Dark.ListViewBackground : Light.ListViewBackground;
@@ -250,12 +273,18 @@ namespace ToNStatTool
 					numericUpDown.ForeColor = IsDark ? Dark.Text : Light.Text;
 					break;
 
+				case ComboBox comboBox:
+					comboBox.BackColor = IsDark ? Dark.TextBoxBackground : Light.TextBoxBackground;
+					comboBox.ForeColor = IsDark ? Dark.Text : Light.Text;
+					comboBox.FlatStyle = FlatStyle.Flat;
+					break;
+
 				case TrackBar trackBar:
 					trackBar.BackColor = IsDark ? Dark.FormBackground : Light.FormBackground;
 					break;
 
 				case Panel panel:
-					// 特定のパネルは除外（テラー表示フォームのパネルなど）
+					// 特定のパネルは除外（テラー表示ウィンドウのパネルなど）
 					if (!panel.Name.Contains("terror") && !panel.Name.Contains("Terror"))
 					{
 						panel.BackColor = IsDark ? Dark.CommonBackground : Light.CommonBackground;
@@ -270,7 +299,7 @@ namespace ToNStatTool
 		}
 
 		/// <summary>
-		/// テラー表示フォーム専用のテーマ適用
+		/// テラー表示ウィンドウ専用のテーマ適用
 		/// </summary>
 		public static void ApplyToTerrorDisplayForm(Form form, Panel terrorPanel, Panel bottomPanel, Label dragHandle,
 			Label labelPlayerCount, Label labelElapsedTime, Label labelCurrentRound, Label labelNextRound)
@@ -337,6 +366,9 @@ namespace ToNStatTool
 		{
 			switch (predictionType.ToLower())
 			{
+				case "blood":
+				case "blood moon":
+					return IsDark ? Dark.PredictionBloodMoon : Light.PredictionBloodMoon;
 				case "twilight":
 					return IsDark ? Dark.PredictionTwilight : Light.PredictionTwilight;
 				case "mystic":
@@ -360,6 +392,28 @@ namespace ToNStatTool
 		public static string GetThemeButtonText()
 		{
 			return IsDark ? "☀" : "🌙";
+		}
+
+		/// <summary>
+		/// テラー特性の色を取得
+		/// </summary>
+		public static Color GetTraitColor(TerrorTraitCategory category)
+		{
+			switch (category)
+			{
+				case TerrorTraitCategory.Movement:
+					return IsDark ? Dark.TraitMovement : Light.TraitMovement;
+				case TerrorTraitCategory.Attack:
+					return IsDark ? Dark.TraitAttack : Light.TraitAttack;
+				case TerrorTraitCategory.Special:
+					return IsDark ? Dark.TraitSpecial : Light.TraitSpecial;
+				case TerrorTraitCategory.Speed:
+					return IsDark ? Dark.TraitSpeed : Light.TraitSpeed;
+				case TerrorTraitCategory.Counter:
+					return IsDark ? Dark.TraitCounter : Light.TraitCounter;
+				default:
+					return IsDark ? Dark.TraitDefault : Light.TraitDefault;
+			}
 		}
 	}
 }

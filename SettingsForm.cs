@@ -12,6 +12,7 @@ namespace ToNStatTool
 	public class SettingsForm : Form
 	{
 		private SoundSettings soundSettings;
+		private AppSettings appSettings;
 		private TabControl tabControl;
 
 		// サウンド設定コントロール
@@ -27,6 +28,8 @@ namespace ToNStatTool
 		private CheckBox checkReminderSoundEnabled;
 		private TextBox textReminderSoundPath;
 		private NumericUpDown numReminderDuration;
+		// リスポーン後リマインダー設定コントロール
+		private CheckBox checkRespawnReminderEnabled;
 
 		// テーマ設定コントロール
 		private RadioButton radioThemeLight;
@@ -34,6 +37,8 @@ namespace ToNStatTool
 
 		// その他設定コントロール
 		private CheckBox checkVerboseLog;
+		private CheckBox checkMasterChangeEnabled;
+		private TextBox textMasterChangePath;
 
 		// 音声再生用
 		private IWavePlayer currentPlayer;
@@ -42,6 +47,7 @@ namespace ToNStatTool
 		public SettingsForm(SoundSettings settings)
 		{
 			soundSettings = settings;
+			appSettings = AppSettings.Load();
 			InitializeComponent();
 			LoadSettings();
 			ApplyTheme();
@@ -50,7 +56,7 @@ namespace ToNStatTool
 		private void InitializeComponent()
 		{
 			this.Text = "設定";
-			this.Size = new Size(480, 520);
+			this.Size = new Size(480, 620);
 			this.StartPosition = FormStartPosition.CenterParent;
 			this.FormBorderStyle = FormBorderStyle.FixedDialog;
 			this.MaximizeBox = false;
@@ -60,7 +66,7 @@ namespace ToNStatTool
 			// タブコントロール（オーナー描画でダークモード対応）
 			tabControl = new TabControl();
 			tabControl.Location = new Point(10, 10);
-			tabControl.Size = new Size(445, 420);
+			tabControl.Size = new Size(445, 520);
 			tabControl.DrawMode = TabDrawMode.Normal;
 			tabControl.DrawItem += TabControl_DrawItem;
 			this.Controls.Add(tabControl);
@@ -88,14 +94,14 @@ namespace ToNStatTool
 			// ボタン
 			var buttonSave = new Button();
 			buttonSave.Text = "保存";
-			buttonSave.Location = new Point(280, 440);
+			buttonSave.Location = new Point(280, 540);
 			buttonSave.Size = new Size(80, 30);
 			buttonSave.Click += ButtonSave_Click;
 			this.Controls.Add(buttonSave);
 
 			var buttonCancel = new Button();
 			buttonCancel.Text = "キャンセル";
-			buttonCancel.Location = new Point(370, 440);
+			buttonCancel.Location = new Point(370, 540);
 			buttonCancel.Size = new Size(80, 30);
 			buttonCancel.Click += (s, e) => this.DialogResult = DialogResult.Cancel;
 			this.Controls.Add(buttonCancel);
@@ -282,7 +288,7 @@ namespace ToNStatTool
 			labelWarningNote.Text = "※ 空の場合はwarning.mp3またはシステム音を使用";
 			labelWarningNote.Location = new Point(75, 50);
 			labelWarningNote.Size = new Size(330, 20);
-			labelWarningNote.ForeColor = Color.OrangeRed;
+			labelWarningNote.ForeColor = Color.Gray;
 			groupWarning.Controls.Add(labelWarningNote);
 
 			var labelWarningNote2 = new Label();
@@ -291,6 +297,52 @@ namespace ToNStatTool
 			labelWarningNote2.Size = new Size(300, 20);
 			labelWarningNote2.ForeColor = Color.Gray;
 			groupWarning.Controls.Add(labelWarningNote2);
+
+			// マスター変更音設定
+			var groupMasterChange = new GroupBox();
+			groupMasterChange.Text = "マスター変更時のサウンド";
+			groupMasterChange.Location = new Point(10, 340);
+			groupMasterChange.Size = new Size(415, 100);
+			tab.Controls.Add(groupMasterChange);
+
+			checkMasterChangeEnabled = new CheckBox();
+			checkMasterChangeEnabled.Text = "有効";
+			checkMasterChangeEnabled.Location = new Point(10, 25);
+			checkMasterChangeEnabled.Size = new Size(60, 20);
+			groupMasterChange.Controls.Add(checkMasterChangeEnabled);
+
+			textMasterChangePath = new TextBox();
+			textMasterChangePath.Location = new Point(75, 23);
+			textMasterChangePath.Size = new Size(220, 23);
+			groupMasterChange.Controls.Add(textMasterChangePath);
+
+			var buttonMasterChangeBrowse = new Button();
+			buttonMasterChangeBrowse.Text = "参照...";
+			buttonMasterChangeBrowse.Location = new Point(300, 22);
+			buttonMasterChangeBrowse.Size = new Size(55, 25);
+			buttonMasterChangeBrowse.Click += (s, e) => BrowseSoundFile(textMasterChangePath);
+			groupMasterChange.Controls.Add(buttonMasterChangeBrowse);
+
+			var buttonMasterChangeTest = new Button();
+			buttonMasterChangeTest.Text = "▶";
+			buttonMasterChangeTest.Location = new Point(360, 22);
+			buttonMasterChangeTest.Size = new Size(40, 25);
+			buttonMasterChangeTest.Click += (s, e) => TestSound(textMasterChangePath.Text, "masterchange.mp3");
+			groupMasterChange.Controls.Add(buttonMasterChangeTest);
+
+			var labelMasterChangeNote = new Label();
+			labelMasterChangeNote.Text = "※ 空の場合はmasterchange.mp3を使用";
+			labelMasterChangeNote.Location = new Point(75, 50);
+			labelMasterChangeNote.Size = new Size(300, 20);
+			labelMasterChangeNote.ForeColor = Color.Gray;
+			groupMasterChange.Controls.Add(labelMasterChangeNote);
+
+			var labelMasterChangeNote2 = new Label();
+			labelMasterChangeNote2.Text = "※ MP3またはWAVファイルを指定してください";
+			labelMasterChangeNote2.Location = new Point(75, 68);
+			labelMasterChangeNote2.Size = new Size(300, 20);
+			labelMasterChangeNote2.ForeColor = Color.Gray;
+			groupMasterChange.Controls.Add(labelMasterChangeNote2);
 		}
 
 		private void CreateReminderSettingsTab(TabPage tab)
@@ -299,7 +351,7 @@ namespace ToNStatTool
 			var groupReminder = new GroupBox();
 			groupReminder.Text = "8ページ / アンバウンド終了時のリマインダー";
 			groupReminder.Location = new Point(10, 10);
-			groupReminder.Size = new Size(415, 200);
+			groupReminder.Size = new Size(415, 220);
 			tab.Controls.Add(groupReminder);
 
 			// 有効/無効
@@ -312,41 +364,41 @@ namespace ToNStatTool
 
 			// 説明ラベル
 			var labelDescription = new Label();
-			labelDescription.Text = "8ページ・アンバウンド終了後、テラー表示フォームに\n「アイテムを持ち直してください」と表示します。";
+			labelDescription.Text = "8ページ・アンバウンド終了後、テラー表示ウィンドウに\n「アイテムを持ち直してください」と表示します。\nサボタージュでキラー側になった時も通知します。";
 			labelDescription.Location = new Point(15, 55);
-			labelDescription.Size = new Size(380, 35);
+			labelDescription.Size = new Size(380, 50);
 			labelDescription.ForeColor = Color.Gray;
 			groupReminder.Controls.Add(labelDescription);
 
 			// サウンド設定
 			checkReminderSoundEnabled = new CheckBox();
 			checkReminderSoundEnabled.Text = "通知音を鳴らす";
-			checkReminderSoundEnabled.Location = new Point(15, 95);
+			checkReminderSoundEnabled.Location = new Point(15, 110);
 			checkReminderSoundEnabled.Size = new Size(120, 20);
 			groupReminder.Controls.Add(checkReminderSoundEnabled);
 
 			textReminderSoundPath = new TextBox();
-			textReminderSoundPath.Location = new Point(140, 93);
+			textReminderSoundPath.Location = new Point(140, 108);
 			textReminderSoundPath.Size = new Size(150, 23);
 			groupReminder.Controls.Add(textReminderSoundPath);
 
 			var buttonReminderBrowse = new Button();
 			buttonReminderBrowse.Text = "参照...";
-			buttonReminderBrowse.Location = new Point(295, 92);
+			buttonReminderBrowse.Location = new Point(295, 107);
 			buttonReminderBrowse.Size = new Size(55, 25);
 			buttonReminderBrowse.Click += (s, e) => BrowseSoundFile(textReminderSoundPath);
 			groupReminder.Controls.Add(buttonReminderBrowse);
 
 			var buttonReminderTest = new Button();
 			buttonReminderTest.Text = "▶";
-			buttonReminderTest.Location = new Point(355, 92);
+			buttonReminderTest.Location = new Point(355, 107);
 			buttonReminderTest.Size = new Size(40, 25);
-			buttonReminderTest.Click += (s, e) => TestSound(textReminderSoundPath.Text, null);
+			buttonReminderTest.Click += (s, e) => TestSound(textReminderSoundPath.Text, "item.mp3");
 			groupReminder.Controls.Add(buttonReminderTest);
 
 			var labelSoundNote = new Label();
-			labelSoundNote.Text = "※ 空の場合はシステム音を使用";
-			labelSoundNote.Location = new Point(140, 118);
+			labelSoundNote.Text = "※ 空の場合はitem.mp3を使用";
+			labelSoundNote.Location = new Point(140, 133);
 			labelSoundNote.Size = new Size(250, 20);
 			labelSoundNote.ForeColor = Color.Gray;
 			groupReminder.Controls.Add(labelSoundNote);
@@ -354,23 +406,45 @@ namespace ToNStatTool
 			// 表示時間
 			var labelDuration = new Label();
 			labelDuration.Text = "表示時間:";
-			labelDuration.Location = new Point(15, 148);
+			labelDuration.Location = new Point(15, 163);
 			labelDuration.Size = new Size(60, 20);
 			groupReminder.Controls.Add(labelDuration);
 
 			numReminderDuration = new NumericUpDown();
-			numReminderDuration.Location = new Point(80, 145);
+			numReminderDuration.Location = new Point(80, 160);
 			numReminderDuration.Size = new Size(60, 23);
 			numReminderDuration.Minimum = 1;
 			numReminderDuration.Maximum = 10;
-			numReminderDuration.Value = 7;
+			numReminderDuration.Value = 10;
 			groupReminder.Controls.Add(numReminderDuration);
 
 			var labelSeconds = new Label();
 			labelSeconds.Text = "秒";
-			labelSeconds.Location = new Point(145, 148);
+			labelSeconds.Location = new Point(145, 163);
 			labelSeconds.Size = new Size(30, 20);
 			groupReminder.Controls.Add(labelSeconds);
+
+			// リスポーン後リマインダー設定グループ
+			var groupRespawn = new GroupBox();
+			groupRespawn.Text = "リスポーン後の再参加時のリマインダー";
+			groupRespawn.Location = new Point(10, 240);
+			groupRespawn.Size = new Size(415, 100);
+			tab.Controls.Add(groupRespawn);
+
+			// 有効/無効
+			checkRespawnReminderEnabled = new CheckBox();
+			checkRespawnReminderEnabled.Text = "リマインダーを有効にする";
+			checkRespawnReminderEnabled.Location = new Point(15, 30);
+			checkRespawnReminderEnabled.Size = new Size(200, 20);
+			groupRespawn.Controls.Add(checkRespawnReminderEnabled);
+
+			// 説明ラベル
+			var labelRespawnDescription = new Label();
+			labelRespawnDescription.Text = "リスポーン後にゲームへ再参加した際に\n「アイテムを持ち直してください」と表示します。\n※ 通知音は上記の設定を共有します";
+			labelRespawnDescription.Location = new Point(15, 55);
+			labelRespawnDescription.Size = new Size(380, 40);
+			labelRespawnDescription.ForeColor = Color.Gray;
+			groupRespawn.Controls.Add(labelRespawnDescription);
 		}
 
 		private void CreateThemeSettingsTab(TabPage tab)
@@ -413,27 +487,20 @@ namespace ToNStatTool
 			var groupLog = new GroupBox();
 			groupLog.Text = "ログ設定";
 			groupLog.Location = new Point(10, 10);
-			groupLog.Size = new Size(415, 120);
+			groupLog.Size = new Size(415, 90);
 			tab.Controls.Add(groupLog);
 
 			// 詳細ログ
 			checkVerboseLog = new CheckBox();
 			checkVerboseLog.Text = "詳細ログを有効にする";
-			checkVerboseLog.Location = new Point(15, 30);
+			checkVerboseLog.Location = new Point(15, 25);
 			checkVerboseLog.Size = new Size(200, 20);
 			groupLog.Controls.Add(checkVerboseLog);
-
-			var labelVerboseNote = new Label();
-			labelVerboseNote.Text = "※ デバッグ用の詳細なログを出力します";
-			labelVerboseNote.Location = new Point(15, 55);
-			labelVerboseNote.Size = new Size(300, 20);
-			labelVerboseNote.ForeColor = Color.Gray;
-			groupLog.Controls.Add(labelVerboseNote);
 
 			// ログフォルダを開くボタン
 			var buttonOpenLogFolder = new Button();
 			buttonOpenLogFolder.Text = "ログフォルダを開く";
-			buttonOpenLogFolder.Location = new Point(15, 80);
+			buttonOpenLogFolder.Location = new Point(15, 52);
 			buttonOpenLogFolder.Size = new Size(130, 28);
 			buttonOpenLogFolder.Click += (s, e) => Logger.OpenLogFolder();
 			groupLog.Controls.Add(buttonOpenLogFolder);
@@ -529,6 +596,13 @@ namespace ToNStatTool
 			checkReminderSoundEnabled.Checked = soundSettings.EnableItemReminderSound;
 			textReminderSoundPath.Text = soundSettings.ItemReminderSoundPath;
 			numReminderDuration.Value = Math.Max(1, Math.Min(10, soundSettings.ItemReminderDurationSeconds));
+			
+			// リスポーン後リマインダー設定
+			checkRespawnReminderEnabled.Checked = soundSettings.EnableRespawnReminder;
+
+			// マスター変更音設定（SoundSettingsから読み込み）
+			checkMasterChangeEnabled.Checked = soundSettings.EnableMasterChangeSound;
+			textMasterChangePath.Text = soundSettings.MasterChangeSoundPath;
 
 			// テーマ設定
 			if (ThemeManager.IsDark)
@@ -540,8 +614,8 @@ namespace ToNStatTool
 				radioThemeLight.Checked = true;
 			}
 
-			// 詳細ログ設定
-			checkVerboseLog.Checked = Logger.IsVerboseLoggingEnabled();
+			// 詳細ログ設定（AppSettingsから読み込み）
+			checkVerboseLog.Checked = appSettings.EnableVerboseLog;
 
 			UpdateReminderControlsState();
 		}
@@ -569,13 +643,22 @@ namespace ToNStatTool
 			soundSettings.EnableItemReminderSound = checkReminderSoundEnabled.Checked;
 			soundSettings.ItemReminderSoundPath = textReminderSoundPath.Text;
 			soundSettings.ItemReminderDurationSeconds = (int)numReminderDuration.Value;
+			
+			// リスポーン後リマインダー設定を更新
+			soundSettings.EnableRespawnReminder = checkRespawnReminderEnabled.Checked;
+
+			// マスター変更音設定を更新（SoundSettingsに保存）
+			soundSettings.EnableMasterChangeSound = checkMasterChangeEnabled.Checked;
+			soundSettings.MasterChangeSoundPath = textMasterChangePath.Text;
 
 			// テーマ設定を更新
 			ThemeChanged = (radioThemeDark.Checked && !ThemeManager.IsDark) || 
 			               (radioThemeLight.Checked && ThemeManager.IsDark);
 			NewThemeIsDark = radioThemeDark.Checked;
 
-			// 詳細ログ設定を更新
+			// 詳細ログ設定を更新（AppSettingsに保存）
+			appSettings.EnableVerboseLog = checkVerboseLog.Checked;
+			appSettings.Save();
 			VerboseLogEnabled = checkVerboseLog.Checked;
 
 			// 再生中のサウンドを停止
