@@ -244,6 +244,11 @@ namespace ToNStatTool
 					listView.ForeColor = IsDark ? Dark.Text : Light.Text;
 					break;
 
+				case ListBox listBox:
+					listBox.BackColor = IsDark ? Dark.ListViewBackground : Light.ListViewBackground;
+					listBox.ForeColor = IsDark ? Dark.Text : Light.Text;
+					break;
+
 				case DataGridView dataGridView:
 					dataGridView.BackgroundColor = IsDark ? Dark.CommonBackground : Light.CommonBackground;
 					dataGridView.DefaultCellStyle.BackColor = IsDark ? Dark.ListViewBackground : Light.ListViewBackground;

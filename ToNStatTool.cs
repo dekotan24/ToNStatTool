@@ -238,8 +238,13 @@ namespace ToNStatTool
                 noteLabel.Text = "※ warn_user.txt ファイルから読み込まれています";
                 noteLabel.Location = new Point(10, 400);
                 noteLabel.Size = new Size(320, 20);
-                noteLabel.ForeColor = Color.Gray;
                 dialog.Controls.Add(noteLabel);
+
+                // ダイアログにテーマを適用
+                ThemeManager.Apply(dialog);
+
+                // 注釈ラベルはテーマ適用後に控えめな色に設定
+                noteLabel.ForeColor = ThemeManager.IsDark ? Color.FromArgb(128, 128, 128) : Color.Gray;
 
                 dialog.ShowDialog(this);
             }
