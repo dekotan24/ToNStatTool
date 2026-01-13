@@ -43,15 +43,13 @@ ToNStatToolは、VRChatワールド「**Terror of Nowhere**」のゲームデー
 
 1. [最新リリース](https://github.com/dekotan24/ToNStatTool/releases)から`ToNStatTool_vx.x.zip`をダウンロード
 2. 任意のフォルダに解凍
-3. `ToNStatTool.exe`を実行
 
 ### 起動手順
 
 ```
 1. ToNSaveManagerを起動し、WebSocket APIサーバを有効化
-2. ToNStatTool.exeを起動
+2. `ToNStatTool.exe`を起動
 3. 「接続」ボタンをクリック
-4. VRChatでTerror of Nowhereに参加
 ```
 
 ---
@@ -168,6 +166,10 @@ ToNStatTool/
 ├── settings.json         # アプリ設定（自動生成）
 ├── sound_settings.json   # サウンド設定（自動生成）
 ├── warning.mp3           # 警告音（オプション）
+├── masterchange.mp3      # インスタンスマスター変更通知音（オプション）
+├── item.mp3              # アイテムリマインダー通知音（オプション）
+├── player_join.mp3       # プレイヤー参加通知音（オプション）
+├── player_leave.mp3      # プレイヤー退出通知音（オプション）
 └── licenses/             # ライセンスファイル
 ```
 
@@ -229,9 +231,10 @@ ToNStatTool/
 
 ## 🙏 クレジット
 
-- **terrorsInfo.json**: [yussy](https://twitter.com/yussy) - [ToNRoundCounter](https://github.com/lovetwice1012/ToNRoundCounter)
+- **terrorsInfo.json**: yussy - [ToNRoundCounter](https://github.com/lovetwice1012/ToNRoundCounter)
 - **サウンド素材**: [OtoLogic](https://otologic.jp) (CC BY 4.0)
 - **ToNSaveManager**: [ChrisFeline](https://github.com/ChrisFeline/ToNSaveManager)
+- **開発支援**: [Claude](https://claude.ai) (Opus 4.5)
 
 ---
 

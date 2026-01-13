@@ -43,15 +43,13 @@ ToNStatTool is a Windows application that tracks and displays game data from the
 
 1. Download `ToNStatTool_vx.x.zip` from [Latest Release](https://github.com/dekotan24/ToNStatTool/releases)
 2. Extract to any folder
-3. Run `ToNStatTool.exe`
 
 ### Getting Started
 
 ```
 1. Start ToNSaveManager and enable WebSocket API Server
-2. Launch ToNStatTool.exe
+2. Launch `ToNStatTool.exe`
 3. Click the "Connect" button
-4. Join Terror of Nowhere in VRChat
 ```
 
 ---
@@ -168,6 +166,10 @@ ToNStatTool/
 ├── settings.json         # App settings (auto-generated)
 ├── sound_settings.json   # Sound settings (auto-generated)
 ├── warning.mp3           # Warning sound (optional)
+├── masterchange.mp3      # Instance master change sound (optional)
+├── item.mp3              # Item reminder sound (optional)
+├── player_join.mp3       # Player join sound (optional)
+├── player_leave.mp3      # Player leave sound (optional)
 └── licenses/             # License files
 ```
 
@@ -229,9 +231,10 @@ See [LICENSE](LICENSE) file and `licenses/` directory for details.
 
 ## 🙏 Credits
 
-- **terrorsInfo.json**: [yussy](https://twitter.com/yussy) - [ToNRoundCounter](https://github.com/lovetwice1012/ToNRoundCounter)
+- **terrorsInfo.json**: yussy - [ToNRoundCounter](https://github.com/lovetwice1012/ToNRoundCounter)
 - **Sound Assets**: [OtoLogic](https://otologic.jp) (CC BY 4.0)
 - **ToNSaveManager**: [ChrisFeline](https://github.com/ChrisFeline/ToNSaveManager)
+- **Development Support**: [Claude](https://claude.ai) (Opus 4.5)
 
 ---
 
