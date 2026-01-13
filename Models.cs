@@ -126,6 +126,11 @@ namespace ToNStatTool
 		// 通常確定時にOverrideラウンドまたは特殊ラウンドが出た場合にtrue
 		public bool IsCurrentRoundOverride { get; set; } = false;
 		
+		// N=1でOverrideラウンドが出た後の不確定状態フラグ（次ラウンド予測用）
+		// Ghost/Unbound/8Pages等がN=1で出た場合、通常枠と特殊枠のどちらを消費したか不明
+		// 次にNormalラウンドが来れば特殊枠消費が確定、特殊ラウンドが来れば通常枠消費が確定
+		public bool WasOverrideInUncertainState { get; set; } = false;
+		
 		/// <summary>
 		/// 3鳥コンプリート判定
 		/// </summary>
@@ -175,6 +180,7 @@ namespace ToNStatTool
 			IsCurrentRoundFirstMoon = false;
 			NormalRoundCountAtRoundStart = 0;
 			IsCurrentRoundOverride = false;
+			WasOverrideInUncertainState = false;
 		}
 	}
 

@@ -737,7 +737,17 @@ namespace ToNStatTool
             }
             else
             {
-                int normalCount = normalCountAtStart + 1;
+                // Normal系（Classic, RUN）
+                int effectiveNormalCountAtStart = normalCountAtStart;
+                
+                // WasOverrideInUncertainState=trueの場合、前のOverrideが特殊枠を消費したことが確定
+                // つまりこのNormalは実質N=0からの遷移として計算すべき
+                if (instanceState.WasOverrideInUncertainState)
+                {
+                    effectiveNormalCountAtStart = 0;
+                }
+                
+                int normalCount = effectiveNormalCountAtStart + 1;
                 if (normalCount >= 2)
                 {
                     prediction = "特殊";

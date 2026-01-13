@@ -71,7 +71,6 @@ namespace ToNStatTool
 		private bool wasSaboteurDuringRound = false; // ラウンド中にサボタージュキラー側になったかを追跡
 		private bool pendingSaboteurFlag = false; // ラウンド開始前のサボタージュ状態を保持
 		private bool isCurrentRoundFirstMoon = false; // 今回のラウンドが初回Moonかどうか
-		private bool wasOverrideInUncertainState = false; // N=1でOverrideが出た（どちらの枠か不明）
 		private bool wasSpecialConfirmedAtLastRoundEnd = false; // 前のラウンド終了時に特殊確定状態だったか
 		
 		// ダブルドラブル検出用
@@ -1296,7 +1295,7 @@ namespace ToNStatTool
 		{
 			// ラウンド終了時の状態をログ出力
 			Logger.Info("InstanceState", $"UpdateInstanceState呼び出し: roundType={roundType}, isCurrentRoundFirstMoon={isCurrentRoundFirstMoon}");
-			Logger.Info("InstanceState", $"更新前: NormalRoundCount={InstanceState.NormalRoundCount}, wasOverrideInUncertainState={wasOverrideInUncertainState}");
+			Logger.Info("InstanceState", $"更新前: NormalRoundCount={InstanceState.NormalRoundCount}, InstanceState.WasOverrideInUncertainState={InstanceState.WasOverrideInUncertainState}");
 			
 			// インスタンス内の誰かが生存しているかチェック（推定生存回数用）
 			int aliveCount = Players.Values.Count(p => p.IsAlive);
@@ -1389,12 +1388,12 @@ namespace ToNStatTool
 			if (ToNRoundTypeHelper.IsNormalRound(roundType))
 			{
 				// Normal系: 純粋な通常ラウンド（Classic, RUN）
-				if (wasOverrideInUncertainState)
+				if (InstanceState.WasOverrideInUncertainState)
 				{
 					// N=1でOverride後にNormalが来た → 前のOverrideが特殊枠を食ったことが確定
 					// なのでNormalはN=0からの遷移として扱う → N=1
 					InstanceState.NormalRoundCount = 1;
-					wasOverrideInUncertainState = false;
+					InstanceState.WasOverrideInUncertainState = false;
 					System.Diagnostics.Debug.WriteLine("[InstanceState] Normal(前のOverrideが特殊枠消費確定): NormalRoundCount=1");
 				}
 				else if (InstanceState.NormalRoundCount >= 2)
@@ -1425,7 +1424,7 @@ namespace ToNStatTool
 				// Moonラウンド（Blood Moon/Twilight/Mystic Moon/Solstice）
 				// 初回: Classicを上書きして出現 → Override系と同じ挙動
 				// 2回目以降: 特殊ラウンドの1/20で選出 → 特殊枠を消費
-				wasOverrideInUncertainState = false; // Moonが出たらフラグリセット
+				InstanceState.WasOverrideInUncertainState = false; // Moonが出たらフラグリセット
 				
 				if (isCurrentRoundFirstMoon)
 				{
@@ -1438,7 +1437,7 @@ namespace ToNStatTool
 					else if (InstanceState.NormalRoundCount == 1)
 					{
 						// N=1で初回Moon → N=1維持（通常枠を上書きした可能性）
-						wasOverrideInUncertainState = true; // 初回MoonもOverride系と同様にフラグを立てる
+						InstanceState.WasOverrideInUncertainState = true; // 初回MoonもOverride系と同様にフラグを立てる
 						System.Diagnostics.Debug.WriteLine("[InstanceState] 初回Moon(不明): NormalRoundCount=1維持");
 					}
 					else if (InstanceState.NormalRoundCount >= 2)
@@ -1461,20 +1460,20 @@ namespace ToNStatTool
 				{
 					// N=0（通常枠確定） → N=1
 					InstanceState.NormalRoundCount = 1;
-					wasOverrideInUncertainState = false;
+					InstanceState.WasOverrideInUncertainState = false;
 					System.Diagnostics.Debug.WriteLine("[InstanceState] Override系(通常枠確定): NormalRoundCount=1");
 				}
 				else if (InstanceState.NormalRoundCount == 1)
 				{
 					// N=1（通常/特殊どちらか） → N=1維持（どちらで出たか不明）
-					wasOverrideInUncertainState = true; // 不確定フラグを立てる
+					InstanceState.WasOverrideInUncertainState = true; // 不確定フラグを立てる
 					System.Diagnostics.Debug.WriteLine("[InstanceState] Override系(不明): NormalRoundCount=1維持, 不確定フラグON");
 				}
 				else if (InstanceState.NormalRoundCount >= 2)
 				{
 					// N=2（特殊枠確定） → N=0（特殊枠消費）
 					InstanceState.NormalRoundCount = 0;
-					wasOverrideInUncertainState = false;
+					InstanceState.WasOverrideInUncertainState = false;
 					System.Diagnostics.Debug.WriteLine("[InstanceState] Override系(特殊枠消費): NormalRoundCount=0");
 				}
 			}
@@ -1485,14 +1484,14 @@ namespace ToNStatTool
 				{
 					// 上書きで出た特殊（MCなしで通常確定時に出現）→ 通常枠を消費したのでN=1
 					InstanceState.NormalRoundCount = 1;
-					wasOverrideInUncertainState = false;
+					InstanceState.WasOverrideInUncertainState = false;
 					System.Diagnostics.Debug.WriteLine("[InstanceState] 特殊ラウンド(上書き): NormalRoundCount=1");
 				}
 				else
 				{
 					// 通常の特殊ラウンド（MCまたは通常枠2消費後）→ 特殊枠消費でN=0
 					InstanceState.NormalRoundCount = 0;
-					wasOverrideInUncertainState = false;
+					InstanceState.WasOverrideInUncertainState = false;
 					System.Diagnostics.Debug.WriteLine("[InstanceState] 特殊ラウンド: NormalRoundCount=0");
 				}
 			}
