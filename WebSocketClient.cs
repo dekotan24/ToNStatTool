@@ -1386,29 +1386,29 @@ namespace ToNStatTool
 
 			// ラウンド周期の更新
 			// N=0: 通常枠確定, N=1: 通常/特殊どちらか, N=2: 特殊枠確定
-			if (ToNRoundTypeHelper.IsClassicRound(roundType))
+			if (ToNRoundTypeHelper.IsNormalRound(roundType))
 			{
-				// Classic系: 純粋な通常ラウンド（通常枠のみ出現）
+				// Normal系: 純粋な通常ラウンド（Classic, RUN）
 				if (wasOverrideInUncertainState)
 				{
-					// N=1でOverride後にClassicが来た → 前のOverrideが特殊枠を食ったことが確定
-					// なのでClassicはN=0からの遷移として扱う → N=1
+					// N=1でOverride後にNormalが来た → 前のOverrideが特殊枠を食ったことが確定
+					// なのでNormalはN=0からの遷移として扱う → N=1
 					InstanceState.NormalRoundCount = 1;
 					wasOverrideInUncertainState = false;
-					System.Diagnostics.Debug.WriteLine("[InstanceState] Classic(前のOverrideが特殊枠消費確定): NormalRoundCount=1");
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Normal(前のOverrideが特殊枠消費確定): NormalRoundCount=1");
 				}
 				else if (InstanceState.NormalRoundCount >= 2)
 				{
-					// N=2（特殊枠確定）でClassicが出た → 特殊未解放時
-					// 特殊枠は消費されたが特殊が出せないのでClassicが代わりに出た
+					// N=2（特殊枠確定）でNormalが出た → 特殊未解放時
+					// 特殊枠は消費されたが特殊が出せないのでNormalが代わりに出た
 					InstanceState.NormalRoundCount = 0;
-					System.Diagnostics.Debug.WriteLine("[InstanceState] Classic(特殊未解放時): 特殊枠消費 → NormalRoundCount=0");
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Normal(特殊未解放時): 特殊枠消費 → NormalRoundCount=0");
 				}
 				else
 				{
 					// N=0 → N=1, N=1 → N=2
 					InstanceState.NormalRoundCount++;
-					System.Diagnostics.Debug.WriteLine($"[InstanceState] Classic: NormalRoundCount={InstanceState.NormalRoundCount}");
+					System.Diagnostics.Debug.WriteLine($"[InstanceState] Normal: NormalRoundCount={InstanceState.NormalRoundCount}");
 				}
 				
 				// 通常が3回連続 → インスタンス作成者確定、特殊未解放

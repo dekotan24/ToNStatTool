@@ -319,6 +319,16 @@ namespace ToNStatTool
         }
 
         /// <summary>
+        /// 通常ラウンド（通常スロット消費）かどうかを判定
+        /// Classic, RUN が該当（周期計算で同じ扱い）
+        /// </summary>
+        public static bool IsNormalRound(ToNRoundType roundType)
+        {
+            return roundType == ToNRoundType.Classic ||
+                   roundType == ToNRoundType.RUN;
+        }
+
+        /// <summary>
         /// スペシャルラウンド（特殊スロット消費）かどうかを判定
         /// Fog, Punished, Sabotage, Cracked, Bloodbath, Double_Trouble, EX, Midnight, Alternate, Fog_Alternate,
         /// Cold_Night, GIGABYTE が該当（イベントラウンドも特殊枠を消費する）
@@ -342,12 +352,12 @@ namespace ToNStatTool
 
         /// <summary>
         /// オーバーライドラウンド（通常/特殊どちらも消費しない）かどうかを判定
-        /// RUN, Ghost, Ghost_Alternate, Unbound, Eight_Pages が該当
+        /// Ghost, Ghost_Alternate, Unbound, Eight_Pages が該当
+        /// ※RUNは通常ラウンド扱い（IsNormalRound参照）
         /// </summary>
         public static bool IsOverrideRound(ToNRoundType roundType)
         {
-            return roundType == ToNRoundType.RUN ||
-                   roundType == ToNRoundType.Ghost ||
+            return roundType == ToNRoundType.Ghost ||
                    roundType == ToNRoundType.Ghost_Alternate ||
                    roundType == ToNRoundType.Unbound ||
                    roundType == ToNRoundType.Eight_Pages;
@@ -398,11 +408,11 @@ namespace ToNStatTool
         }
 
         /// <summary>
-        /// 通常スロットを消費するラウンドかどうかを判定（Classic + Moon）
+        /// 通常スロットを消費するラウンドかどうかを判定（Normal + Moon）
         /// </summary>
         public static bool ConsumesNormalSlot(ToNRoundType roundType)
         {
-            return IsClassicRound(roundType) || IsMoonRound(roundType);
+            return IsNormalRound(roundType) || IsMoonRound(roundType);
         }
 
         /// <summary>
