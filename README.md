@@ -1,5 +1,3 @@
-<![CDATA[<div align="center">
-
 # 🎮 ToNStatTool
 
 **Terror of Nowhere** のリアルタイム統計トラッキングツール
@@ -11,9 +9,7 @@
 
 [English](README_en.md) | 日本語
 
-<img src="https://raw.githubusercontent.com/dekotan24/ToNStatTool/main/docs/screenshot.png" alt="Screenshot" width="600">
-
-</div>
+![Screenshot](https://raw.githubusercontent.com/dekotan24/ToNStatTool/main/docs/screenshot.png)
 
 ---
 
@@ -185,33 +181,25 @@ ToNStatTool/
 
 ## 🔧 トラブルシューティング
 
-<details>
-<summary><b>接続できない</b></summary>
+### 接続できない
 
 - ToNSaveManagerが起動しているか確認
 - WebSocket APIサーバが有効か確認
 - URLが正しいか確認（デフォルト: `ws://localhost:11398`）
-</details>
 
-<details>
-<summary><b>テラー情報が表示されない</b></summary>
+### テラー情報が表示されない
 
 - `terrorsInfo.json`が同じフォルダにあるか確認
 - JSONファイルの形式が正しいか確認
-</details>
 
-<details>
-<summary><b>プレイヤーが表示されない</b></summary>
+### プレイヤーが表示されない
 
 - 一部の特殊ラウンドでは追跡できない場合があります
 - インスタンスに参加してからラウンドが開始すると反映されます
-</details>
 
-<details>
-<summary><b>次ラウンド予測が正しくない</b></summary>
+### 次ラウンド予測が正しくない
 
 - インスタンス途中参加直後の場合、予測精度が下がります
-</details>
 
 ---
 
@@ -247,9 +235,4 @@ ToNStatTool/
 
 ---
 
-<div align="center">
-
 **不正はせずに、楽しくプレイしましょう。**
-
-</div>
-]]>

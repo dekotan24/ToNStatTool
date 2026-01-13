@@ -1,5 +1,3 @@
-<![CDATA[<div align="center">
-
 # 🎮 ToNStatTool
 
 Real-time Statistics Tracking Tool for **Terror of Nowhere**
@@ -11,9 +9,7 @@ Real-time Statistics Tracking Tool for **Terror of Nowhere**
 
 English | [日本語](README.md)
 
-<img src="https://raw.githubusercontent.com/dekotan24/ToNStatTool/main/docs/screenshot.png" alt="Screenshot" width="600">
-
-</div>
+![Screenshot](https://raw.githubusercontent.com/dekotan24/ToNStatTool/main/docs/screenshot.png)
 
 ---
 
@@ -185,33 +181,25 @@ Get the latest `terrorsInfo.json` from the following repository:
 
 ## 🔧 Troubleshooting
 
-<details>
-<summary><b>Cannot Connect</b></summary>
+### Cannot Connect
 
 - Verify ToNSaveManager is running
 - Verify WebSocket API Server is enabled
 - Check if URL is correct (default: `ws://localhost:11398`)
-</details>
 
-<details>
-<summary><b>Terror Information Not Showing</b></summary>
+### Terror Information Not Showing
 
 - Verify `terrorsInfo.json` is in the same folder
 - Check if JSON file format is valid
-</details>
 
-<details>
-<summary><b>Players Not Showing</b></summary>
+### Players Not Showing
 
 - Some special rounds may not track players
 - Players are reflected after a round starts when you join an instance
-</details>
 
-<details>
-<summary><b>Next Round Prediction is Wrong</b></summary>
+### Next Round Prediction is Wrong
 
 - Prediction accuracy decreases immediately after joining mid-instance
-</details>
 
 ---
 
@@ -247,9 +235,4 @@ See [LICENSE](LICENSE) file and `licenses/` directory for details.
 
 ---
 
-<div align="center">
-
 **Play fair and have fun!**
-
-</div>
-]]>
