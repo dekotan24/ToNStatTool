@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 
 namespace ToNStatTool
 {
@@ -25,6 +26,8 @@ namespace ToNStatTool
 				{
 					string exeDir = AppDomain.CurrentDomain.BaseDirectory;
 					_imagesFolder = Path.Combine(exeDir, "images");
+					Logger.Info("TerrorImage", $"画像フォルダパスを初期化: {_imagesFolder}");
+					Logger.Debug("TerrorImage", $"BaseDirectory: {exeDir}");
 				}
 				return _imagesFolder;
 			}
@@ -44,8 +47,11 @@ namespace ToNStatTool
 		/// <returns>テラー画像（見つからない場合はプレースホルダー）</returns>
 		public static Image GetTerrorImage(string terrorName, int width, int height)
 		{
+			Logger.Debug("TerrorImage", $"画像取得リクエスト: テラー名='{terrorName}', サイズ={width}x{height}");
+			
 			if (string.IsNullOrEmpty(terrorName))
 			{
+				Logger.Debug("TerrorImage", "テラー名が空のため、プレースホルダーを返します");
 				return CreatePlaceholderImage("?", width, height);
 			}
 
@@ -53,6 +59,7 @@ namespace ToNStatTool
 			string cacheKey = $"{terrorName}_{width}x{height}";
 			if (imageCache.ContainsKey(cacheKey))
 			{
+				Logger.Debug("TerrorImage", $"キャッシュヒット: {terrorName}");
 				// キャッシュされた画像のコピーを作成して返す
 				return CloneImage(imageCache[cacheKey]);
 			}
@@ -65,16 +72,23 @@ namespace ToNStatTool
 				image = LoadImageFromFile(terrorName, width, height);
 				if (image != null)
 				{
+					Logger.Info("TerrorImage", $"画像読み込み成功: {terrorName}");
 					imageCache[cacheKey] = CloneImage(image);
 					return image;
+				}
+				else
+				{
+					Logger.Warn("TerrorImage", $"画像ファイルが見つかりませんでした: {terrorName}");
 				}
 			}
 			catch (Exception ex)
 			{
-				System.Diagnostics.Debug.WriteLine($"テラー画像の読み込みエラー: {terrorName} - {ex.Message}");
+				Logger.Error("TerrorImage", $"画像読み込みエラー: {terrorName} - {ex.Message}");
+				Logger.Debug("TerrorImage", $"スタックトレース: {ex.StackTrace}");
 			}
 
 			// 画像が見つからない場合はプレースホルダーを生成
+			Logger.Info("TerrorImage", $"プレースホルダー画像を作成: {terrorName}");
 			image = CreatePlaceholderImage(terrorName, width, height);
 			imageCache[cacheKey] = CloneImage(image); // キャッシュにはコピーを保存
 			return image;
@@ -90,8 +104,12 @@ namespace ToNStatTool
 		/// </summary>
 		private static Image LoadImageFromFile(string terrorName, int width, int height)
 		{
+			Logger.Debug("TerrorImage", $"LoadImageFromFile開始: {terrorName}");
+			Logger.Debug("TerrorImage", $"ImagesFolder: {ImagesFolder}");
+			
 			if (!Directory.Exists(ImagesFolder))
 			{
+				Logger.Error("TerrorImage", $"画像フォルダが存在しません: {ImagesFolder}");
 				return null;
 			}
 
@@ -99,18 +117,25 @@ namespace ToNStatTool
 			var fileCache = GetFileNameCache();
 			if (fileCache == null || fileCache.Count == 0)
 			{
+				Logger.Error("TerrorImage", "ファイルキャッシュが空です");
 				return null;
 			}
+			
+			Logger.Debug("TerrorImage", $"ファイルキャッシュに{fileCache.Count}個のファイルが登録されています");
 
 			// ファイル名の候補を生成（拡張子なし、小文字）
-			var candidates = GetFileNameCandidates(terrorName);
+			var candidates = GetFileNameCandidates(terrorName).ToList();
+			Logger.Debug("TerrorImage", $"ファイル名候補: {string.Join(", ", candidates)}");
 
 			foreach (var candidate in candidates)
 			{
 				// 大文字小文字を無視してマッチング
 				string lowerCandidate = candidate.ToLowerInvariant();
+				Logger.Debug("TerrorImage", $"候補'{candidate}'（小文字: '{lowerCandidate}'）を検索中...");
+				
 				if (fileCache.TryGetValue(lowerCandidate, out string actualFilePath))
 				{
+					Logger.Info("TerrorImage", $"ファイル見つかりました: {actualFilePath}");
 					try
 					{
 						// ファイルをメモリに読み込んでからImageを作成（ファイルロックを防ぐ）
@@ -118,17 +143,23 @@ namespace ToNStatTool
 						{
 							using (var originalImage = Image.FromStream(stream))
 							{
+								Logger.Debug("TerrorImage", "画像ファイルの読み込みとリサイズに成功しました");
 								return ResizeImage(originalImage, width, height);
 							}
 						}
 					}
 					catch (Exception ex)
 					{
-						System.Diagnostics.Debug.WriteLine($"画像ファイル読み込みエラー: {actualFilePath} - {ex.Message}");
+						Logger.Error("TerrorImage", $"画像ファイル読み込みエラー: {actualFilePath} - {ex.Message}");
 					}
+				}
+				else
+				{
+					Logger.Debug("TerrorImage", $"候補'{lowerCandidate}'はキャッシュに見つかりませんでした");
 				}
 			}
 
+			Logger.Warn("TerrorImage", $"すべての候補で画像が見つかりませんでした: {terrorName}");
 			return null;
 		}
 
@@ -141,9 +172,12 @@ namespace ToNStatTool
 			// キャッシュが有効期限内ならそのまま返す
 			if (_fileNameCache != null && DateTime.Now - _fileCacheTime < FileCacheExpiry)
 			{
+				Logger.Debug("TerrorImage", $"ファイルキャッシュを再利用します ({_fileNameCache.Count}個のファイル)");
 				return _fileNameCache;
 			}
 
+			Logger.Info("TerrorImage", $"画像フォルダをスキャン中: {ImagesFolder}");
+			
 			try
 			{
 				_fileNameCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -152,7 +186,10 @@ namespace ToNStatTool
 					".png", ".jpg", ".jpeg", ".gif", ".bmp"
 				};
 
-				foreach (var filePath in Directory.GetFiles(ImagesFolder))
+				var allFiles = Directory.GetFiles(ImagesFolder);
+				Logger.Debug("TerrorImage", $"フォルダ内の全ファイル数: {allFiles.Length}");
+				
+				foreach (var filePath in allFiles)
 				{
 					string ext = Path.GetExtension(filePath);
 					if (supportedExtensions.Contains(ext))
@@ -168,11 +205,21 @@ namespace ToNStatTool
 					}
 				}
 
+				Logger.Info("TerrorImage", $"ファイルキャッシュに{_fileNameCache.Count}個の画像ファイルを登録しました");
+				
+				// 最初の10個をログに表示（デバッグ用）
+				if (_fileNameCache.Count > 0)
+				{
+					var firstTen = _fileNameCache.Take(10).Select(kvp => kvp.Key).ToList();
+					Logger.Debug("TerrorImage", $"登録されたファイル名（最初の10個）: {string.Join(", ", firstTen)}");
+				}
+				
 				_fileCacheTime = DateTime.Now;
 			}
 			catch (Exception ex)
 			{
-				System.Diagnostics.Debug.WriteLine($"画像フォルダのスキャンエラー: {ex.Message}");
+				Logger.Error("TerrorImage", $"画像フォルダのスキャンエラー: {ex.Message}");
+				Logger.Debug("TerrorImage", $"スタックトレース: {ex.StackTrace}");
 				_fileNameCache = new Dictionary<string, string>();
 			}
 

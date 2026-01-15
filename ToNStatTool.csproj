@@ -194,6 +194,13 @@
     <None Include="App.config" />
   </ItemGroup>
 <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- imagesフォルダを出力ディレクトリにコピー -->
+  <Target Name="CopyImagesFolder" AfterTargets="Build">
+    <ItemGroup>
+      <ImageFiles Include="images\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ImageFiles)" DestinationFolder="$(OutputPath)images\%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
   <Import Project="packages\NAudio.Lame.2.1.0\build\NAudio.Lame.targets" Condition="Exists('packages\NAudio.Lame.2.1.0\build\NAudio.Lame.targets')" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
