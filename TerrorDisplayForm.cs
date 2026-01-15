@@ -519,8 +519,18 @@ namespace ToNStatTool
 				if (instanceState.IsCurrentRoundFirstMoon)
 				{
 					// 初回MoonはOverride系と同じ動作
-					prediction = "通常 or 特殊";
-					color = ThemeManager.GetPredictionColor("special");
+					// 特殊確定時（N>=2）なら特殊枠消費 → 次は通常確定
+					int normalCountAtStart = instanceState.NormalRoundCountAtRoundStart;
+					if (normalCountAtStart >= 2)
+					{
+						prediction = "通常";
+						color = ThemeManager.GetPredictionColor("normal");
+					}
+					else
+					{
+						prediction = "通常 or 特殊";
+						color = ThemeManager.GetPredictionColor("special");
+					}
 				}
 				else
 				{
@@ -531,8 +541,18 @@ namespace ToNStatTool
 			}
 			else if (ToNRoundTypeHelper.IsOverrideRound(currentRoundType))
 			{
-				prediction = "通常 or 特殊";
-				color = ThemeManager.GetPredictionColor("special");
+				// 特殊確定時（N>=2）にOverrideが出たら特殊枠消費 → 次は通常確定
+				int normalCountAtStart = instanceState.NormalRoundCountAtRoundStart;
+				if (normalCountAtStart >= 2)
+				{
+					prediction = "通常";
+					color = ThemeManager.GetPredictionColor("normal");
+				}
+				else
+				{
+					prediction = "通常 or 特殊";
+					color = ThemeManager.GetPredictionColor("special");
+				}
 			}
 			else
 			{
