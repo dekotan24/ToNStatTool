@@ -170,8 +170,46 @@ ToNStatTool/
 ├── item.mp3              # Item reminder sound (optional)
 ├── player_join.mp3       # Player join sound (optional)
 ├── player_leave.mp3      # Player leave sound (optional)
+├── images/               # Terror images folder (optional)
+├── images_sample/        # Sample image filenames (192 empty files)
+│   └── README.md         # Image placement instructions
 └── licenses/             # License files
 ```
+
+### Adding Terror Images (Optional)
+
+If you want to display terror images in the Terror Display window, place terror images in the `images` folder.
+
+- Images are not included due to copyright restrictions
+- Name files like `The_Painter.png` using the terror name
+- Supported formats: PNG, JPG, GIF, BMP
+- Placeholder images are shown when images are not available
+
+#### How to Set Up Images
+
+1. Rename the `images_sample` folder to `images`
+2. Replace the empty files with actual image files
+
+The `images_sample` folder contains 192 empty placeholder files showing the required image filenames.
+
+#### Filename Conversion Rules
+
+When converting terror names to filenames, the following rules apply:
+
+> **Any character that is NOT a letter, number, or underscore is replaced with underscore (`_`)**
+> 
+> - Allowed characters: `A-Z`, `a-z`, `0-9`, `_` (underscore)
+> - All other characters (spaces, periods, brackets, symbols, etc.) become `_`
+
+| Terror Name | Filename | Explanation |
+|-------------|----------|-------------|
+| The Painter | `The_Painter.png` | Space → `_` |
+| Dr. Tox | `Dr__Tox.png` | `.` and space → `__` |
+| MR.MEGA | `MR_MEGA.png` | `.` → `_` |
+| S.O.S | `S_O_S.png` | `.` → `_` |
+| [CENSORED] | `_CENSORED_.png` | `[` and `]` → `_` |
+
+See `images/README.md` for details.
 
 ### Updating Terror Information
 

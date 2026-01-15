@@ -1,5 +1,7 @@
 /.claudiaideconfig
 /Resources
+/images/*
+!/images/.gitkeep
 *.user
 /.vs
 /obj
