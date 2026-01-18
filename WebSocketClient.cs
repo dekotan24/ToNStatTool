@@ -90,6 +90,11 @@ namespace ToNStatTool
 		private const int INSTANCE_TRANSITION_MUTE_SECONDS = 10; // ミュートする秒数
 		private string lastInstanceUrl = ""; // 前回のインスタンスURL
 
+		// インスタンス参加時の初期プレイヤーリスト受信時のバースト検出用
+		private bool isReceivingInitialPlayerList = false; // 初期プレイヤーリスト受信中フラグ
+		private DateTime initialPlayerListStartTime = DateTime.MinValue; // 初期リスト受信開始時刻
+		private const int INITIAL_PLAYER_LIST_WINDOW_MS = 3000; // 初期リスト受信ウィンドウ（3秒）
+
 		public WebSocketClient()
 		{
 			LoadWarningUsers();
@@ -252,6 +257,48 @@ namespace ToNStatTool
 			}
 			
 			return true;
+		}
+
+		/// <summary>
+		/// インスタンス参加直後の初期プレイヤーリスト受信中かどうかを判定
+		/// インスタンス移動後、最初のPLAYER_JOINから一定時間内はtrue
+		/// </summary>
+		private bool IsReceivingInitialPlayerList()
+		{
+			// インスタンス移動中でない場合は対象外
+			if (!isInstanceTransitioning && !isReceivingInitialPlayerList)
+				return false;
+
+			var now = DateTime.Now;
+
+			// インスタンス移動中に最初のPLAYER_JOINが来た場合、初期リスト受信を開始
+			if (isInstanceTransitioning && !isReceivingInitialPlayerList)
+			{
+				isReceivingInitialPlayerList = true;
+				initialPlayerListStartTime = now;
+				isInstanceTransitioning = false; // 移動中フラグはここで解除
+				Logger.Info("Instance", "初期プレイヤーリスト受信開始");
+				return false; // 最初の1件は通過させる
+			}
+
+			// 初期リスト受信中の場合、ウィンドウ時間内かチェック
+			if (isReceivingInitialPlayerList)
+			{
+				var elapsed = (now - initialPlayerListStartTime).TotalMilliseconds;
+				if (elapsed > INITIAL_PLAYER_LIST_WINDOW_MS)
+				{
+					// ウィンドウ時間を超えたので終了
+					isReceivingInitialPlayerList = false;
+					Logger.Info("Instance", $"初期プレイヤーリスト受信終了（{INITIAL_PLAYER_LIST_WINDOW_MS}ms経過）");
+					return false;
+				}
+
+				// ウィンドウ時間内なのでスキップ
+				System.Diagnostics.Debug.WriteLine($"[PLAYER_EVENT] 初期リスト受信中のためスキップ: {elapsed:F0}ms経過");
+				return true;
+			}
+
+			return false;
 		}
 
 		/// <summary>
@@ -2197,11 +2244,12 @@ namespace ToNStatTool
 
 				System.Diagnostics.Debug.WriteLine($"[PLAYER_JOIN] 名前: '{playerName}', ID: '{playerId}'");
 
-				// サウンドをスキップするかどうかの判定
-				bool shouldSkipSound = isProcessingBufferedEvents || IsInInstanceTransition();
+				// サウンドをスキップするかどうかの判定（初期プレイヤーリスト受信中を含む）
+				bool isReceivingInitialList = IsReceivingInitialPlayerList();
+				bool shouldSkipSound = isProcessingBufferedEvents || isReceivingInitialList;
 				if (shouldSkipSound)
 				{
-					System.Diagnostics.Debug.WriteLine($"[PLAYER_JOIN] サウンドスキップ: バッファ処理中={isProcessingBufferedEvents}, インスタンス移動中={isInstanceTransitioning}");
+					System.Diagnostics.Debug.WriteLine($"[PLAYER_JOIN] サウンドスキップ: バッファ処理中={isProcessingBufferedEvents}, 初期リスト受信中={isReceivingInitialList}");
 				}
 
 				// 警告ユーザーチェック（サウンドスキップ条件でない場合のみ）
@@ -2266,10 +2314,12 @@ namespace ToNStatTool
 				System.Diagnostics.Debug.WriteLine($"[PLAYER_LEAVE] 名前: '{playerName}'");
 
 				// サウンドをスキップするかどうかの判定
-				bool shouldSkipSound = isProcessingBufferedEvents || IsInInstanceTransition();
+				// LEAVEについてはインスタンス移動中（プレイヤーリストクリア済み）または初期リスト受信中はスキップ
+				bool isReceivingInitialList = isReceivingInitialPlayerList;
+				bool shouldSkipSound = isProcessingBufferedEvents || isInstanceTransitioning || isReceivingInitialList;
 				if (shouldSkipSound)
 				{
-					System.Diagnostics.Debug.WriteLine($"[PLAYER_LEAVE] サウンドスキップ: バッファ処理中={isProcessingBufferedEvents}, インスタンス移動中={isInstanceTransitioning}");
+					System.Diagnostics.Debug.WriteLine($"[PLAYER_LEAVE] サウンドスキップ: バッファ処理中={isProcessingBufferedEvents}, インスタンス移動中={isInstanceTransitioning}, 初期リスト受信中={isReceivingInitialList}");
 				}
 
 				// 名前またはIDで検索

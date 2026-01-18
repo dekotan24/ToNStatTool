@@ -66,6 +66,7 @@ namespace ToNStatTool
 			nameLabel.TextAlign = ContentAlignment.MiddleCenter;
 			nameLabel.Font = NameFont;
 			nameLabel.ForeColor = ThemeManager.IsDark ? Color.White : Color.Black;
+			nameLabel.UseMnemonic = false; // &がアクセスキーとして扱われないようにする
 			this.Controls.Add(nameLabel);
 
 			// スタン状態アイコン
@@ -389,6 +390,7 @@ namespace ToNStatTool
 			nameLabel.TextAlign = ContentAlignment.TopCenter;
 			nameLabel.Font = CompactNameFont;
 			nameLabel.ForeColor = ThemeManager.IsDark ? Color.White : Color.Black;
+			nameLabel.UseMnemonic = false; // &がアクセスキーとして扱われないようにする
 			string displayName = terror.DisplayName ?? terror.Name;
 			if (displayName.Length > 15)
 			{

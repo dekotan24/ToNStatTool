@@ -234,6 +234,19 @@ namespace ToNStatTool
 			// オリジナルのテラー名
 			yield return terrorName;
 
+			// & を and に置換したバージョン
+			string withAnd = terrorName.Replace(" & ", "_and_").Replace("&", "_and_");
+			if (withAnd != terrorName)
+			{
+				yield return withAnd;
+				// さらにスペースをアンダースコアに変換
+				string withAndUnderscored = withAnd.Replace(" ", "_");
+				if (withAndUnderscored != withAnd)
+				{
+					yield return withAndUnderscored;
+				}
+			}
+
 			// アンダースコア変換（スペース→アンダースコア）
 			string underscored = ConvertToFileName(terrorName);
 			if (underscored != terrorName)

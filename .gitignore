@@ -7,3 +7,5 @@
 /obj
 /bin
 *.pdb
+/.claude/settings.local.json
+/_ClaudeCodeHere.bat
