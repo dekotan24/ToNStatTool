@@ -197,6 +197,12 @@
     font-weight: 500;
 }
 
+.stat-percent {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    opacity: 0.8;
+}
+
 .section h2 {
     margin-bottom: 1rem;
     font-size: 1.25rem;
@@ -285,16 +291,19 @@
                 joinBtn.style.display = 'none';
             }
 
-            // Round type stats
+            // Round type stats with percentage
             const roundTypeStats = document.getElementById('roundTypeStats');
             const roundTypes = Object.entries(data.round_type_stats).sort((a, b) => b[1] - a[1]);
+            const totalRoundTypes = roundTypes.reduce((sum, [_, count]) => sum + count, 0);
             if (roundTypes.length > 0) {
-                roundTypeStats.innerHTML = roundTypes.map(([type, count]) => `
+                roundTypeStats.innerHTML = roundTypes.map(([type, count]) => {
+                    const percentage = totalRoundTypes > 0 ? ((count / totalRoundTypes) * 100).toFixed(1) : 0;
+                    return `
                     <div class="stat-item">
                         <span class="stat-name">${escapeHtml(type)}</span>
-                        <span class="stat-count">${count}</span>
+                        <span class="stat-count">${count} <span class="stat-percent">(${percentage}%)</span></span>
                     </div>
-                `).join('');
+                `}).join('');
             } else {
                 roundTypeStats.innerHTML = '<div class="stat-item"><span class="stat-name">No data</span></div>';
             }

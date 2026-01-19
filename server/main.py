@@ -1,5 +1,6 @@
 """ToN Stats Server - Main Application"""
-from datetime import datetime, timezone
+import asyncio
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Depends
@@ -12,11 +13,13 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
+from sqlalchemy import delete
+
 from app.core.config import settings
-from app.core.database import init_db
+from app.core.database import init_db, async_session_maker
 from app.api import auth_router, events_router, stats_router, profile_router
 from app.api.auth import get_current_user, get_optional_user
-from app.models import User
+from app.models import User, Instance
 
 
 # ========== Security Headers Middleware ==========
@@ -96,12 +99,39 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 
+# ========== Cleanup Task ==========
+
+async def cleanup_old_instances():
+    """2日以上経過したインスタンスを削除"""
+    try:
+        async with async_session_maker() as db:
+            cutoff = datetime.now(timezone.utc) - timedelta(days=2)
+            result = await db.execute(
+                delete(Instance).where(Instance.created_at < cutoff)
+            )
+            await db.commit()
+            deleted_count = result.rowcount
+            if deleted_count > 0:
+                print(f"[Cleanup] Deleted {deleted_count} old instances")
+    except Exception as e:
+        print(f"[Cleanup] Error: {e}")
+
+
+async def periodic_cleanup():
+    """定期的にクリーンアップを実行（1時間ごと）"""
+    while True:
+        await cleanup_old_instances()
+        await asyncio.sleep(3600)  # 1時間
+
+
 # ========== Startup ==========
 
 @app.on_event("startup")
 async def startup():
     """アプリケーション起動時の処理"""
     await init_db()
+    # バックグラウンドでクリーンアップタスクを開始
+    asyncio.create_task(periodic_cleanup())
 
 
 # ========== API Routes ==========
