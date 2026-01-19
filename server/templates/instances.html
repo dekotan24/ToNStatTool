@@ -238,9 +238,9 @@
             if (res.ok) {
                 const options = await res.json();
 
-                // Populate round types
+                // Populate round types (sort ascending)
                 const roundTypeSelect = document.getElementById('roundTypeFilter');
-                options.round_types.forEach(rt => {
+                options.round_types.sort((a, b) => a.localeCompare(b)).forEach(rt => {
                     const option = document.createElement('option');
                     option.value = rt;
                     option.textContent = rt;
@@ -249,9 +249,9 @@
 
                 // Terror is now a text input, no need to populate
 
-                // Populate maps
+                // Populate maps (sort ascending)
                 const mapSelect = document.getElementById('mapFilter');
-                options.maps.forEach(m => {
+                options.maps.sort((a, b) => a.localeCompare(b)).forEach(m => {
                     const option = document.createElement('option');
                     option.value = m;
                     option.textContent = m;
@@ -295,7 +295,7 @@
                 totalPages = Math.ceil(data.total / data.per_page) || 1;
 
                 document.getElementById('resultsCount').textContent =
-                    `${data.total} instance${data.total !== 1 ? 's' : ''} found`;
+                    `${data.total} ${t('instances.resultsFound')}`;
 
                 if (data.results.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="7" class="empty">${t('instances.noInstancesFound')}</td></tr>`;
@@ -341,7 +341,7 @@
         document.getElementById('mapFilter').value = '';
         document.getElementById('resultsCount').textContent = '-';
         document.getElementById('instancesBody').innerHTML =
-            '<tr><td colspan="7" class="empty">Enter search criteria and click Search</td></tr>';
+            `<tr><td colspan="7" class="empty">${t('instances.enterCriteria')}</td></tr>`;
         document.getElementById('pagination').style.display = 'none';
         currentPage = 1;
     }

@@ -201,18 +201,18 @@
             if (res.ok) {
                 const options = await res.json();
 
-                // Round types
+                // Round types (sort ascending)
                 const rtSelect = document.getElementById('filterRoundType');
-                options.round_types.forEach(rt => {
+                options.round_types.sort((a, b) => a.localeCompare(b)).forEach(rt => {
                     const option = document.createElement('option');
                     option.value = rt;
                     option.textContent = rt;
                     rtSelect.appendChild(option);
                 });
 
-                // Maps
+                // Maps (sort ascending)
                 const mapSelect = document.getElementById('filterMap');
-                options.maps.forEach(map => {
+                options.maps.sort((a, b) => a.localeCompare(b)).forEach(map => {
                     const option = document.createElement('option');
                     option.value = map;
                     option.textContent = map;

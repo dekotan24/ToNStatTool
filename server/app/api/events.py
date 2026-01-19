@@ -196,7 +196,12 @@ async def handle_round_end(event: RoundEndEvent, api_key: APIKey, db: AsyncSessi
 
         # マップ統計を更新
         if event.round.mapName:
-            await update_map_stats(db, event.round.mapName)
+            await update_map_stats(
+                db,
+                event.round.mapName,
+                event.instance.playerCount,
+                event.instance.survivorCount
+            )
 
         # テラー統計を更新
         for terror_name in event.round.terrors:
@@ -354,14 +359,20 @@ async def update_round_type_stats(
     await db.execute(stmt)
 
 
-async def update_map_stats(db: AsyncSession, map_name: str):
+async def update_map_stats(db: AsyncSession, map_name: str, player_count: int, survivor_count: int):
     """マップ統計を更新"""
     stmt = insert(MapStats).values(
         map_name=map_name,
-        occurrence_count=1
+        occurrence_count=1,
+        total_players=player_count,
+        total_survivors=survivor_count
     ).on_conflict_do_update(
         index_elements=["map_name"],
-        set_={"occurrence_count": MapStats.occurrence_count + 1}
+        set_={
+            "occurrence_count": MapStats.occurrence_count + 1,
+            "total_players": MapStats.total_players + player_count,
+            "total_survivors": MapStats.total_survivors + survivor_count
+        }
     )
     await db.execute(stmt)
 

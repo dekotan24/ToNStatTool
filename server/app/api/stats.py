@@ -33,6 +33,7 @@ class TerrorStatItem(BaseModel):
 class RoundTypeStatItem(BaseModel):
     round_type: str
     occurrence_count: int
+    total_survivors: int
     survival_rate: float
     percentage: float
 
@@ -40,6 +41,8 @@ class RoundTypeStatItem(BaseModel):
 class MapStatItem(BaseModel):
     map_name: str
     occurrence_count: int
+    total_survivors: int
+    survival_rate: float
     percentage: float
 
 
@@ -194,6 +197,7 @@ async def get_round_type_stats(
         items.append(RoundTypeStatItem(
             round_type=stat.round_type,
             occurrence_count=stat.occurrence_count,
+            total_survivors=stat.total_survivors,
             survival_rate=round(survival_rate, 2),
             percentage=round(percentage, 2)
         ))
@@ -224,9 +228,17 @@ async def get_map_stats(
         if total_occurrences > 0:
             percentage = stat.occurrence_count / total_occurrences * 100
 
+        survival_rate = 0
+        total_players = getattr(stat, 'total_players', 0) or 0
+        total_survivors = getattr(stat, 'total_survivors', 0) or 0
+        if total_players > 0:
+            survival_rate = total_survivors / total_players * 100
+
         items.append(MapStatItem(
             map_name=stat.map_name,
             occurrence_count=stat.occurrence_count,
+            total_survivors=total_survivors,
+            survival_rate=round(survival_rate, 2),
             percentage=round(percentage, 2)
         ))
 

@@ -33,7 +33,9 @@
             </div>
             <div class="filter-group">
                 <label for="filterItem" data-i18n="myHistory.filterItem">アイテム</label>
-                <input type="text" id="filterItem" class="filter-input" placeholder="アイテムで絞り込み..." data-i18n="myHistory.filterByItem">
+                <select id="filterItem" class="filter-select">
+                    <option value="" data-i18n="myHistory.allItems">全てのアイテム</option>
+                </select>
             </div>
         </div>
     </div>
@@ -452,8 +454,8 @@
             if (res.ok) {
                 const stats = await res.json();
                 renderMyRoundTypeStats(stats.round_type_stats);
-                renderMyMapStats(stats.item_stats, stats.round_type_stats);
-                myTerrorStats = stats.terror_stats;
+                // Map stats are calculated from history data in updateMyMapStats()
+                myTerrorStats = stats.terror_stats || [];
                 renderMyTerrorStats();
             }
         } catch (error) {
@@ -591,7 +593,8 @@
             if (res.ok) {
                 const options = await res.json();
                 const select = document.getElementById('filterRoundType');
-                options.round_types.forEach(rt => {
+                // Sort ascending
+                options.round_types.sort((a, b) => a.localeCompare(b)).forEach(rt => {
                     const option = document.createElement('option');
                     option.value = rt;
                     option.textContent = rt;
@@ -611,12 +614,26 @@
             }
         });
         document.getElementById('uniqueItems').textContent = uniqueItems.size;
+
+        // Populate item filter dropdown (sorted ascending)
+        const itemSelect = document.getElementById('filterItem');
+        // Clear existing options except the first "all" option
+        while (itemSelect.options.length > 1) {
+            itemSelect.remove(1);
+        }
+        // Sort and add items
+        Array.from(uniqueItems).sort((a, b) => a.localeCompare(b)).forEach(item => {
+            const option = document.createElement('option');
+            option.value = item;
+            option.textContent = item;
+            itemSelect.appendChild(option);
+        });
     }
 
     function applyFilters() {
         const survivalFilter = document.getElementById('filterSurvival').value;
         const roundTypeFilter = document.getElementById('filterRoundType').value;
-        const itemFilter = document.getElementById('filterItem').value.toLowerCase();
+        const itemFilter = document.getElementById('filterItem').value;
 
         filteredHistory = allHistory.filter(h => {
             // Survival filter
@@ -626,8 +643,8 @@
             // Round type filter
             if (roundTypeFilter && h.round_type !== roundTypeFilter) return false;
 
-            // Item filter
-            if (itemFilter && (!h.items || !h.items.some(i => i.toLowerCase().includes(itemFilter)))) return false;
+            // Item filter (exact match from dropdown)
+            if (itemFilter && (!h.items || !h.items.includes(itemFilter))) return false;
 
             return true;
         });
@@ -682,7 +699,7 @@
     // Filter event listeners
     document.getElementById('filterSurvival').addEventListener('change', applyFilters);
     document.getElementById('filterRoundType').addEventListener('change', applyFilters);
-    document.getElementById('filterItem').addEventListener('input', debounce(applyFilters, 300));
+    document.getElementById('filterItem').addEventListener('change', applyFilters);
 
     // Pagination
     document.getElementById('prevPage').addEventListener('click', () => {

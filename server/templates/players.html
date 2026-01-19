@@ -198,11 +198,11 @@
 
         if (players.length === 0) {
             grid.innerHTML = `<div class="loading-message">${t('players.noPlayers')}</div>`;
-            document.getElementById('resultsInfo').textContent = '0 players found';
+            document.getElementById('resultsInfo').textContent = `0 ${t('players.playersFound')}`;
             return;
         }
 
-        document.getElementById('resultsInfo').textContent = `${players.length} player${players.length !== 1 ? 's' : ''} found`;
+        document.getElementById('resultsInfo').textContent = `${players.length} ${t('players.playersFound')}`;
 
         grid.innerHTML = players.map(p => {
             const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.avatar_seed || p.vrchat_name)}`;
@@ -215,10 +215,10 @@
                         <div class="player-name">${escapeHtml(p.vrchat_name)}</div>
                         <div class="player-stats">
                             <div class="player-stat">
-                                <span class="player-stat-value">${p.total_rounds}</span> rounds
+                                <span class="player-stat-value">${p.total_rounds}</span> ${t('players.rounds')}
                             </div>
                             <div class="player-stat">
-                                <span class="player-stat-value">${p.survival_rate}%</span> survival
+                                <span class="player-stat-value">${p.survival_rate}%</span> ${t('players.survival')}
                             </div>
                         </div>
                     </div>

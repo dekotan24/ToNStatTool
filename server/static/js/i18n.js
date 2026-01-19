@@ -7,6 +7,7 @@ const translations = {
         'nav.statistics': '統計',
         'nav.instances': 'インスタンス検索',
         'nav.players': 'プレイヤー検索',
+        'nav.myHistory': 'マイログ',
         'nav.settings': '設定',
         'nav.logout': 'ログアウト',
 
@@ -97,6 +98,8 @@ const translations = {
         'players.globalItemStats': 'グローバルアイテム統計',
         'players.itemStatsSubtitle': '特定アイテム所持時の生存率',
         'players.noPlayers': 'プレイヤーが見つかりません',
+        'players.rounds': 'ラウンド',
+        'players.survival': '生存',
 
         // Profile
         'profile.private': '非公開',
@@ -243,6 +246,7 @@ const translations = {
         'myHistory.died': '死亡',
         'myHistory.filterItem': 'アイテム',
         'myHistory.filterByItem': 'アイテムで絞り込み...',
+        'myHistory.allItems': '全てのアイテム',
         'myHistory.totalRounds': '総ラウンド数',
         'myHistory.survivals': '生存数',
         'myHistory.survivalRate': '生存率',
@@ -287,8 +291,10 @@ const translations = {
         'globalStats.percentage': '割合',
         'globalStats.encounters': '遭遇数',
         'globalStats.survivalRate': '生存率',
+        'globalStats.encounterRate': '遭遇率',
         'globalStats.timesHeld': '所持回数',
         'globalStats.survivals': '生存数',
+        'globalStats.searchTerror': 'テラー名を検索...',
 
         // My Statistics (for my-history page)
         'myStats.roundTypes': 'マイラウンド種別統計',
@@ -305,6 +311,7 @@ const translations = {
         'nav.statistics': 'Statistics',
         'nav.instances': 'Instances',
         'nav.players': 'Players',
+        'nav.myHistory': 'My Log',
         'nav.settings': 'Settings',
         'nav.logout': 'Logout',
 
@@ -395,6 +402,8 @@ const translations = {
         'players.globalItemStats': 'Global Item Statistics',
         'players.itemStatsSubtitle': 'Survival rates when holding specific items',
         'players.noPlayers': 'No players found',
+        'players.rounds': 'rounds',
+        'players.survival': 'survival',
 
         // Profile
         'profile.private': 'Private',
@@ -541,6 +550,7 @@ const translations = {
         'myHistory.died': 'Died',
         'myHistory.filterItem': 'Item',
         'myHistory.filterByItem': 'Filter by item...',
+        'myHistory.allItems': 'All Items',
         'myHistory.totalRounds': 'Total Rounds',
         'myHistory.survivals': 'Survivals',
         'myHistory.survivalRate': 'Survival Rate',
@@ -585,8 +595,10 @@ const translations = {
         'globalStats.percentage': 'Percentage',
         'globalStats.encounters': 'Encounters',
         'globalStats.survivalRate': 'Survival Rate',
+        'globalStats.encounterRate': 'Encounter Rate',
         'globalStats.timesHeld': 'Times Held',
         'globalStats.survivals': 'Survivals',
+        'globalStats.searchTerror': 'Search terror name...',
 
         // My Statistics (for my-history page)
         'myStats.roundTypes': 'My Round Type Stats',
