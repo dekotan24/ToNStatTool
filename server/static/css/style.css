@@ -93,6 +93,20 @@ a:hover {
     color: var(--text-secondary);
 }
 
+.lang-selector {
+    padding: 0.25rem 0.5rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.lang-selector:hover {
+    border-color: var(--accent);
+}
+
 /* ===== Container ===== */
 .container {
     max-width: 1400px;

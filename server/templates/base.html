@@ -21,17 +21,21 @@
             <span></span>
         </button>
         <div class="nav-menu" id="navMenu">
-            <a href="/dashboard" class="nav-link">Dashboard</a>
-            <a href="/round-log" class="nav-link">Round Log</a>
-            <a href="/instances" class="nav-link">Instances</a>
-            <a href="/players" class="nav-link">Players</a>
-            <a href="/statistics" class="nav-link">Statistics</a>
-            <a href="/my-history" class="nav-link">My Log</a>
-            <a href="/settings" class="nav-link">Settings</a>
+            <a href="/dashboard" class="nav-link" data-i18n="nav.dashboard">ダッシュボード</a>
+            <a href="/round-log" class="nav-link" data-i18n="nav.roundLog">ラウンドログ</a>
+            <a href="/instances" class="nav-link" data-i18n="nav.instances">インスタンス検索</a>
+            <a href="/players" class="nav-link" data-i18n="nav.players">プレイヤー検索</a>
+            <a href="/statistics" class="nav-link" data-i18n="nav.statistics">統計</a>
+            <a href="/my-history" class="nav-link">マイログ</a>
+            <a href="/settings" class="nav-link" data-i18n="nav.settings">設定</a>
         </div>
         <div class="nav-user">
+            <select id="languageSelector" class="lang-selector">
+                <option value="ja">日本語</option>
+                <option value="en">English</option>
+            </select>
             <span class="username">{{ user.username }}</span>
-            <button id="logoutBtn" class="btn btn-outline">Logout</button>
+            <button id="logoutBtn" class="btn btn-outline" data-i18n="nav.logout">ログアウト</button>
         </div>
     </nav>
     {% endif %}
@@ -44,6 +48,7 @@
         <p>ToN Stats - Terror of Nowhere Statistics</p>
     </footer>
 
+    <script src="/static/js/i18n.js"></script>
     <script src="/static/js/app.js"></script>
     {% block scripts %}{% endblock %}
 </body>

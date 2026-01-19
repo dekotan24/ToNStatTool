@@ -1,38 +1,38 @@
 {% extends "base.html" %}
 
-{% block title %}Instance Search - ToN Stats{% endblock %}
+{% block title %}インスタンス検索 - ToN Stats{% endblock %}
 
 {% block content %}
 <div class="page-content">
-    <h1>Instance Search</h1>
+    <h1 data-i18n="instances.title">インスタンス検索</h1>
 
     <!-- Search Filters -->
     <div class="search-filters">
         <div class="filter-row">
             <div class="filter-group">
-                <label for="instanceIdFilter">Instance ID</label>
-                <input type="text" id="instanceIdFilter" class="filter-input" placeholder="e.g., 12345">
+                <label for="instanceIdFilter" data-i18n="instances.instanceId">インスタンスID</label>
+                <input type="text" id="instanceIdFilter" class="filter-input" placeholder="例: 12345">
             </div>
             <div class="filter-group">
-                <label for="roundTypeFilter">Round Type</label>
+                <label for="roundTypeFilter" data-i18n="roundLog.filterRoundType">ラウンド種別</label>
                 <select id="roundTypeFilter" class="filter-select">
-                    <option value="">All Types</option>
+                    <option value="" data-i18n="roundLog.allTypes">全ての種別</option>
                 </select>
             </div>
             <div class="filter-group">
-                <label for="terrorFilter">Terror</label>
-                <input type="text" id="terrorFilter" class="filter-input" placeholder="Search terror name..." maxlength="100">
+                <label for="terrorFilter" data-i18n="roundLog.filterTerror">テラー</label>
+                <input type="text" id="terrorFilter" class="filter-input" placeholder="テラー名を検索..." maxlength="100" data-i18n="instances.searchTerror">
             </div>
             <div class="filter-group">
-                <label for="mapFilter">Map</label>
+                <label for="mapFilter" data-i18n="roundLog.filterMap">マップ</label>
                 <select id="mapFilter" class="filter-select">
-                    <option value="">All Maps</option>
+                    <option value="" data-i18n="instances.allMaps">全てのマップ</option>
                 </select>
             </div>
         </div>
         <div class="filter-actions">
-            <button id="searchBtn" class="btn btn-primary">Search</button>
-            <button id="clearBtn" class="btn btn-outline">Clear</button>
+            <button id="searchBtn" class="btn btn-primary" data-i18n="instances.search">検索</button>
+            <button id="clearBtn" class="btn btn-outline" data-i18n="instances.clear">クリア</button>
         </div>
     </div>
 
@@ -45,26 +45,26 @@
             <table class="data-table" id="instancesTable">
                 <thead>
                     <tr>
-                        <th>Instance</th>
-                        <th>Round Type</th>
-                        <th>Terrors</th>
-                        <th>Map</th>
-                        <th>Players</th>
-                        <th>Rounds</th>
-                        <th>Last Activity</th>
+                        <th data-i18n="table.instance">インスタンス</th>
+                        <th data-i18n="table.roundType">種別</th>
+                        <th data-i18n="table.terrors">テラー</th>
+                        <th data-i18n="table.map">マップ</th>
+                        <th data-i18n="table.players">人数</th>
+                        <th data-i18n="table.rounds">ラウンド数</th>
+                        <th data-i18n="table.lastActivity">最終アクティビティ</th>
                     </tr>
                 </thead>
                 <tbody id="instancesBody">
-                    <tr><td colspan="7" class="empty">Enter search criteria and click Search</td></tr>
+                    <tr><td colspan="7" class="empty" data-i18n="instances.enterCriteria">検索条件を入力して検索ボタンをクリック</td></tr>
                 </tbody>
             </table>
         </div>
 
         <!-- Pagination -->
         <div class="pagination" id="pagination" style="display: none;">
-            <button id="prevPage" class="btn btn-outline btn-small">Previous</button>
-            <span id="pageInfo">Page 1 of 1</span>
-            <button id="nextPage" class="btn btn-outline btn-small">Next</button>
+            <button id="prevPage" class="btn btn-outline btn-small" data-i18n="common.previous">前へ</button>
+            <span id="pageInfo">ページ 1 / 1</span>
+            <button id="nextPage" class="btn btn-outline btn-small" data-i18n="common.next">次へ</button>
         </div>
     </div>
 </div>

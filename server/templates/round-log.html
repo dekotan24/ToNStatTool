@@ -1,27 +1,27 @@
 {% extends "base.html" %}
 
-{% block title %}Round Log - ToN Stats{% endblock %}
+{% block title %}ラウンドログ - ToN Stats{% endblock %}
 
 {% block content %}
 <div class="page-content">
-    <h1>Round Log</h1>
+    <h1 data-i18n="roundLog.title">ラウンドログ</h1>
 
     <!-- Filters -->
     <div class="filter-section">
         <div class="filter-row">
             <div class="filter-group">
-                <label for="filterRoundType">Round Type</label>
+                <label for="filterRoundType" data-i18n="roundLog.filterRoundType">ラウンド種別</label>
                 <select id="filterRoundType" class="filter-select">
-                    <option value="">All Types</option>
+                    <option value="" data-i18n="roundLog.allTypes">全ての種別</option>
                 </select>
             </div>
             <div class="filter-group">
-                <label for="filterTerror">Terror</label>
-                <input type="text" id="filterTerror" class="filter-input" placeholder="Filter by terror name...">
+                <label for="filterTerror" data-i18n="roundLog.filterTerror">テラー</label>
+                <input type="text" id="filterTerror" class="filter-input" placeholder="テラー名で絞り込み..." data-i18n="roundLog.filterByTerror">
             </div>
             <div class="filter-group">
-                <label for="filterMap">Map</label>
-                <input type="text" id="filterMap" class="filter-input" placeholder="Filter by map...">
+                <label for="filterMap" data-i18n="roundLog.filterMap">マップ</label>
+                <input type="text" id="filterMap" class="filter-input" placeholder="マップで絞り込み..." data-i18n="roundLog.filterByMap">
             </div>
         </div>
     </div>
@@ -32,24 +32,24 @@
             <table class="data-table" id="roundLogTable">
                 <thead>
                     <tr>
-                        <th>Time</th>
-                        <th>Round Type</th>
-                        <th>Map</th>
-                        <th>Terrors</th>
-                        <th>Players</th>
-                        <th>Instance</th>
+                        <th data-i18n="table.time">時間</th>
+                        <th data-i18n="table.roundType">種別</th>
+                        <th data-i18n="table.map">マップ</th>
+                        <th data-i18n="table.terrors">テラー</th>
+                        <th data-i18n="table.players">人数</th>
+                        <th data-i18n="table.instance">インスタンス</th>
                     </tr>
                 </thead>
                 <tbody id="roundLogBody">
-                    <tr><td colspan="6" class="loading">Loading...</td></tr>
+                    <tr><td colspan="6" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
                 </tbody>
             </table>
         </div>
 
         <div class="pagination-controls">
-            <button id="prevPage" class="btn btn-outline btn-small" disabled>Previous</button>
-            <span id="pageInfo">Page 1</span>
-            <button id="nextPage" class="btn btn-outline btn-small">Next</button>
+            <button id="prevPage" class="btn btn-outline btn-small" disabled data-i18n="common.previous">前へ</button>
+            <span id="pageInfo">ページ 1</span>
+            <button id="nextPage" class="btn btn-outline btn-small" data-i18n="common.next">次へ</button>
         </div>
     </div>
 </div>

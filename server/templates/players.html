@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Players - ToN Stats{% endblock %}
+{% block title %}プレイヤー検索 - ToN Stats{% endblock %}
 
 {% block content %}
 <div class="players-page">
-    <h1>Player Search</h1>
-    <p class="subtitle">Find and view player profiles</p>
+    <h1 data-i18n="players.title">プレイヤー検索</h1>
+    <p class="subtitle" data-i18n="players.subtitle">プレイヤーのプロフィールを検索</p>
 
     <!-- Search Section -->
     <div class="search-section">
         <div class="search-form">
-            <input type="text" id="searchInput" class="search-input" placeholder="Search by VRChat name...">
-            <button id="searchBtn" class="btn btn-primary">Search</button>
+            <input type="text" id="searchInput" class="search-input" placeholder="VRChat名で検索..." data-i18n="players.searchPlaceholder">
+            <button id="searchBtn" class="btn btn-primary" data-i18n="players.search">検索</button>
         </div>
     </div>
 
@@ -25,20 +25,20 @@
 
     <!-- Global Item Stats -->
     <div class="global-stats-section">
-        <h2>Global Item Statistics</h2>
-        <p class="subtitle">Survival rates when holding specific items</p>
+        <h2 data-i18n="players.globalItemStats">グローバルアイテム統計</h2>
+        <p class="subtitle" data-i18n="players.itemStatsSubtitle">特定アイテム所持時の生存率</p>
         <div class="table-container">
             <table class="data-table" id="itemStatsTable">
                 <thead>
                     <tr>
-                        <th>Item</th>
-                        <th>Times Held</th>
-                        <th>Survivals</th>
-                        <th>Survival Rate</th>
+                        <th data-i18n="table.items">アイテム</th>
+                        <th data-i18n="table.timesHeld">所持回数</th>
+                        <th data-i18n="table.survivals">生存数</th>
+                        <th data-i18n="table.survivalRate">生存率</th>
                     </tr>
                 </thead>
                 <tbody id="itemStatsBody">
-                    <tr><td colspan="4" class="loading">Loading...</td></tr>
+                    <tr><td colspan="4" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
                 </tbody>
             </table>
         </div>
