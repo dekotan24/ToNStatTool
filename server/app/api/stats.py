@@ -325,8 +325,8 @@ async def search_instances(
     round_filters = []
 
     if terror:
-        # PostgreSQL array contains check
-        round_filters.append(Round.terrors.any(terror))
+        # PostgreSQL array partial match (convert array to string and use LIKE)
+        round_filters.append(func.array_to_string(Round.terrors, ',').ilike(f"%{terror}%"))
 
     if round_type:
         round_filters.append(Round.round_type.ilike(f"%{round_type}%"))
