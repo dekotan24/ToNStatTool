@@ -6,7 +6,7 @@
 <div class="page-content">
     <h1>Statistics</h1>
 
-    <div class="stats-grid">
+    <div class="stats-row">
         <!-- Round Types -->
         <div class="stats-section">
             <h2>Round Types</h2>
@@ -46,7 +46,7 @@
         </div>
 
         <!-- Terrors -->
-        <div class="stats-section full-width">
+        <div class="stats-section">
             <h2>Terrors</h2>
             <div class="search-bar">
                 <input type="text" id="terrorSearch" placeholder="Search terror name..." class="search-input">
@@ -56,11 +56,12 @@
                     <thead>
                         <tr>
                             <th>Terror Name</th>
-                            <th>Encounters</th>
+                            <th>Count</th>
+                            <th>%</th>
                         </tr>
                     </thead>
                     <tbody id="terrorTableBody">
-                        <tr><td colspan="2" class="loading">Loading...</td></tr>
+                        <tr><td colspan="3" class="loading">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -69,14 +70,23 @@
 </div>
 
 <style>
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 2rem;
+.stats-row {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
 }
 
-.stats-section.full-width {
-    grid-column: 1 / -1;
+.stats-row .stats-section {
+    flex: 1;
+    min-width: 280px;
+    max-height: 500px;
+    display: flex;
+    flex-direction: column;
+}
+
+.stats-row .stats-section .table-container {
+    flex: 1;
+    overflow-y: auto;
 }
 
 .search-bar {
@@ -85,7 +95,7 @@
 
 .search-input {
     width: 100%;
-    max-width: 300px;
+    max-width: 100%;
     padding: 0.5rem 1rem;
     background-color: var(--bg-tertiary);
     border: 1px solid var(--border);
@@ -97,12 +107,23 @@
     outline: none;
     border-color: var(--accent);
 }
+
+@media (max-width: 1024px) {
+    .stats-row {
+        flex-direction: column;
+    }
+
+    .stats-row .stats-section {
+        max-height: 400px;
+    }
+}
 </style>
 {% endblock %}
 
 {% block scripts %}
 <script>
     let terrorData = [];
+    let totalTerrorEncounters = 0;
     let searchQuery = '';
 
     async function loadStats() {
@@ -147,6 +168,8 @@
             const terrorsRes = await fetch('/api/v1/stats/terrors?limit=200');
             if (terrorsRes.ok) {
                 terrorData = await terrorsRes.json();
+                // Calculate total encounters for percentage
+                totalTerrorEncounters = terrorData.reduce((sum, t) => sum + t.encounter_count, 0);
                 renderTerrors();
             }
         } catch (error) {
@@ -165,16 +188,22 @@
         }
 
         if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="2" class="empty">No terrors found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3" class="empty">No terrors found</td></tr>';
             return;
         }
 
-        tbody.innerHTML = filtered.map(t => `
-            <tr>
-                <td>${escapeHtml(t.name)}</td>
-                <td>${t.encounter_count.toLocaleString()}</td>
-            </tr>
-        `).join('');
+        tbody.innerHTML = filtered.map(t => {
+            const percentage = totalTerrorEncounters > 0
+                ? (t.encounter_count / totalTerrorEncounters * 100).toFixed(1)
+                : '0.0';
+            return `
+                <tr>
+                    <td>${escapeHtml(t.name)}</td>
+                    <td>${t.encounter_count.toLocaleString()}</td>
+                    <td>${percentage}%</td>
+                </tr>
+            `;
+        }).join('');
     }
 
     // Search functionality

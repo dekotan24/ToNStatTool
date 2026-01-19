@@ -20,10 +20,6 @@
             <span></span>
             <span></span>
         </button>
-        <div class="nav-user">
-            <span class="username">{{ user.username }}</span>
-            <button id="logoutBtn" class="btn btn-outline">Logout</button>
-        </div>
         <div class="nav-menu" id="navMenu">
             <a href="/dashboard" class="nav-link">Dashboard</a>
             <a href="/round-log" class="nav-link">Round Log</a>
@@ -32,6 +28,10 @@
             <a href="/statistics" class="nav-link">Statistics</a>
             <a href="/my-history" class="nav-link">My Log</a>
             <a href="/settings" class="nav-link">Settings</a>
+        </div>
+        <div class="nav-user">
+            <span class="username">{{ user.username }}</span>
+            <button id="logoutBtn" class="btn btn-outline">Logout</button>
         </div>
     </nav>
     {% endif %}

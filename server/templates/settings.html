@@ -62,12 +62,16 @@
         <div class="section">
             <h2>Setup Guide</h2>
             <div class="instructions">
-                <p>C#アプリの <code>settings.json</code> に以下を追加：</p>
-                <pre><code>{
-  "EnableCloudSync": true,
-  "CloudServerUrl": "{{ site_url }}",
-  "CloudApiKey": "your_api_key_here"
-}</code></pre>
+                <ol class="setup-steps">
+                    <li>上の「Create API Key」でキー名を入力して <strong>Create</strong> をクリック</li>
+                    <li>表示されたAPIキー（<code>ton_</code>で始まる文字列）をコピー</li>
+                    <li>C#アプリを開き、<strong>設定</strong> 画面へ移動</li>
+                    <li><strong>クラウド同期を有効化</strong> にチェック</li>
+                    <li><strong>サーバーURL</strong> に <code>{{ site_url }}</code> を入力</li>
+                    <li><strong>APIキー</strong> にコピーしたキーを貼り付け</li>
+                    <li><strong>保存</strong> をクリック</li>
+                </ol>
+                <p class="note">APIキーは一度だけ表示されます。紛失した場合は新しいキーを作成してください。</p>
             </div>
         </div>
     </div>
@@ -361,11 +365,36 @@
     color: var(--text-primary);
 }
 
-.instructions p code {
+.instructions p code,
+.instructions li code {
     background: var(--bg-tertiary);
     padding: 2px 6px;
     border-radius: 3px;
     color: var(--accent);
+}
+
+.setup-steps {
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.setup-steps li {
+    margin-bottom: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.setup-steps li strong {
+    color: var(--text-primary);
+}
+
+.instructions .note {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: rgba(245, 158, 11, 0.1);
+    border-left: 3px solid var(--warning);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
 }
 
 /* 2FA Styles */

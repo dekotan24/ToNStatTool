@@ -21,9 +21,7 @@
             </div>
             <div class="filter-group">
                 <label for="terrorFilter">Terror</label>
-                <select id="terrorFilter" class="filter-select">
-                    <option value="">All Terrors</option>
-                </select>
+                <input type="text" id="terrorFilter" class="filter-input" placeholder="Search terror name..." maxlength="100">
             </div>
             <div class="filter-group">
                 <label for="mapFilter">Map</label>
@@ -253,14 +251,7 @@
                     roundTypeSelect.appendChild(option);
                 });
 
-                // Populate terrors
-                const terrorSelect = document.getElementById('terrorFilter');
-                options.terrors.forEach(t => {
-                    const option = document.createElement('option');
-                    option.value = t;
-                    option.textContent = t;
-                    terrorSelect.appendChild(option);
-                });
+                // Terror is now a text input, no need to populate
 
                 // Populate maps
                 const mapSelect = document.getElementById('mapFilter');
@@ -276,11 +267,17 @@
         }
     }
 
+    // Sanitize input to prevent injection
+    function sanitizeInput(str) {
+        if (!str) return '';
+        return str.replace(/[<>\"'&]/g, '').trim().substring(0, 100);
+    }
+
     // Search instances
     async function searchInstances(page = 1) {
-        const instanceId = document.getElementById('instanceIdFilter').value.trim();
+        const instanceId = sanitizeInput(document.getElementById('instanceIdFilter').value);
         const roundType = document.getElementById('roundTypeFilter').value;
-        const terror = document.getElementById('terrorFilter').value;
+        const terror = sanitizeInput(document.getElementById('terrorFilter').value);
         const mapName = document.getElementById('mapFilter').value;
 
         const params = new URLSearchParams();
