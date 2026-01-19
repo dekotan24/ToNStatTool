@@ -540,7 +540,7 @@
                 <td>${new Date(h.started_at).toLocaleString('ja-JP')}</td>
                 <td><span class="round-type">${escapeHtml(h.round_type)}</span></td>
                 <td>${escapeHtml(h.map_name || '-')}</td>
-                <td>${h.terrors.length > 0 ? h.terrors.slice(0, 2).map(t => escapeHtml(t)).join(', ') + (h.terrors.length > 2 ? '...' : '') : '-'}</td>
+                <td>${h.terrors.length > 0 ? h.terrors.slice(0, 2).map(terror => escapeHtml(terror)).join(', ') + (h.terrors.length > 2 ? '...' : '') : '-'}</td>
                 <td>
                     ${h.items.length > 0 ? `
                         <div class="items-list">

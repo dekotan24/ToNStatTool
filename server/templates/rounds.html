@@ -134,13 +134,13 @@
                 const types = await typesRes.json();
                 const tbody = document.getElementById('roundTypesBody');
                 if (types.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" class="empty">No data yet</td></tr>';
+                    tbody.innerHTML = `<tr><td colspan="3" class="empty">${t('common.noDataYet')}</td></tr>`;
                 } else {
-                    tbody.innerHTML = types.map(t => `
+                    tbody.innerHTML = types.map(rt => `
                         <tr>
-                            <td><span class="round-type">${escapeHtml(t.round_type)}</span></td>
-                            <td>${t.occurrence_count.toLocaleString()}</td>
-                            <td>${t.percentage.toFixed(1)}%</td>
+                            <td><span class="round-type">${escapeHtml(rt.round_type)}</span></td>
+                            <td>${rt.occurrence_count.toLocaleString()}</td>
+                            <td>${rt.percentage.toFixed(1)}%</td>
                         </tr>
                     `).join('');
                 }
@@ -152,7 +152,7 @@
                 const maps = await mapsRes.json();
                 const tbody = document.getElementById('mapsBody');
                 if (maps.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" class="empty">No data yet</td></tr>';
+                    tbody.innerHTML = `<tr><td colspan="3" class="empty">${t('common.noDataYet')}</td></tr>`;
                 } else {
                     tbody.innerHTML = maps.map(m => `
                         <tr>
@@ -188,18 +188,18 @@
         }
 
         if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" class="empty">No terrors found</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="3" class="empty">${t('common.noTerrors')}</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = filtered.map(t => {
+        tbody.innerHTML = filtered.map(ts => {
             const percentage = totalTerrorEncounters > 0
-                ? (t.encounter_count / totalTerrorEncounters * 100).toFixed(1)
+                ? (ts.encounter_count / totalTerrorEncounters * 100).toFixed(1)
                 : '0.0';
             return `
                 <tr>
-                    <td>${escapeHtml(t.name)}</td>
-                    <td>${t.encounter_count.toLocaleString()}</td>
+                    <td>${escapeHtml(ts.name)}</td>
+                    <td>${ts.encounter_count.toLocaleString()}</td>
                     <td>${percentage}%</td>
                 </tr>
             `;

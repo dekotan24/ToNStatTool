@@ -188,7 +188,7 @@
             }
         } catch (error) {
             console.error('Failed to load round log:', error);
-            document.getElementById('roundLogBody').innerHTML = '<tr><td colspan="6" class="error">Failed to load</td></tr>';
+            document.getElementById('roundLogBody').innerHTML = `<tr><td colspan="6" class="error">${t('common.failedToLoad')}</td></tr>`;
         }
     }
 
@@ -234,10 +234,10 @@
         const pageData = filteredRounds.slice(start, end);
 
         if (pageData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty">No rounds found</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="6" class="empty">${t('common.noRoundsFound')}</td></tr>`;
             document.getElementById('prevPage').disabled = true;
             document.getElementById('nextPage').disabled = true;
-            document.getElementById('pageInfo').textContent = 'No results';
+            document.getElementById('pageInfo').textContent = t('common.noResults');
             return;
         }
 
@@ -252,7 +252,7 @@
                     <td>${escapeHtml(r.map_name || '-')}</td>
                     <td class="terrors-cell">
                         ${r.terrors && r.terrors.length > 0
-                            ? r.terrors.map(t => `<span class="terror-tag">${escapeHtml(t)}</span>`).join('')
+                            ? r.terrors.map(terror => `<span class="terror-tag">${escapeHtml(terror)}</span>`).join('')
                             : '-'}
                     </td>
                     <td><span class="player-count">${r.player_count}</span></td>

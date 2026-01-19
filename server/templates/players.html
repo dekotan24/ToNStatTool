@@ -19,7 +19,7 @@
     <div class="results-section">
         <div id="resultsInfo" class="results-info"></div>
         <div class="players-grid" id="playersGrid">
-            <div class="loading-message">Enter a name to search for players</div>
+            <div class="loading-message" data-i18n="players.enterNamePrompt">プレイヤー名を入力して検索</div>
         </div>
     </div>
 
@@ -235,12 +235,12 @@
     async function searchPlayers() {
         const query = document.getElementById('searchInput').value.trim();
         if (!query) {
-            document.getElementById('playersGrid').innerHTML = '<div class="loading-message">Enter a name to search for players</div>';
+            document.getElementById('playersGrid').innerHTML = `<div class="loading-message">${t('players.enterNamePrompt')}</div>`;
             document.getElementById('resultsInfo').textContent = '';
             return;
         }
 
-        document.getElementById('playersGrid').innerHTML = '<div class="loading-message">Searching...</div>';
+        document.getElementById('playersGrid').innerHTML = `<div class="loading-message">${t('common.searching')}</div>`;
 
         try {
             const res = await fetch(`/api/v1/profile/search?q=${encodeURIComponent(query)}`);
@@ -250,7 +250,7 @@
             }
         } catch (error) {
             console.error('Search failed:', error);
-            document.getElementById('playersGrid').innerHTML = '<div class="loading-message">Search failed</div>';
+            document.getElementById('playersGrid').innerHTML = `<div class="loading-message">${t('common.searchFailed')}</div>`;
         }
     }
 
@@ -258,7 +258,7 @@
         const grid = document.getElementById('playersGrid');
 
         if (players.length === 0) {
-            grid.innerHTML = '<div class="loading-message">No players found</div>';
+            grid.innerHTML = `<div class="loading-message">${t('players.noPlayers')}</div>`;
             document.getElementById('resultsInfo').textContent = '0 players found';
             return;
         }
@@ -305,7 +305,7 @@
         const tbody = document.getElementById('itemStatsBody');
 
         if (items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="empty">No item data yet</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="4" class="empty">${t('players.noItemData')}</td></tr>`;
             return;
         }
 

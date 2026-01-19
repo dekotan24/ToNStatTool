@@ -83,18 +83,18 @@
         });
 
         if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" class="empty">No terrors found</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="3" class="empty">${t('common.noTerrors')}</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = filtered.map(t => `
+        tbody.innerHTML = filtered.map(ts => `
             <tr>
-                <td class="terror-name">${escapeHtml(t.name)}</td>
-                <td>${t.encounter_count.toLocaleString()}</td>
+                <td class="terror-name">${escapeHtml(ts.name)}</td>
+                <td>${ts.encounter_count.toLocaleString()}</td>
                 <td>
                     <div class="survival-rate">
-                        <div class="rate-bar" style="width: ${t.survival_rate}%"></div>
-                        <span>${t.survival_rate.toFixed(1)}%</span>
+                        <div class="rate-bar" style="width: ${ts.survival_rate}%"></div>
+                        <span>${ts.survival_rate.toFixed(1)}%</span>
                     </div>
                 </td>
             </tr>

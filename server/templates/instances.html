@@ -285,7 +285,7 @@
         params.append('per_page', perPage);
 
         const tbody = document.getElementById('instancesBody');
-        tbody.innerHTML = '<tr><td colspan="7" class="loading">Searching...</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="7" class="loading">${t('common.searching')}</td></tr>`;
 
         try {
             const res = await fetch(`/api/v1/stats/instances/search?${params}`);
@@ -298,7 +298,7 @@
                     `${data.total} instance${data.total !== 1 ? 's' : ''} found`;
 
                 if (data.results.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" class="empty">No instances found</td></tr>';
+                    tbody.innerHTML = `<tr><td colspan="7" class="empty">${t('instances.noInstancesFound')}</td></tr>`;
                     document.getElementById('pagination').style.display = 'none';
                 } else {
                     tbody.innerHTML = data.results.map(i => `
@@ -306,7 +306,7 @@
                             <td>${createInstanceLink(i.instance_id)}</td>
                             <td><span class="round-type">${escapeHtml(i.latest_round_type || '-')}</span></td>
                             <td>${i.latest_terrors && i.latest_terrors.length > 0
-                                ? i.latest_terrors.slice(0, 2).map(t => escapeHtml(t)).join(', ') + (i.latest_terrors.length > 2 ? '...' : '')
+                                ? i.latest_terrors.slice(0, 2).map(terror => escapeHtml(terror)).join(', ') + (i.latest_terrors.length > 2 ? '...' : '')
                                 : '-'}</td>
                             <td>${escapeHtml(i.latest_map || '-')}</td>
                             <td><span class="player-count">${i.latest_player_count}</span></td>
@@ -329,7 +329,7 @@
             }
         } catch (error) {
             console.error('Search failed:', error);
-            tbody.innerHTML = '<tr><td colspan="7" class="error">Search failed</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="7" class="error">${t('common.searchFailed')}</td></tr>`;
         }
     }
 

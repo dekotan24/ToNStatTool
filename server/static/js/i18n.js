@@ -217,6 +217,7 @@ const translations = {
 
         // Common
         'common.loading': '読み込み中...',
+        'common.searching': '検索中...',
         'common.error': 'エラーが発生しました',
         'common.connectionError': '接続エラー。再度お試しください。',
         'common.noResults': '結果がありません',
@@ -225,8 +226,12 @@ const translations = {
         'common.page': 'ページ',
         'common.of': '/',
         'common.searchFailed': '検索に失敗しました',
+        'common.failedToLoad': '読み込みに失敗しました',
         'common.noRoundsYet': 'まだラウンドが記録されていません',
         'common.noActiveInstances': 'アクティブなインスタンスがありません',
+        'common.noDataYet': 'データがありません',
+        'common.noRoundsFound': 'ラウンドが見つかりません',
+        'common.noTerrors': 'テラーが見つかりません',
 
         // My History
         'myHistory.title': 'マイラウンド履歴',
@@ -253,6 +258,18 @@ const translations = {
         'myHistory.viewPublicProfile': '公開プロフィールを見る',
         'myHistory.noProfile': 'プレイヤープロフィールがまだありません。C#アプリでラウンドをプレイして作成してください！',
         'myHistory.noProfileHint': 'C#アプリがVRChat名でプレイヤーデータを送信していることを確認してください。',
+        'myHistory.noMatchingRounds': '条件に一致するラウンドがありません',
+        'myHistory.noProfileFound': 'プロフィールが見つかりません',
+
+        // Instance Detail
+        'instanceDetail.noRoundsRecorded': 'ラウンドが記録されていません',
+
+        // Players
+        'players.enterNamePrompt': 'プレイヤー名を入力して検索',
+        'players.noItemData': 'アイテムデータがありません',
+
+        // Instances
+        'instances.noInstancesFound': 'インスタンスが見つかりません',
     },
     en: {
         // Navigation
@@ -471,6 +488,7 @@ const translations = {
 
         // Common
         'common.loading': 'Loading...',
+        'common.searching': 'Searching...',
         'common.error': 'An error occurred',
         'common.connectionError': 'Connection error. Please try again.',
         'common.noResults': 'No results',
@@ -479,8 +497,12 @@ const translations = {
         'common.page': 'Page',
         'common.of': 'of',
         'common.searchFailed': 'Search failed',
+        'common.failedToLoad': 'Failed to load',
         'common.noRoundsYet': 'No rounds recorded yet',
         'common.noActiveInstances': 'No active instances',
+        'common.noDataYet': 'No data yet',
+        'common.noRoundsFound': 'No rounds found',
+        'common.noTerrors': 'No terrors found',
 
         // My History
         'myHistory.title': 'My Round History',
@@ -507,6 +529,18 @@ const translations = {
         'myHistory.viewPublicProfile': 'View Public Profile',
         'myHistory.noProfile': "You don't have a player profile yet. Play some rounds with the C# app to create one!",
         'myHistory.noProfileHint': 'Make sure your C# app is sending player data with your VRChat name.',
+        'myHistory.noMatchingRounds': 'No matching rounds found',
+        'myHistory.noProfileFound': 'No profile found',
+
+        // Instance Detail
+        'instanceDetail.noRoundsRecorded': 'No rounds recorded',
+
+        // Players
+        'players.enterNamePrompt': 'Enter a name to search for players',
+        'players.noItemData': 'No item data yet',
+
+        // Instances
+        'instances.noInstancesFound': 'No instances found',
     }
 };
 

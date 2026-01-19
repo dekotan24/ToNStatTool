@@ -159,7 +159,7 @@
                             <td>${new Date(r.started_at).toLocaleString('ja-JP')}</td>
                             <td><span class="round-type">${escapeHtml(r.round_type)}</span></td>
                             <td>${escapeHtml(r.map_name || '-')}</td>
-                            <td>${r.terrors.slice(0, 2).map(t => escapeHtml(t)).join(', ')}${r.terrors.length > 2 ? '...' : ''}</td>
+                            <td>${r.terrors.slice(0, 2).map(terror => escapeHtml(terror)).join(', ')}${r.terrors.length > 2 ? '...' : ''}</td>
                             <td>${r.items && r.items.length > 0 ?
                                 `<div class="items-list">${r.items.slice(0, 2).map(i => `<span class="item-tag">${escapeHtml(i)}</span>`).join('')}${r.items.length > 2 ? '...' : ''}</div>`
                                 : '-'}</td>

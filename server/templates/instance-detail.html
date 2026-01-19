@@ -306,7 +306,7 @@
                     </div>
                 `}).join('');
             } else {
-                roundTypeStats.innerHTML = '<div class="stat-item"><span class="stat-name">No data</span></div>';
+                roundTypeStats.innerHTML = `<div class="stat-item"><span class="stat-name">${t('common.noDataYet')}</span></div>`;
             }
 
             // Map stats
@@ -320,20 +320,20 @@
                     </div>
                 `).join('');
             } else {
-                mapStats.innerHTML = '<div class="stat-item"><span class="stat-name">No data</span></div>';
+                mapStats.innerHTML = `<div class="stat-item"><span class="stat-name">${t('common.noDataYet')}</span></div>`;
             }
 
             // Terror stats
             const terrorStats = document.getElementById('terrorStats');
             if (data.terror_stats.length > 0) {
-                terrorStats.innerHTML = data.terror_stats.map(t => `
+                terrorStats.innerHTML = data.terror_stats.map(ts => `
                     <div class="stat-item">
-                        <span class="stat-name">${escapeHtml(t.terror_name)}</span>
-                        <span class="stat-count">${t.encounter_count}</span>
+                        <span class="stat-name">${escapeHtml(ts.terror_name)}</span>
+                        <span class="stat-count">${ts.encounter_count}</span>
                     </div>
                 `).join('');
             } else {
-                terrorStats.innerHTML = '<div class="stat-item"><span class="stat-name">No data</span></div>';
+                terrorStats.innerHTML = `<div class="stat-item"><span class="stat-name">${t('common.noDataYet')}</span></div>`;
             }
 
             // Round history
@@ -345,13 +345,13 @@
                         <td><span class="round-type">${escapeHtml(r.round_type)}</span></td>
                         <td>${escapeHtml(r.map_name || '-')}</td>
                         <td>${r.terrors.length > 0
-                            ? r.terrors.slice(0, 3).map(t => escapeHtml(t)).join(', ') + (r.terrors.length > 3 ? '...' : '')
+                            ? r.terrors.slice(0, 3).map(terror => escapeHtml(terror)).join(', ') + (r.terrors.length > 3 ? '...' : '')
                             : '-'}</td>
                         <td>${r.player_count}</td>
                     </tr>
                 `).join('');
             } else {
-                roundHistory.innerHTML = '<tr><td colspan="5" class="empty">No rounds recorded</td></tr>';
+                roundHistory.innerHTML = `<tr><td colspan="5" class="empty">${t('instanceDetail.noRoundsRecorded')}</td></tr>`;
             }
 
         } catch (error) {

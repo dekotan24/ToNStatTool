@@ -301,7 +301,7 @@
                             <p><small>Make sure your C# app is sending player data with your VRChat name.</small></p>
                         </div>
                     `;
-                    document.getElementById('historyBody').innerHTML = '<tr><td colspan="7" class="empty">No profile found</td></tr>';
+                    document.getElementById('historyBody').innerHTML = `<tr><td colspan="7" class="empty">${t('myHistory.noProfileFound')}</td></tr>`;
                 }
             }
         } catch (error) {
@@ -410,10 +410,10 @@
         const pageData = filteredHistory.slice(start, end);
 
         if (pageData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty">No matching rounds found</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="7" class="empty">${t('myHistory.noMatchingRounds')}</td></tr>`;
             document.getElementById('prevPage').disabled = true;
             document.getElementById('nextPage').disabled = true;
-            document.getElementById('pageInfo').textContent = 'No results';
+            document.getElementById('pageInfo').textContent = t('common.noResults');
             return;
         }
 
@@ -422,7 +422,7 @@
                 <td>${new Date(h.started_at).toLocaleString('ja-JP')}</td>
                 <td><span class="round-type">${escapeHtml(h.round_type)}</span></td>
                 <td>${escapeHtml(h.map_name || '-')}</td>
-                <td>${h.terrors.length > 0 ? h.terrors.slice(0, 2).map(t => escapeHtml(t)).join(', ') + (h.terrors.length > 2 ? '...' : '') : '-'}</td>
+                <td>${h.terrors.length > 0 ? h.terrors.slice(0, 2).map(terror => escapeHtml(terror)).join(', ') + (h.terrors.length > 2 ? '...' : '') : '-'}</td>
                 <td class="items-cell">
                     ${h.items && h.items.length > 0 ? `
                         <div class="items-list">
@@ -433,7 +433,7 @@
                 <td>${h.survivor_count}/${h.player_count}</td>
                 <td>
                     <span class="survival-badge ${h.survived ? 'survived' : 'died'}">
-                        ${h.survived ? 'Survived' : 'Died'}
+                        ${h.survived ? t('profile.survived') : t('profile.died')}
                     </span>
                 </td>
             </tr>
