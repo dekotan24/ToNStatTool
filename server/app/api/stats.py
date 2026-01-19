@@ -46,6 +46,7 @@ class MapStatItem(BaseModel):
 class RecentRound(BaseModel):
     id: int
     instance_id: Optional[str] = None
+    instance_db_id: Optional[int] = None
     round_type: str
     map_name: Optional[str]
     terrors: List[str]
@@ -240,7 +241,7 @@ async def get_recent_rounds(
 ):
     """最近のラウンドを取得"""
     result = await db.execute(
-        select(Round, Instance.instance_id)
+        select(Round, Instance.instance_id, Instance.id)
         .join(Instance, Round.instance_id == Instance.id)
         .order_by(desc(Round.started_at))
         .limit(limit)
@@ -251,13 +252,14 @@ async def get_recent_rounds(
         RecentRound(
             id=r.id,
             instance_id=inst_id,
+            instance_db_id=inst_db_id,
             round_type=r.round_type,
             map_name=r.map_name,
             terrors=r.terrors or [],
             player_count=r.player_count,
             started_at=r.started_at
         )
-        for r, inst_id in rows
+        for r, inst_id, inst_db_id in rows
     ]
 
 
@@ -427,3 +429,114 @@ async def get_filter_options(
         "terrors": terrors,
         "maps": maps
     }
+
+
+# ========== Instance Detail Models ==========
+
+class InstanceRoundDetail(BaseModel):
+    id: int
+    round_type: str
+    map_name: Optional[str]
+    terrors: List[str]
+    player_count: int
+    survivor_count: int
+    started_at: datetime
+
+
+class InstanceTerrorStat(BaseModel):
+    terror_name: str
+    encounter_count: int
+
+
+class InstanceDetail(BaseModel):
+    id: int
+    instance_id: str
+    world_id: Optional[str]
+    total_rounds: int
+    created_at: datetime
+    last_activity_at: datetime
+    rounds: List[InstanceRoundDetail]
+    terror_stats: List[InstanceTerrorStat]
+    round_type_stats: dict
+    map_stats: dict
+
+
+@router.get("/instance/{instance_db_id}", response_model=InstanceDetail)
+async def get_instance_detail(
+    instance_db_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """インスタンス詳細を取得"""
+    # インスタンスを取得
+    result = await db.execute(
+        select(Instance).where(Instance.id == instance_db_id)
+    )
+    instance = result.scalar_one_or_none()
+
+    if not instance:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Instance not found"
+        )
+
+    # ラウンド履歴を取得
+    rounds_result = await db.execute(
+        select(Round)
+        .where(Round.instance_id == instance.id)
+        .order_by(desc(Round.started_at))
+        .limit(100)
+    )
+    rounds = rounds_result.scalars().all()
+
+    # ラウンド詳細リスト
+    round_details = [
+        InstanceRoundDetail(
+            id=r.id,
+            round_type=r.round_type,
+            map_name=r.map_name,
+            terrors=r.terrors or [],
+            player_count=r.player_count,
+            survivor_count=r.survivor_count,
+            started_at=r.started_at
+        )
+        for r in rounds
+    ]
+
+    # テラー統計を集計
+    terror_counts = {}
+    round_type_counts = {}
+    map_counts = {}
+
+    for r in rounds:
+        # テラー統計
+        if r.terrors:
+            for terror in r.terrors:
+                terror_counts[terror] = terror_counts.get(terror, 0) + 1
+
+        # ラウンドタイプ統計
+        round_type_counts[r.round_type] = round_type_counts.get(r.round_type, 0) + 1
+
+        # マップ統計
+        if r.map_name:
+            map_counts[r.map_name] = map_counts.get(r.map_name, 0) + 1
+
+    # テラー統計をソートしてリストに変換
+    terror_stats = [
+        InstanceTerrorStat(terror_name=name, encounter_count=count)
+        for name, count in sorted(terror_counts.items(), key=lambda x: x[1], reverse=True)
+    ]
+
+    return InstanceDetail(
+        id=instance.id,
+        instance_id=instance.instance_id,
+        world_id=instance.world_id,
+        total_rounds=instance.total_rounds,
+        created_at=instance.created_at,
+        last_activity_at=instance.last_activity_at,
+        rounds=round_details,
+        terror_stats=terror_stats,
+        round_type_stats=round_type_counts,
+        map_stats=map_counts
+    )

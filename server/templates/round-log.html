@@ -242,8 +242,8 @@
         }
 
         tbody.innerHTML = pageData.map(r => {
-            // Create VRChat launch link from instance ID
-            const instanceLink = createVRChatLink(r.instance_id);
+            // Create instance detail link
+            const instanceLink = createInstanceLink(r.instance_db_id, r.instance_id);
 
             return `
                 <tr>
@@ -268,24 +268,19 @@
         document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages} (${filteredRounds.length} rounds)`;
     }
 
-    function createVRChatLink(instanceId) {
-        if (!instanceId) return '-';
+    function createInstanceLink(instanceDbId, instanceId) {
+        if (!instanceDbId) return '-';
 
-        // Instance format: worldId:instanceId (e.g., wrld_xxx:12345~region(...))
-        const parts = instanceId.split(':');
-        if (parts.length >= 2) {
-            const worldId = parts[0];
-            const instId = parts.slice(1).join(':'); // Handle case where instanceId contains ':'
-            const launchUrl = `https://vrchat.com/home/launch?worldId=${encodeURIComponent(worldId)}&instanceId=${encodeURIComponent(instId)}`;
-
-            // Extract short instance number if present (e.g., "12345" from "12345~region(...)")
-            const shortId = instId.split('~')[0];
-
-            return `<a href="${launchUrl}" target="_blank" class="instance-link" title="${escapeHtml(instanceId)}">${escapeHtml(shortId || 'Join')}</a>`;
+        // Extract short instance number for display
+        let shortId = 'View';
+        if (instanceId) {
+            const parts = instanceId.split(':');
+            if (parts.length >= 2) {
+                shortId = parts.slice(1).join(':').split('~')[0] || 'View';
+            }
         }
 
-        // Fallback: just display truncated ID
-        return `<span title="${escapeHtml(instanceId)}">${escapeHtml(instanceId.substring(0, 20))}...</span>`;
+        return `<a href="/instance/${instanceDbId}" class="instance-link" title="${escapeHtml(instanceId || '')}">${escapeHtml(shortId)}</a>`;
     }
 
     // Filter event listeners

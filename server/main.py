@@ -229,6 +229,23 @@ async def instances_page(request: Request, user: User = Depends(get_current_user
     )
 
 
+@app.get("/instance/{instance_db_id}", response_class=HTMLResponse)
+async def instance_detail_page(
+    request: Request,
+    instance_db_id: int,
+    user: User = Depends(get_current_user)
+):
+    """インスタンス詳細ページ"""
+    return templates.TemplateResponse(
+        "instance-detail.html",
+        {
+            "request": request,
+            "user": user,
+            "instance_db_id": instance_db_id
+        }
+    )
+
+
 @app.get("/players", response_class=HTMLResponse)
 async def players_page(request: Request, user: User = Depends(get_current_user)):
     """プレイヤー検索ページ"""
