@@ -59,7 +59,7 @@
 
         <!-- Round History -->
         <div class="section">
-            <h2>Round History</h2>
+            <h2>Round History <span class="subtitle">(Last 50)</span></h2>
             <div class="table-container">
                 <table class="data-table">
                     <thead>
@@ -200,6 +200,12 @@
 .section h2 {
     margin-bottom: 1rem;
     font-size: 1.25rem;
+}
+
+.section h2 .subtitle {
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--text-secondary);
 }
 
 @media (max-width: 1024px) {
@@ -346,6 +352,10 @@
         }
     }
 
+    // Initial load
     loadInstanceDetail();
+
+    // Auto refresh every 30 seconds
+    setInterval(loadInstanceDetail, 30000);
 </script>
 {% endblock %}

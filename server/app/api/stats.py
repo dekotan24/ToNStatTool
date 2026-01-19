@@ -496,12 +496,12 @@ async def get_instance_detail(
             detail="Instance not found"
         )
 
-    # ラウンド履歴を取得
+    # ラウンド履歴を取得（直近50件）
     rounds_result = await db.execute(
         select(Round)
         .where(Round.instance_id == instance.id)
         .order_by(desc(Round.started_at))
-        .limit(100)
+        .limit(50)
     )
     rounds = rounds_result.scalars().all()
 
