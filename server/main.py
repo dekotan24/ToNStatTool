@@ -203,6 +203,19 @@ async def rounds_page(request: Request, user: User = Depends(get_current_user)):
     )
 
 
+@app.get("/api-keys", response_class=HTMLResponse)
+async def api_keys_page(request: Request, user: User = Depends(get_current_user)):
+    """APIキー管理ページ"""
+    return templates.TemplateResponse(
+        "api-keys.html",
+        {
+            "request": request,
+            "user": user,
+            "site_url": settings.SITE_URL
+        }
+    )
+
+
 # ========== Error Handlers ==========
 
 @app.exception_handler(401)

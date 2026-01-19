@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+
+{% block title %}API Keys - ToN Stats{% endblock %}
+
+{% block content %}
+<div class="api-keys-page">
+    <h1>API Keys</h1>
+    <p class="description">C#アプリとの連携に使用するAPIキーを管理します。</p>
+
+    <!-- Create New API Key -->
+    <div class="create-key-section">
+        <h2>New API Key</h2>
+        <form id="createKeyForm" class="create-key-form">
+            <div class="form-group">
+                <label for="keyName">Key Name</label>
+                <input type="text" id="keyName" name="name" placeholder="My PC" required maxlength="100">
+            </div>
+            <button type="submit" class="btn btn-primary">Create API Key</button>
+        </form>
+    </div>
+
+    <!-- New Key Display (hidden by default) -->
+    <div id="newKeyDisplay" class="new-key-display" style="display: none;">
+        <div class="alert alert-warning">
+            <strong>Important:</strong> Copy this key now. It will only be shown once!
+        </div>
+        <div class="key-value">
+            <code id="newKeyValue"></code>
+            <button id="copyKeyBtn" class="btn btn-small">Copy</button>
+        </div>
+    </div>
+
+    <!-- Existing API Keys -->
+    <div class="keys-list-section">
+        <h2>Your API Keys</h2>
+        <div class="table-container">
+            <table class="data-table" id="keysTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Key Prefix</th>
+                        <th>Status</th>
+                        <th>Uses</th>
+                        <th>Last Used</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="keysBody">
+                    <tr><td colspan="7" class="loading">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Usage Instructions -->
+    <div class="usage-section">
+        <h2>How to Use</h2>
+        <div class="instructions">
+            <p>C#アプリの <code>settings.json</code> に以下の設定を追加してください：</p>
+            <pre><code>{
+  "EnableCloudSync": true,
+  "CloudServerUrl": "{{ site_url }}",
+  "CloudApiKey": "your_api_key_here"
+}</code></pre>
+        </div>
+    </div>
+</div>
+
+<style>
+.api-keys-page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.api-keys-page h1 {
+    margin-bottom: 10px;
+}
+
+.description {
+    color: #666;
+    margin-bottom: 30px;
+}
+
+.create-key-section, .keys-list-section, .usage-section {
+    background: #f9f9f9;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.create-key-form {
+    display: flex;
+    gap: 15px;
+    align-items: flex-end;
+}
+
+.form-group {
+    flex: 1;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.new-key-display {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.alert-warning {
+    color: #856404;
+    margin-bottom: 15px;
+}
+
+.key-value {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: #fff;
+    padding: 15px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.key-value code {
+    flex: 1;
+    font-family: monospace;
+    font-size: 14px;
+    word-break: break-all;
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+}
+
+.btn-small {
+    padding: 5px 10px;
+    font-size: 12px;
+    background: #6c757d;
+    color: white;
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th, .data-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.data-table th {
+    background: #f5f5f5;
+    font-weight: 600;
+}
+
+.status-active {
+    color: #28a745;
+    font-weight: 500;
+}
+
+.status-revoked {
+    color: #dc3545;
+    font-weight: 500;
+}
+
+.loading, .empty {
+    text-align: center;
+    color: #666;
+    padding: 20px;
+}
+
+.usage-section pre {
+    background: #2d2d2d;
+    color: #f8f8f2;
+    padding: 15px;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+.usage-section code {
+    font-family: monospace;
+}
+
+.instructions p code {
+    background: #e9ecef;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Load existing API keys
+    async function loadApiKeys() {
+        try {
+            const res = await fetch('/api/v1/auth/api-keys');
+            if (!res.ok) {
+                if (res.status === 401) {
+                    window.location.href = '/login';
+                    return;
+                }
+                throw new Error('Failed to load API keys');
+            }
+
+            const keys = await res.json();
+            const tbody = document.getElementById('keysBody');
+
+            if (keys.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty">No API keys yet. Create one above.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = keys.map(key => `
+                <tr>
+                    <td>${escapeHtml(key.name)}</td>
+                    <td><code>${key.key_prefix}...</code></td>
+                    <td class="${key.is_active ? 'status-active' : 'status-revoked'}">
+                        ${key.is_active ? 'Active' : 'Revoked'}
+                    </td>
+                    <td>${key.use_count.toLocaleString()}</td>
+                    <td>${key.last_used_at ? new Date(key.last_used_at).toLocaleString('ja-JP') : '-'}</td>
+                    <td>${new Date(key.created_at).toLocaleString('ja-JP')}</td>
+                    <td>
+                        ${key.is_active ? `<button class="btn btn-small btn-danger" onclick="revokeKey(${key.id})">Revoke</button>` : '-'}
+                    </td>
+                </tr>
+            `).join('');
+        } catch (error) {
+            console.error('Failed to load API keys:', error);
+            document.getElementById('keysBody').innerHTML = '<tr><td colspan="7" class="empty">Failed to load API keys</td></tr>';
+        }
+    }
+
+    // Create new API key
+    document.getElementById('createKeyForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const name = document.getElementById('keyName').value.trim();
+        if (!name) return;
+
+        try {
+            const res = await fetch('/api/v1/auth/api-keys', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name })
+            });
+
+            if (!res.ok) {
+                const error = await res.json();
+                alert(error.detail || 'Failed to create API key');
+                return;
+            }
+
+            const data = await res.json();
+
+            // Show the new key
+            document.getElementById('newKeyValue').textContent = data.api_key;
+            document.getElementById('newKeyDisplay').style.display = 'block';
+
+            // Clear form
+            document.getElementById('keyName').value = '';
+
+            // Reload the list
+            loadApiKeys();
+        } catch (error) {
+            console.error('Failed to create API key:', error);
+            alert('Failed to create API key');
+        }
+    });
+
+    // Copy key to clipboard
+    document.getElementById('copyKeyBtn').addEventListener('click', () => {
+        const keyValue = document.getElementById('newKeyValue').textContent;
+        navigator.clipboard.writeText(keyValue).then(() => {
+            document.getElementById('copyKeyBtn').textContent = 'Copied!';
+            setTimeout(() => {
+                document.getElementById('copyKeyBtn').textContent = 'Copy';
+            }, 2000);
+        });
+    });
+
+    // Revoke API key
+    async function revokeKey(keyId) {
+        if (!confirm('Are you sure you want to revoke this API key? This cannot be undone.')) {
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/v1/auth/api-keys/${keyId}`, {
+                method: 'DELETE'
+            });
+
+            if (!res.ok) {
+                const error = await res.json();
+                alert(error.detail || 'Failed to revoke API key');
+                return;
+            }
+
+            loadApiKeys();
+        } catch (error) {
+            console.error('Failed to revoke API key:', error);
+            alert('Failed to revoke API key');
+        }
+    }
+
+    // Escape HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Initial load
+    loadApiKeys();
+</script>
+{% endblock %}
