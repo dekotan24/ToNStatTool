@@ -222,7 +222,7 @@ async def get_optional_user(
     """ログインユーザーを取得（未ログインはNone）"""
     try:
         return await get_current_user(request, db)
-    except HTTPException:
+    except Exception:
         return None
 
 
