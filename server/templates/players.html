@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% block title %}Players - ToN Stats{% endblock %}
+
+{% block content %}
+<div class="players-page">
+    <h1>Player Search</h1>
+    <p class="subtitle">Find and view player profiles</p>
+
+    <!-- Search Section -->
+    <div class="search-section">
+        <div class="search-form">
+            <input type="text" id="searchInput" class="search-input" placeholder="Search by VRChat name...">
+            <button id="searchBtn" class="btn btn-primary">Search</button>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div class="results-section">
+        <div id="resultsInfo" class="results-info"></div>
+        <div class="players-grid" id="playersGrid">
+            <div class="loading-message">Enter a name to search for players</div>
+        </div>
+    </div>
+
+    <!-- Global Item Stats -->
+    <div class="global-stats-section">
+        <h2>Global Item Statistics</h2>
+        <p class="subtitle">Survival rates when holding specific items</p>
+        <div class="table-container">
+            <table class="data-table" id="itemStatsTable">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Times Held</th>
+                        <th>Survivals</th>
+                        <th>Survival Rate</th>
+                    </tr>
+                </thead>
+                <tbody id="itemStatsBody">
+                    <tr><td colspan="4" class="loading">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+.players-page {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.players-page h1 {
+    margin-bottom: 0.5rem;
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+}
+
+.search-section {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 2rem;
+}
+
+.search-form {
+    display: flex;
+    gap: 1rem;
+    max-width: 500px;
+}
+
+.search-input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.results-section {
+    margin-bottom: 2rem;
+}
+
+.results-info {
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+.players-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.loading-message {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 2rem;
+}
+
+.player-card {
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: border-color 0.2s;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+}
+
+.player-card:hover {
+    border-color: var(--accent);
+}
+
+.player-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.player-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.player-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.player-name {
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.player-stats {
+    display: flex;
+    gap: 1rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.player-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.player-stat-value {
+    color: var(--accent);
+    font-weight: 500;
+}
+
+.global-stats-section {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+}
+
+.global-stats-section h2 {
+    margin-bottom: 0.5rem;
+}
+
+.global-stats-section .subtitle {
+    margin-bottom: 1.5rem;
+}
+
+.rate-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.rate-bar {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    overflow: hidden;
+    max-width: 100px;
+}
+
+.rate-bar-fill {
+    height: 100%;
+    background: var(--success);
+    border-radius: 4px;
+}
+
+.rate-text {
+    min-width: 50px;
+    text-align: right;
+}
+
+@media (max-width: 768px) {
+    .search-form {
+        flex-direction: column;
+    }
+
+    .players-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Search players
+    async function searchPlayers() {
+        const query = document.getElementById('searchInput').value.trim();
+        if (!query) {
+            document.getElementById('playersGrid').innerHTML = '<div class="loading-message">Enter a name to search for players</div>';
+            document.getElementById('resultsInfo').textContent = '';
+            return;
+        }
+
+        document.getElementById('playersGrid').innerHTML = '<div class="loading-message">Searching...</div>';
+
+        try {
+            const res = await fetch(`/api/v1/profile/search?q=${encodeURIComponent(query)}`);
+            if (res.ok) {
+                const players = await res.json();
+                renderPlayers(players);
+            }
+        } catch (error) {
+            console.error('Search failed:', error);
+            document.getElementById('playersGrid').innerHTML = '<div class="loading-message">Search failed</div>';
+        }
+    }
+
+    function renderPlayers(players) {
+        const grid = document.getElementById('playersGrid');
+
+        if (players.length === 0) {
+            grid.innerHTML = '<div class="loading-message">No players found</div>';
+            document.getElementById('resultsInfo').textContent = '0 players found';
+            return;
+        }
+
+        document.getElementById('resultsInfo').textContent = `${players.length} player${players.length !== 1 ? 's' : ''} found`;
+
+        grid.innerHTML = players.map(p => {
+            const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${p.avatar_seed || p.vrchat_name}`;
+            return `
+                <a href="/player/${encodeURIComponent(p.vrchat_name)}" class="player-card">
+                    <div class="player-avatar">
+                        <img src="${avatarUrl}" alt="Avatar">
+                    </div>
+                    <div class="player-info">
+                        <div class="player-name">${escapeHtml(p.vrchat_name)}</div>
+                        <div class="player-stats">
+                            <div class="player-stat">
+                                <span class="player-stat-value">${p.total_rounds}</span> rounds
+                            </div>
+                            <div class="player-stat">
+                                <span class="player-stat-value">${p.survival_rate}%</span> survival
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            `;
+        }).join('');
+    }
+
+    // Load global item stats
+    async function loadItemStats() {
+        try {
+            const res = await fetch('/api/v1/profile/items?limit=30');
+            if (res.ok) {
+                const items = await res.json();
+                renderItemStats(items);
+            }
+        } catch (error) {
+            console.error('Failed to load item stats:', error);
+        }
+    }
+
+    function renderItemStats(items) {
+        const tbody = document.getElementById('itemStatsBody');
+
+        if (items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty">No item data yet</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = items.map(item => `
+            <tr>
+                <td>${escapeHtml(item.item_name)}</td>
+                <td>${item.times_held}</td>
+                <td>${item.times_survived}</td>
+                <td>
+                    <div class="rate-bar-container">
+                        <div class="rate-bar">
+                            <div class="rate-bar-fill" style="width: ${item.survival_rate}%"></div>
+                        </div>
+                        <span class="rate-text">${item.survival_rate}%</span>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // Event listeners
+    document.getElementById('searchBtn').addEventListener('click', searchPlayers);
+    document.getElementById('searchInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') searchPlayers();
+    });
+
+    // Initial load
+    loadItemStats();
+</script>
+{% endblock %}

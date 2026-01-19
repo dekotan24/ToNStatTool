@@ -130,7 +130,6 @@ namespace ToNStatTool.Services
 
 	/// <summary>
 	/// ラウンド終了イベント（クラウド送信用）
-	/// プライバシー保護のため、ユーザー情報は含まない
 	/// </summary>
 	public class CloudRoundEndEvent
 	{
@@ -148,6 +147,25 @@ namespace ToNStatTool.Services
 
 		[JsonProperty("instance")]
 		public CloudInstanceInfo Instance { get; set; }
+
+		[JsonProperty("player")]
+		public CloudPlayerInfo Player { get; set; }
+	}
+
+	/// <summary>
+	/// プレイヤー情報（クラウド送信用）
+	/// 自分自身の情報のみ送信
+	/// </summary>
+	public class CloudPlayerInfo
+	{
+		[JsonProperty("vrchatName")]
+		public string VRChatName { get; set; }
+
+		[JsonProperty("survived")]
+		public bool Survived { get; set; }
+
+		[JsonProperty("items")]
+		public string[] Items { get; set; }
 	}
 
 	/// <summary>

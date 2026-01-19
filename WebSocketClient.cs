@@ -2711,6 +2711,17 @@ namespace ToNStatTool
 					totalPlayerCount = Players.Count;
 				}
 
+				// プレイヤーのアイテムリストを作成（開始時アイテム + ラウンド中取得アイテム）
+				var playerItems = new List<string>();
+				if (!string.IsNullOrEmpty(InstanceState.CurrentItem) && InstanceState.CurrentItem != "なし")
+				{
+					playerItems.Add(InstanceState.CurrentItem);
+				}
+				playerItems.AddRange(currentRoundItems.Where(i => !playerItems.Contains(i)));
+
+				// プレイヤーの生存状態を判定
+				bool playerSurvived = !wasDeadDuringRound && !wasSaboteurDuringRound;
+
 				var roundEvent = new CloudRoundEndEvent
 				{
 					InstanceId = InstanceState.InstanceUrl,
@@ -2725,12 +2736,18 @@ namespace ToNStatTool
 					{
 						PlayerCount = totalPlayerCount,
 						SurvivorCount = aliveCount
+					},
+					Player = new CloudPlayerInfo
+					{
+						VRChatName = LocalPlayerName,
+						Survived = playerSurvived,
+						Items = playerItems.ToArray()
 					}
 				};
 
 				// 非同期で送信（結果を待たない）
 				_ = cloudService.SendRoundEndAsync(roundEvent);
-				Logger.Debug("Cloud", $"ラウンド情報をクラウドに送信: {roundType}, Players={totalPlayerCount}, Survivors={aliveCount}");
+				Logger.Debug("Cloud", $"ラウンド情報をクラウドに送信: {roundType}, Players={totalPlayerCount}, Survivors={aliveCount}, PlayerSurvived={playerSurvived}, Items={string.Join(",", playerItems)}");
 			}
 			catch (Exception ex)
 			{

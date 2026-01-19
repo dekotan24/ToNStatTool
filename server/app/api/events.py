@@ -1,4 +1,5 @@
 """イベント受信API（クライアントアプリからのデータ受信）"""
+import secrets
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import generate_fingerprint, hash_token
-from app.models import Instance, Round, TerrorStats, RoundTypeStats, MapStats, APIKey
+from app.models import Instance, Round, TerrorStats, RoundTypeStats, MapStats, APIKey, Player, PlayerRound, ItemStats
 
 router = APIRouter(prefix="/api/v1/events", tags=["events"])
 
@@ -72,12 +73,21 @@ class InstanceInfo(BaseModel):
     survivorCount: int = 0
 
 
+class PlayerInfo(BaseModel):
+    """C#アプリから送信されるプレイヤー情報"""
+    vrchatName: str  # VRChat表示名
+    survived: bool  # このラウンドで生存したか
+    items: List[str] = []  # 所持アイテムリスト
+    notes: Optional[str] = None  # メモ（任意）
+
+
 class RoundEndEvent(BaseModel):
     eventType: str = "roundEnd"
     instanceId: str
     timestamp: datetime
     round: RoundInfo
     instance: InstanceInfo
+    player: Optional[PlayerInfo] = None  # プレイヤー情報（オプション、後方互換性）
 
 
 class InstanceUpdateEvent(BaseModel):
@@ -99,7 +109,7 @@ async def receive_event(
     event_type = event.get("eventType")
 
     if event_type == "roundEnd":
-        return await handle_round_end(RoundEndEvent(**event), db)
+        return await handle_round_end(RoundEndEvent(**event), api_key, db)
     elif event_type == "instanceUpdate":
         return await handle_instance_update(InstanceUpdateEvent(**event), db)
     else:
@@ -109,7 +119,7 @@ async def receive_event(
         )
 
 
-async def handle_round_end(event: RoundEndEvent, db: AsyncSession):
+async def handle_round_end(event: RoundEndEvent, api_key: APIKey, db: AsyncSession):
     """ラウンド終了イベントを処理"""
     # インスタンスIDが空の場合はスキップ
     if not event.instanceId:
@@ -147,52 +157,152 @@ async def handle_round_end(event: RoundEndEvent, db: AsyncSession):
     )
     existing_round = result.scalar_one_or_none()
 
+    round_id = None
+    is_new_round = False
+
     if existing_round:
         # 既存のラウンドがあれば生存者数を更新（より正確な値として）
         if event.instance.survivorCount > existing_round.survivor_count:
             existing_round.survivor_count = event.instance.survivorCount
-        return {"status": "duplicate", "round_id": existing_round.id}
+        round_id = existing_round.id
+    else:
+        # 新しいラウンドを作成
+        new_round = Round(
+            instance_id=instance.id,
+            fingerprint=fingerprint,
+            round_type=event.round.type,
+            map_name=event.round.mapName,
+            terrors=event.round.terrors,
+            started_at=event.timestamp,
+            player_count=event.instance.playerCount,
+            survivor_count=event.instance.survivorCount
+        )
+        db.add(new_round)
+        await db.flush()
+        round_id = new_round.id
+        is_new_round = True
 
-    # 新しいラウンドを作成
-    new_round = Round(
-        instance_id=instance.id,
-        fingerprint=fingerprint,
-        round_type=event.round.type,
-        map_name=event.round.mapName,
-        terrors=event.round.terrors,
-        started_at=event.timestamp,
-        player_count=event.instance.playerCount,
-        survivor_count=event.instance.survivorCount
-    )
-    db.add(new_round)
+        # インスタンスの統計を更新
+        instance.total_rounds += 1
+        instance.last_activity_at = datetime.now(timezone.utc)
 
-    # インスタンスの統計を更新
-    instance.total_rounds += 1
-    instance.last_activity_at = datetime.now(timezone.utc)
-
-    # ラウンドタイプ統計を更新
-    await update_round_type_stats(
-        db,
-        event.round.type,
-        event.instance.playerCount,
-        event.instance.survivorCount
-    )
-
-    # マップ統計を更新
-    if event.round.mapName:
-        await update_map_stats(db, event.round.mapName)
-
-    # テラー統計を更新
-    for terror_name in event.round.terrors:
-        await update_terror_stats(
+        # ラウンドタイプ統計を更新
+        await update_round_type_stats(
             db,
-            terror_name,
+            event.round.type,
+            event.instance.playerCount,
             event.instance.survivorCount
+        )
+
+        # マップ統計を更新
+        if event.round.mapName:
+            await update_map_stats(db, event.round.mapName)
+
+        # テラー統計を更新
+        for terror_name in event.round.terrors:
+            await update_terror_stats(
+                db,
+                terror_name,
+                event.instance.survivorCount
+            )
+
+    # プレイヤー情報を処理
+    player_id = None
+    if event.player and event.player.vrchatName:
+        player_id = await process_player_data(
+            db,
+            api_key,
+            event.player,
+            round_id
         )
 
     await db.flush()
 
-    return {"status": "created", "round_id": new_round.id}
+    return {
+        "status": "created" if is_new_round else "duplicate",
+        "round_id": round_id,
+        "player_id": player_id
+    }
+
+
+async def process_player_data(
+    db: AsyncSession,
+    api_key: APIKey,
+    player_info: PlayerInfo,
+    round_id: int
+) -> int:
+    """プレイヤーデータを処理"""
+    # プレイヤーを取得または作成
+    result = await db.execute(
+        select(Player).where(Player.vrchat_name == player_info.vrchatName)
+    )
+    player = result.scalar_one_or_none()
+
+    if not player:
+        player = Player(
+            vrchat_name=player_info.vrchatName,
+            api_key_id=api_key.id,
+            user_id=api_key.user_id,
+            avatar_seed=secrets.token_hex(16),
+            total_rounds=0,
+            total_survivals=0
+        )
+        db.add(player)
+        await db.flush()
+    else:
+        # 既存のプレイヤーの場合、API keyが未設定なら更新
+        if not player.api_key_id:
+            player.api_key_id = api_key.id
+        if not player.user_id and api_key.user_id:
+            player.user_id = api_key.user_id
+
+    # このラウンドへの参加記録が既に存在するかチェック
+    result = await db.execute(
+        select(PlayerRound).where(
+            PlayerRound.player_id == player.id,
+            PlayerRound.round_id == round_id
+        )
+    )
+    existing_player_round = result.scalar_one_or_none()
+
+    if not existing_player_round:
+        # 新しいプレイヤーラウンド記録を作成
+        player_round = PlayerRound(
+            player_id=player.id,
+            round_id=round_id,
+            survived=player_info.survived,
+            items=player_info.items if player_info.items else None,
+            notes=player_info.notes
+        )
+        db.add(player_round)
+
+        # プレイヤー統計を更新
+        player.total_rounds += 1
+        if player_info.survived:
+            player.total_survivals += 1
+
+        # アイテム統計を更新
+        if player_info.items:
+            for item_name in player_info.items:
+                await update_item_stats(db, item_name, player_info.survived)
+
+    return player.id
+
+
+async def update_item_stats(db: AsyncSession, item_name: str, survived: bool):
+    """アイテム統計を更新"""
+    stmt = insert(ItemStats).values(
+        item_name=item_name,
+        total_held=1,
+        total_survivals=1 if survived else 0
+    ).on_conflict_do_update(
+        index_elements=["item_name"],
+        set_={
+            "total_held": ItemStats.total_held + 1,
+            "total_survivals": ItemStats.total_survivals + (1 if survived else 0)
+        }
+    )
+    await db.execute(stmt)
 
 
 async def handle_instance_update(event: InstanceUpdateEvent, db: AsyncSession):

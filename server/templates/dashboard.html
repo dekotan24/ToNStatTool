@@ -20,10 +20,6 @@
             <div class="stat-label">Terrors Encountered</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value" id="survivalRate">-</div>
-            <div class="stat-label">Avg Survival Rate</div>
-        </div>
-        <div class="stat-card">
             <div class="stat-value" id="last24h">-</div>
             <div class="stat-label">Rounds (24h)</div>
         </div>
@@ -40,13 +36,17 @@
                             <th>Type</th>
                             <th>Map</th>
                             <th>Terrors</th>
-                            <th>Survivors</th>
+                            <th>Players</th>
+                            <th>Instance</th>
                         </tr>
                     </thead>
                     <tbody id="recentRoundsBody">
-                        <tr><td colspan="5" class="loading">Loading...</td></tr>
+                        <tr><td colspan="6" class="loading">Loading...</td></tr>
                     </tbody>
                 </table>
+            </div>
+            <div class="view-all-link">
+                <a href="/round-log">View All Rounds</a>
             </div>
         </div>
 
@@ -57,22 +57,84 @@
                     <thead>
                         <tr>
                             <th>Instance</th>
-                            <th>Rounds</th>
+                            <th>Round Type</th>
+                            <th>Terrors</th>
+                            <th>Map</th>
+                            <th>Players</th>
                             <th>Last Activity</th>
                         </tr>
                     </thead>
                     <tbody id="activeInstancesBody">
-                        <tr><td colspan="3" class="loading">Loading...</td></tr>
+                        <tr><td colspan="6" class="loading">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+.view-all-link {
+    margin-top: 1rem;
+    text-align: right;
+}
+
+.view-all-link a {
+    color: var(--accent);
+    font-size: 0.875rem;
+}
+
+.instance-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--accent);
+    color: white;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    text-decoration: none;
+    transition: background 0.2s;
+}
+
+.instance-link:hover {
+    background: var(--accent-hover);
+    color: white;
+}
+
+.instance-link::before {
+    content: "▶";
+    font-size: 0.625rem;
+}
+
+.player-count {
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+</style>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    function createVRChatLink(instanceId) {
+        if (!instanceId) return '-';
+
+        // Instance format: worldId:instanceId (e.g., wrld_xxx:12345~region(...))
+        const parts = instanceId.split(':');
+        if (parts.length >= 2) {
+            const worldId = parts[0];
+            const instId = parts.slice(1).join(':');
+            const launchUrl = `https://vrchat.com/home/launch?worldId=${encodeURIComponent(worldId)}&instanceId=${encodeURIComponent(instId)}`;
+
+            // Extract short instance number if present
+            const shortId = instId.split('~')[0];
+
+            return `<a href="${launchUrl}" target="_blank" class="instance-link" title="${escapeHtml(instanceId)}">${escapeHtml(shortId || 'Join')}</a>`;
+        }
+
+        return `<span title="${escapeHtml(instanceId)}">${escapeHtml(instanceId.substring(0, 15))}...</span>`;
+    }
+
     async function loadDashboard() {
         try {
             // Overview stats
@@ -82,7 +144,6 @@
                 document.getElementById('totalRounds').textContent = overview.total_rounds.toLocaleString();
                 document.getElementById('totalInstances').textContent = overview.total_instances.toLocaleString();
                 document.getElementById('totalTerrors').textContent = overview.total_terrors_encountered.toLocaleString();
-                document.getElementById('survivalRate').textContent = overview.average_survival_rate.toFixed(1) + '%';
                 document.getElementById('last24h').textContent = overview.last_24h_rounds.toLocaleString();
             }
 
@@ -92,15 +153,16 @@
                 const rounds = await roundsRes.json();
                 const tbody = document.getElementById('recentRoundsBody');
                 if (rounds.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="empty">No rounds recorded yet</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty">No rounds recorded yet</td></tr>';
                 } else {
                     tbody.innerHTML = rounds.map(r => `
                         <tr>
                             <td>${new Date(r.started_at).toLocaleString('ja-JP')}</td>
-                            <td><span class="round-type">${r.round_type}</span></td>
-                            <td>${r.map_name || '-'}</td>
-                            <td>${r.terrors.slice(0, 2).join(', ')}${r.terrors.length > 2 ? '...' : ''}</td>
-                            <td>${r.survivor_count}/${r.player_count}</td>
+                            <td><span class="round-type">${escapeHtml(r.round_type)}</span></td>
+                            <td>${escapeHtml(r.map_name || '-')}</td>
+                            <td>${r.terrors.slice(0, 2).map(t => escapeHtml(t)).join(', ')}${r.terrors.length > 2 ? '...' : ''}</td>
+                            <td><span class="player-count">${r.player_count}</span></td>
+                            <td>${createVRChatLink(r.instance_id)}</td>
                         </tr>
                     `).join('');
                 }
@@ -112,12 +174,17 @@
                 const instances = await instancesRes.json();
                 const tbody = document.getElementById('activeInstancesBody');
                 if (instances.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" class="empty">No active instances</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty">No active instances</td></tr>';
                 } else {
                     tbody.innerHTML = instances.map(i => `
                         <tr>
-                            <td class="instance-id">${i.instance_id}</td>
-                            <td>${i.total_rounds}</td>
+                            <td>${createVRChatLink(i.instance_id)}</td>
+                            <td><span class="round-type">${escapeHtml(i.latest_round_type || '-')}</span></td>
+                            <td>${i.latest_terrors && i.latest_terrors.length > 0
+                                ? i.latest_terrors.slice(0, 2).map(t => escapeHtml(t)).join(', ') + (i.latest_terrors.length > 2 ? '...' : '')
+                                : '-'}</td>
+                            <td>${escapeHtml(i.latest_map || '-')}</td>
+                            <td><span class="player-count">${i.latest_player_count}</span></td>
                             <td>${new Date(i.last_activity_at).toLocaleString('ja-JP')}</td>
                         </tr>
                     `).join('');

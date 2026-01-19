@@ -1,0 +1,578 @@
+{% extends "base.html" %}
+
+{% block title %}My History - ToN Stats{% endblock %}
+
+{% block content %}
+<div class="history-page">
+    <div class="page-header">
+        <h1>My Round History</h1>
+        <p class="subtitle">Your personal round log with detailed item and survival data</p>
+    </div>
+
+    <!-- Profile Status -->
+    <div class="profile-status" id="profileStatus">
+        <div class="loading">Loading...</div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section">
+        <div class="filter-row">
+            <div class="filter-group">
+                <label for="filterSurvival">Survival</label>
+                <select id="filterSurvival" class="filter-select">
+                    <option value="">All</option>
+                    <option value="survived">Survived</option>
+                    <option value="died">Died</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filterRoundType">Round Type</label>
+                <select id="filterRoundType" class="filter-select">
+                    <option value="">All Types</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filterItem">Item</label>
+                <input type="text" id="filterItem" class="filter-input" placeholder="Filter by item...">
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Summary -->
+    <div class="stats-summary" id="statsSummary">
+        <div class="stat-card mini">
+            <div class="stat-value" id="totalRounds">-</div>
+            <div class="stat-label">Total Rounds</div>
+        </div>
+        <div class="stat-card mini">
+            <div class="stat-value" id="totalSurvivals">-</div>
+            <div class="stat-label">Survivals</div>
+        </div>
+        <div class="stat-card mini">
+            <div class="stat-value" id="survivalRate">-</div>
+            <div class="stat-label">Survival Rate</div>
+        </div>
+        <div class="stat-card mini">
+            <div class="stat-value" id="uniqueItems">-</div>
+            <div class="stat-label">Unique Items</div>
+        </div>
+    </div>
+
+    <!-- History Table -->
+    <div class="history-section">
+        <div class="table-container">
+            <table class="data-table" id="historyTable">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Round Type</th>
+                        <th>Map</th>
+                        <th>Terrors</th>
+                        <th>Items Held</th>
+                        <th>Players</th>
+                        <th>Result</th>
+                    </tr>
+                </thead>
+                <tbody id="historyBody">
+                    <tr><td colspan="7" class="loading">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination-controls">
+            <button id="prevPage" class="btn btn-outline btn-small" disabled>Previous</button>
+            <span id="pageInfo">Page 1</span>
+            <button id="nextPage" class="btn btn-outline btn-small">Next</button>
+        </div>
+    </div>
+
+    <!-- Profile Settings -->
+    <div class="settings-section">
+        <h2>Profile Settings</h2>
+        <form id="settingsForm">
+            <div class="form-group">
+                <label for="bioInput">Bio</label>
+                <textarea id="bioInput" class="form-textarea" placeholder="Write something about yourself..." maxlength="500"></textarea>
+                <small>Max 500 characters</small>
+            </div>
+            <div class="form-group checkbox-group">
+                <label>
+                    <input type="checkbox" id="isPublicInput" checked>
+                    <span>Make profile public (others can view your stats)</span>
+                </label>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+        </form>
+    </div>
+</div>
+
+<style>
+.history-page {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.page-header h1 {
+    margin-bottom: 0.5rem;
+}
+
+.subtitle {
+    color: var(--text-secondary);
+}
+
+.profile-status {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+}
+
+.profile-status .loading {
+    color: var(--text-secondary);
+}
+
+.profile-link-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.profile-link-section a {
+    color: var(--accent);
+}
+
+.no-profile-message {
+    color: var(--text-secondary);
+}
+
+.filter-section {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+}
+
+.filter-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.filter-group label {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.filter-input,
+.filter-select {
+    padding: 0.75rem 1rem;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.filter-input:focus,
+.filter-select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.stats-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card.mini {
+    background: var(--bg-secondary);
+    padding: 1rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    text-align: center;
+}
+
+.stat-card.mini .stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--accent);
+}
+
+.stat-card.mini .stat-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+}
+
+.history-section {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+}
+
+.pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+
+#pageInfo {
+    color: var(--text-secondary);
+}
+
+.survival-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.survival-badge.survived {
+    background: rgba(34, 197, 94, 0.2);
+    color: var(--success);
+}
+
+.survival-badge.died {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--error);
+}
+
+.items-cell {
+    max-width: 200px;
+}
+
+.items-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.item-tag {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    background: var(--accent);
+    color: white;
+    border-radius: 4px;
+    font-size: 0.75rem;
+}
+
+.settings-section {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+}
+
+.settings-section h2 {
+    margin-bottom: 1.5rem;
+}
+
+.form-textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 0.75rem 1rem;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 1rem;
+    resize: vertical;
+}
+
+.form-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    color: var(--text-primary);
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+}
+
+.btn-small {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+    .filter-row {
+        grid-template-columns: 1fr;
+    }
+
+    .stats-summary {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let allHistory = [];
+    let filteredHistory = [];
+    let currentPage = 1;
+    const perPage = 20;
+    let playerProfile = null;
+
+    // Load profile
+    async function loadProfile() {
+        try {
+            const res = await fetch('/api/v1/profile/me');
+            if (res.ok) {
+                playerProfile = await res.json();
+                if (playerProfile) {
+                    renderProfileStatus(playerProfile);
+                    loadHistory();
+                    loadRoundTypes();
+                } else {
+                    document.getElementById('profileStatus').innerHTML = `
+                        <div class="no-profile-message">
+                            <p>You don't have a player profile yet. Play some rounds with the C# app to create one!</p>
+                            <p><small>Make sure your C# app is sending player data with your VRChat name.</small></p>
+                        </div>
+                    `;
+                    document.getElementById('historyBody').innerHTML = '<tr><td colspan="7" class="empty">No profile found</td></tr>';
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load profile:', error);
+        }
+    }
+
+    function renderProfileStatus(profile) {
+        const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${profile.avatar_seed || profile.vrchat_name}`;
+
+        document.getElementById('profileStatus').innerHTML = `
+            <div class="profile-link-section">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <img src="${avatarUrl}" alt="Avatar" style="width: 48px; height: 48px; border-radius: 50%;">
+                    <div>
+                        <strong>${escapeHtml(profile.vrchat_name)}</strong>
+                        <span style="color: var(--text-secondary); margin-left: 0.5rem;">
+                            ${profile.is_public ? 'Public Profile' : 'Private Profile'}
+                        </span>
+                    </div>
+                </div>
+                <a href="/player/${encodeURIComponent(profile.vrchat_name)}" class="btn btn-outline">View Public Profile</a>
+            </div>
+        `;
+
+        // Populate settings
+        document.getElementById('bioInput').value = profile.bio || '';
+        document.getElementById('isPublicInput').checked = profile.is_public;
+
+        // Update stats
+        document.getElementById('totalRounds').textContent = profile.total_rounds;
+        document.getElementById('totalSurvivals').textContent = profile.total_survivals;
+        document.getElementById('survivalRate').textContent = profile.survival_rate + '%';
+    }
+
+    async function loadHistory() {
+        if (!playerProfile) return;
+
+        try {
+            const res = await fetch(`/api/v1/profile/player/${encodeURIComponent(playerProfile.vrchat_name)}/history?limit=500`);
+            if (res.ok) {
+                allHistory = await res.json();
+                applyFilters();
+                calculateUniqueItems();
+            }
+        } catch (error) {
+            console.error('Failed to load history:', error);
+        }
+    }
+
+    async function loadRoundTypes() {
+        try {
+            const res = await fetch('/api/v1/stats/filter-options');
+            if (res.ok) {
+                const options = await res.json();
+                const select = document.getElementById('filterRoundType');
+                options.round_types.forEach(rt => {
+                    const option = document.createElement('option');
+                    option.value = rt;
+                    option.textContent = rt;
+                    select.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Failed to load round types:', error);
+        }
+    }
+
+    function calculateUniqueItems() {
+        const uniqueItems = new Set();
+        allHistory.forEach(h => {
+            if (h.items) {
+                h.items.forEach(item => uniqueItems.add(item));
+            }
+        });
+        document.getElementById('uniqueItems').textContent = uniqueItems.size;
+    }
+
+    function applyFilters() {
+        const survivalFilter = document.getElementById('filterSurvival').value;
+        const roundTypeFilter = document.getElementById('filterRoundType').value;
+        const itemFilter = document.getElementById('filterItem').value.toLowerCase();
+
+        filteredHistory = allHistory.filter(h => {
+            // Survival filter
+            if (survivalFilter === 'survived' && !h.survived) return false;
+            if (survivalFilter === 'died' && h.survived) return false;
+
+            // Round type filter
+            if (roundTypeFilter && h.round_type !== roundTypeFilter) return false;
+
+            // Item filter
+            if (itemFilter && (!h.items || !h.items.some(i => i.toLowerCase().includes(itemFilter)))) return false;
+
+            return true;
+        });
+
+        currentPage = 1;
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const tbody = document.getElementById('historyBody');
+        const start = (currentPage - 1) * perPage;
+        const end = start + perPage;
+        const pageData = filteredHistory.slice(start, end);
+
+        if (pageData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty">No matching rounds found</td></tr>';
+            document.getElementById('prevPage').disabled = true;
+            document.getElementById('nextPage').disabled = true;
+            document.getElementById('pageInfo').textContent = 'No results';
+            return;
+        }
+
+        tbody.innerHTML = pageData.map(h => `
+            <tr>
+                <td>${new Date(h.started_at).toLocaleString('ja-JP')}</td>
+                <td><span class="round-type">${escapeHtml(h.round_type)}</span></td>
+                <td>${escapeHtml(h.map_name || '-')}</td>
+                <td>${h.terrors.length > 0 ? h.terrors.slice(0, 2).map(t => escapeHtml(t)).join(', ') + (h.terrors.length > 2 ? '...' : '') : '-'}</td>
+                <td class="items-cell">
+                    ${h.items && h.items.length > 0 ? `
+                        <div class="items-list">
+                            ${h.items.map(i => `<span class="item-tag">${escapeHtml(i)}</span>`).join('')}
+                        </div>
+                    ` : '-'}
+                </td>
+                <td>${h.survivor_count}/${h.player_count}</td>
+                <td>
+                    <span class="survival-badge ${h.survived ? 'survived' : 'died'}">
+                        ${h.survived ? 'Survived' : 'Died'}
+                    </span>
+                </td>
+            </tr>
+        `).join('');
+
+        // Update pagination
+        const totalPages = Math.ceil(filteredHistory.length / perPage);
+        document.getElementById('prevPage').disabled = currentPage <= 1;
+        document.getElementById('nextPage').disabled = currentPage >= totalPages;
+        document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages} (${filteredHistory.length} rounds)`;
+    }
+
+    // Filter event listeners
+    document.getElementById('filterSurvival').addEventListener('change', applyFilters);
+    document.getElementById('filterRoundType').addEventListener('change', applyFilters);
+    document.getElementById('filterItem').addEventListener('input', debounce(applyFilters, 300));
+
+    // Pagination
+    document.getElementById('prevPage').addEventListener('click', () => {
+        if (currentPage > 1) {
+            currentPage--;
+            renderHistory();
+        }
+    });
+
+    document.getElementById('nextPage').addEventListener('click', () => {
+        const totalPages = Math.ceil(filteredHistory.length / perPage);
+        if (currentPage < totalPages) {
+            currentPage++;
+            renderHistory();
+        }
+    });
+
+    // Settings form
+    document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const bio = document.getElementById('bioInput').value;
+        const isPublic = document.getElementById('isPublicInput').checked;
+
+        try {
+            const res = await fetch('/api/v1/profile/me/settings', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bio, is_public: isPublic })
+            });
+
+            if (res.ok) {
+                alert('Settings saved!');
+                loadProfile();
+            } else {
+                const error = await res.json();
+                alert(error.detail || 'Failed to save settings');
+            }
+        } catch (error) {
+            console.error('Failed to save settings:', error);
+            alert('Failed to save settings');
+        }
+    });
+
+    // Debounce helper
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // Initial load
+    loadProfile();
+</script>
+{% endblock %}

@@ -14,7 +14,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
 from app.core.database import init_db
-from app.api import auth_router, events_router, stats_router
+from app.api import auth_router, events_router, stats_router, profile_router
 from app.api.auth import get_current_user, get_optional_user
 from app.models import User
 
@@ -109,6 +109,7 @@ async def startup():
 app.include_router(auth_router)
 app.include_router(events_router)
 app.include_router(stats_router)
+app.include_router(profile_router)
 
 
 # ========== Health Check ==========
@@ -179,11 +180,11 @@ async def dashboard(request: Request, user: User = Depends(get_current_user)):
     )
 
 
-@app.get("/terrors", response_class=HTMLResponse)
-async def terrors_page(request: Request, user: User = Depends(get_current_user)):
-    """テラー統計ページ"""
+@app.get("/round-log", response_class=HTMLResponse)
+async def round_log_page(request: Request, user: User = Depends(get_current_user)):
+    """ラウンドログページ"""
     return templates.TemplateResponse(
-        "terrors.html",
+        "round-log.html",
         {
             "request": request,
             "user": user
@@ -191,11 +192,48 @@ async def terrors_page(request: Request, user: User = Depends(get_current_user))
     )
 
 
-@app.get("/rounds", response_class=HTMLResponse)
-async def rounds_page(request: Request, user: User = Depends(get_current_user)):
-    """ラウンド統計ページ"""
+@app.get("/statistics", response_class=HTMLResponse)
+async def statistics_page(request: Request, user: User = Depends(get_current_user)):
+    """統計ページ"""
     return templates.TemplateResponse(
         "rounds.html",
+        {
+            "request": request,
+            "user": user
+        }
+    )
+
+
+# Legacy routes for backwards compatibility
+@app.get("/terrors", response_class=HTMLResponse)
+async def terrors_page(request: Request, user: User = Depends(get_current_user)):
+    """テラー統計ページ（リダイレクト）"""
+    return RedirectResponse(url="/statistics", status_code=302)
+
+
+@app.get("/rounds", response_class=HTMLResponse)
+async def rounds_page(request: Request, user: User = Depends(get_current_user)):
+    """ラウンド統計ページ（リダイレクト）"""
+    return RedirectResponse(url="/statistics", status_code=302)
+
+
+@app.get("/instances", response_class=HTMLResponse)
+async def instances_page(request: Request, user: User = Depends(get_current_user)):
+    """インスタンス検索ページ"""
+    return templates.TemplateResponse(
+        "instances.html",
+        {
+            "request": request,
+            "user": user
+        }
+    )
+
+
+@app.get("/players", response_class=HTMLResponse)
+async def players_page(request: Request, user: User = Depends(get_current_user)):
+    """プレイヤー検索ページ"""
+    return templates.TemplateResponse(
+        "players.html",
         {
             "request": request,
             "user": user
@@ -212,6 +250,35 @@ async def api_keys_page(request: Request, user: User = Depends(get_current_user)
             "request": request,
             "user": user,
             "site_url": settings.SITE_URL
+        }
+    )
+
+
+@app.get("/player/{player_name}", response_class=HTMLResponse)
+async def player_profile_page(
+    request: Request,
+    player_name: str,
+    user: User = Depends(get_optional_user)
+):
+    """プレイヤープロフィールページ"""
+    return templates.TemplateResponse(
+        "profile.html",
+        {
+            "request": request,
+            "user": user,
+            "player_name": player_name
+        }
+    )
+
+
+@app.get("/my-history", response_class=HTMLResponse)
+async def my_history_page(request: Request, user: User = Depends(get_current_user)):
+    """自分のラウンド履歴ページ"""
+    return templates.TemplateResponse(
+        "my-history.html",
+        {
+            "request": request,
+            "user": user
         }
     )
 

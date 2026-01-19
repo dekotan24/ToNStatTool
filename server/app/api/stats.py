@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, or_, any_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -45,11 +45,11 @@ class MapStatItem(BaseModel):
 
 class RecentRound(BaseModel):
     id: int
+    instance_id: Optional[str] = None
     round_type: str
     map_name: Optional[str]
     terrors: List[str]
     player_count: int
-    survivor_count: int
     started_at: datetime
 
 
@@ -58,6 +58,33 @@ class ActiveInstance(BaseModel):
     instance_id: str
     total_rounds: int
     last_activity_at: datetime
+    # Latest round info
+    latest_round_type: Optional[str] = None
+    latest_map: Optional[str] = None
+    latest_terrors: List[str] = []
+    latest_player_count: int = 0
+    latest_survivor_count: int = 0
+
+
+class InstanceSearchResult(BaseModel):
+    id: int
+    instance_id: str
+    total_rounds: int
+    created_at: datetime
+    last_activity_at: datetime
+    # Latest round info
+    latest_round_type: Optional[str] = None
+    latest_map: Optional[str] = None
+    latest_terrors: List[str] = []
+    latest_player_count: int = 0
+    latest_survivor_count: int = 0
+
+
+class InstanceSearchResponse(BaseModel):
+    results: List[InstanceSearchResult]
+    total: int
+    page: int
+    per_page: int
 
 
 # ========== Endpoints ==========
@@ -209,27 +236,28 @@ async def get_map_stats(
 async def get_recent_rounds(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    limit: int = Query(default=20, le=100)
+    limit: int = Query(default=20, le=500)
 ):
     """最近のラウンドを取得"""
     result = await db.execute(
-        select(Round)
+        select(Round, Instance.instance_id)
+        .join(Instance, Round.instance_id == Instance.id)
         .order_by(desc(Round.started_at))
         .limit(limit)
     )
-    rounds = result.scalars().all()
+    rows = result.all()
 
     return [
         RecentRound(
             id=r.id,
+            instance_id=inst_id,
             round_type=r.round_type,
             map_name=r.map_name,
             terrors=r.terrors or [],
             player_count=r.player_count,
-            survivor_count=r.survivor_count,
             started_at=r.started_at
         )
-        for r in rounds
+        for r, inst_id in rows
     ]
 
 
@@ -239,7 +267,7 @@ async def get_active_instances(
     db: AsyncSession = Depends(get_db),
     hours: int = Query(default=1, le=24)
 ):
-    """アクティブなインスタンスを取得"""
+    """アクティブなインスタンスを取得（最新ラウンド情報付き）"""
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
 
     result = await db.execute(
@@ -250,12 +278,152 @@ async def get_active_instances(
     )
     instances = result.scalars().all()
 
-    return [
-        ActiveInstance(
+    active_instances = []
+    for i in instances:
+        # Get the latest round for this instance
+        round_result = await db.execute(
+            select(Round)
+            .where(Round.instance_id == i.id)
+            .order_by(desc(Round.started_at))
+            .limit(1)
+        )
+        latest_round = round_result.scalar_one_or_none()
+
+        active_instances.append(ActiveInstance(
             id=i.id,
             instance_id=i.instance_id[:50] + "..." if len(i.instance_id) > 50 else i.instance_id,
             total_rounds=i.total_rounds,
-            last_activity_at=i.last_activity_at
+            last_activity_at=i.last_activity_at,
+            latest_round_type=latest_round.round_type if latest_round else None,
+            latest_map=latest_round.map_name if latest_round else None,
+            latest_terrors=latest_round.terrors if latest_round and latest_round.terrors else [],
+            latest_player_count=latest_round.player_count if latest_round else 0,
+            latest_survivor_count=latest_round.survivor_count if latest_round else 0
+        ))
+
+    return active_instances
+
+
+@router.get("/instances/search", response_model=InstanceSearchResponse)
+async def search_instances(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    instance_id: Optional[str] = Query(default=None, description="Instance ID (partial match)"),
+    terror: Optional[str] = Query(default=None, description="Terror name to search"),
+    round_type: Optional[str] = Query(default=None, description="Round type to filter"),
+    map_name: Optional[str] = Query(default=None, description="Map name to filter"),
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, le=100)
+):
+    """インスタンスを検索"""
+    # Base query to find instances that have matching rounds
+    # We need to find instances whose rounds match the filters
+
+    # First, let's build a subquery to find instance IDs that match our criteria
+    round_filters = []
+
+    if terror:
+        # PostgreSQL array contains check
+        round_filters.append(Round.terrors.any(terror))
+
+    if round_type:
+        round_filters.append(Round.round_type.ilike(f"%{round_type}%"))
+
+    if map_name:
+        round_filters.append(Round.map_name.ilike(f"%{map_name}%"))
+
+    # Build the main query
+    query = select(Instance)
+
+    if instance_id:
+        # Search for instance_id containing the search term
+        query = query.where(Instance.instance_id.ilike(f"%{instance_id}%"))
+
+    if round_filters:
+        # Get instance IDs that have matching rounds
+        matching_instance_ids_query = (
+            select(Round.instance_id)
+            .where(*round_filters)
+            .distinct()
         )
-        for i in instances
-    ]
+        query = query.where(Instance.id.in_(matching_instance_ids_query))
+
+    # Count total
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    # Apply pagination
+    offset = (page - 1) * per_page
+    query = query.order_by(desc(Instance.last_activity_at)).offset(offset).limit(per_page)
+
+    result = await db.execute(query)
+    instances = result.scalars().all()
+
+    # Build results with latest round info
+    search_results = []
+    for i in instances:
+        # Get the latest round for this instance
+        round_result = await db.execute(
+            select(Round)
+            .where(Round.instance_id == i.id)
+            .order_by(desc(Round.started_at))
+            .limit(1)
+        )
+        latest_round = round_result.scalar_one_or_none()
+
+        search_results.append(InstanceSearchResult(
+            id=i.id,
+            instance_id=i.instance_id,
+            total_rounds=i.total_rounds,
+            created_at=i.created_at,
+            last_activity_at=i.last_activity_at,
+            latest_round_type=latest_round.round_type if latest_round else None,
+            latest_map=latest_round.map_name if latest_round else None,
+            latest_terrors=latest_round.terrors if latest_round and latest_round.terrors else [],
+            latest_player_count=latest_round.player_count if latest_round else 0,
+            latest_survivor_count=latest_round.survivor_count if latest_round else 0
+        ))
+
+    return InstanceSearchResponse(
+        results=search_results,
+        total=total,
+        page=page,
+        per_page=per_page
+    )
+
+
+@router.get("/filter-options")
+async def get_filter_options(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """検索フィルター用のオプションを取得"""
+    # Get all round types
+    round_types_result = await db.execute(
+        select(RoundTypeStats.round_type)
+        .order_by(desc(RoundTypeStats.occurrence_count))
+    )
+    round_types = [r[0] for r in round_types_result.all()]
+
+    # Get all terrors
+    terrors_result = await db.execute(
+        select(TerrorStats.terror_name)
+        .order_by(desc(TerrorStats.encounter_count))
+        .limit(100)
+    )
+    terrors = [r[0] for r in terrors_result.all()]
+
+    # Get all maps
+    maps_result = await db.execute(
+        select(MapStats.map_name)
+        .order_by(desc(MapStats.occurrence_count))
+        .limit(100)
+    )
+    maps = [r[0] for r in maps_result.all()]
+
+    return {
+        "round_types": round_types,
+        "terrors": terrors,
+        "maps": maps
+    }

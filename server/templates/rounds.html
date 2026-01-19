@@ -1,12 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Round Stats - ToN Stats{% endblock %}
+{% block title %}Statistics - ToN Stats{% endblock %}
 
 {% block content %}
 <div class="page-content">
-    <h1>Round Statistics</h1>
+    <h1>Statistics</h1>
 
     <div class="stats-grid">
+        <!-- Round Types -->
         <div class="stats-section">
             <h2>Round Types</h2>
             <div class="table-container">
@@ -16,16 +17,16 @@
                             <th>Round Type</th>
                             <th>Count</th>
                             <th>%</th>
-                            <th>Survival Rate</th>
                         </tr>
                     </thead>
                     <tbody id="roundTypesBody">
-                        <tr><td colspan="4" class="loading">Loading...</td></tr>
+                        <tr><td colspan="3" class="loading">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
+        <!-- Maps -->
         <div class="stats-section">
             <h2>Maps</h2>
             <div class="table-container">
@@ -43,13 +44,68 @@
                 </table>
             </div>
         </div>
+
+        <!-- Terrors -->
+        <div class="stats-section full-width">
+            <h2>Terrors</h2>
+            <div class="search-bar">
+                <input type="text" id="terrorSearch" placeholder="Search terror name..." class="search-input">
+            </div>
+            <div class="table-container">
+                <table class="data-table" id="terrorTable">
+                    <thead>
+                        <tr>
+                            <th>Terror Name</th>
+                            <th>Encounters</th>
+                        </tr>
+                    </thead>
+                    <tbody id="terrorTableBody">
+                        <tr><td colspan="2" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
+
+<style>
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
+}
+
+.stats-section.full-width {
+    grid-column: 1 / -1;
+}
+
+.search-bar {
+    margin-bottom: 1rem;
+}
+
+.search-input {
+    width: 100%;
+    max-width: 300px;
+    padding: 0.5rem 1rem;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+</style>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    async function loadRoundStats() {
+    let terrorData = [];
+    let searchQuery = '';
+
+    async function loadStats() {
         try {
             // Round types
             const typesRes = await fetch('/api/v1/stats/round-types');
@@ -57,19 +113,13 @@
                 const types = await typesRes.json();
                 const tbody = document.getElementById('roundTypesBody');
                 if (types.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="empty">No data yet</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="3" class="empty">No data yet</td></tr>';
                 } else {
                     tbody.innerHTML = types.map(t => `
                         <tr>
                             <td><span class="round-type">${escapeHtml(t.round_type)}</span></td>
                             <td>${t.occurrence_count.toLocaleString()}</td>
                             <td>${t.percentage.toFixed(1)}%</td>
-                            <td>
-                                <div class="survival-rate">
-                                    <div class="rate-bar" style="width: ${t.survival_rate}%"></div>
-                                    <span>${t.survival_rate.toFixed(1)}%</span>
-                                </div>
-                            </td>
                         </tr>
                     `).join('');
                 }
@@ -92,17 +142,47 @@
                     `).join('');
                 }
             }
+
+            // Terrors
+            const terrorsRes = await fetch('/api/v1/stats/terrors?limit=200');
+            if (terrorsRes.ok) {
+                terrorData = await terrorsRes.json();
+                renderTerrors();
+            }
         } catch (error) {
-            console.error('Failed to load round stats:', error);
+            console.error('Failed to load stats:', error);
         }
     }
 
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+    function renderTerrors() {
+        const tbody = document.getElementById('terrorTableBody');
+        let filtered = terrorData;
+
+        if (searchQuery) {
+            filtered = terrorData.filter(t =>
+                t.name.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        }
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="2" class="empty">No terrors found</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(t => `
+            <tr>
+                <td>${escapeHtml(t.name)}</td>
+                <td>${t.encounter_count.toLocaleString()}</td>
+            </tr>
+        `).join('');
     }
 
-    loadRoundStats();
+    // Search functionality
+    document.getElementById('terrorSearch').addEventListener('input', (e) => {
+        searchQuery = e.target.value;
+        renderTerrors();
+    });
+
+    loadStats();
 </script>
 {% endblock %}

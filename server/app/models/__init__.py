@@ -7,6 +7,10 @@ from app.models.models import (
     TerrorStats,
     RoundTypeStats,
     MapStats,
+    # Player models
+    Player,
+    PlayerRound,
+    ItemStats,
     # Security models
     APIKey,
     LoginAttempt,

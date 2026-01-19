@@ -81,6 +81,59 @@ class Round(Base):
 
     # リレーション
     instance = relationship("Instance", back_populates="rounds")
+    player_rounds = relationship("PlayerRound", back_populates="round", cascade="all, delete-orphan")
+
+
+class Player(Base):
+    """VRChatプレイヤーモデル"""
+    __tablename__ = "players"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vrchat_name = Column(String(100), unique=True, nullable=False, index=True)
+    api_key_id = Column(Integer, ForeignKey("api_keys.id", ondelete="SET NULL"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    avatar_seed = Column(String(32), nullable=True)  # ランダムアバター用シード
+    bio = Column(Text, nullable=True)
+    is_public = Column(Boolean, default=True)  # プロフィール公開設定
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # 統計キャッシュ
+    total_rounds = Column(Integer, default=0)
+    total_survivals = Column(Integer, default=0)
+
+    # リレーション
+    api_key = relationship("APIKey")
+    user = relationship("User")
+    player_rounds = relationship("PlayerRound", back_populates="player", cascade="all, delete-orphan")
+
+
+class PlayerRound(Base):
+    """プレイヤーのラウンド参加記録"""
+    __tablename__ = "player_rounds"
+
+    id = Column(Integer, primary_key=True, index=True)
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False, index=True)
+    round_id = Column(Integer, ForeignKey("rounds.id", ondelete="CASCADE"), nullable=False, index=True)
+    survived = Column(Boolean, nullable=False)
+    items = Column(ARRAY(Text), nullable=True)  # 所持アイテムリスト
+    notes = Column(Text, nullable=True)  # メモ
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # リレーション
+    player = relationship("Player", back_populates="player_rounds")
+    round = relationship("Round", back_populates="player_rounds")
+
+
+class ItemStats(Base):
+    """アイテム統計モデル"""
+    __tablename__ = "item_stats"
+
+    id = Column(Integer, primary_key=True, index=True)
+    item_name = Column(String(100), unique=True, nullable=False, index=True)
+    total_held = Column(Integer, default=0)  # 所持された回数
+    total_survivals = Column(Integer, default=0)  # 所持時の生存回数
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class TerrorStats(Base):
