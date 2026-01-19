@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}ダッシュボード - ToN Stats{% endblock %}
+{% block title %}ダッシュボード - ToN Stat Web{% endblock %}
 
 {% block content %}
 <div class="dashboard">
@@ -129,6 +129,19 @@
 .no-profile-message a {
     color: var(--accent);
 }
+
+.instance-link {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.instance-link:hover {
+    text-decoration: underline;
+}
+
+.instance-link code {
+    color: inherit;
+}
 </style>
 {% endblock %}
 
@@ -179,7 +192,7 @@
                 } else {
                     tbody.innerHTML = instances.map(i => `
                         <tr>
-                            <td><code>${escapeHtml(i.instance_short_id || '-')}</code></td>
+                            <td><a href="/instance/${encodeURIComponent(i.instance_short_id)}" class="instance-link"><code>${escapeHtml(i.instance_short_id || '-')}</code></a></td>
                             <td><span class="stat-highlight">${i.my_rounds}</span></td>
                             <td><span class="stat-highlight">${i.my_survivals}</span></td>
                             <td>${i.total_rounds}</td>

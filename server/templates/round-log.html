@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}ラウンドログ - ToN Stats{% endblock %}
+{% block title %}ラウンドログ - ToN Stat Web{% endblock %}
 
 {% block content %}
 <div class="page-content">
@@ -21,7 +21,9 @@
             </div>
             <div class="filter-group">
                 <label for="filterMap" data-i18n="roundLog.filterMap">マップ</label>
-                <input type="text" id="filterMap" class="filter-input" placeholder="マップで絞り込み..." data-i18n="roundLog.filterByMap">
+                <select id="filterMap" class="filter-select">
+                    <option value="" data-i18n="roundLog.allMaps">全てのマップ</option>
+                </select>
             </div>
         </div>
     </div>
@@ -198,12 +200,23 @@
             const res = await fetch('/api/v1/stats/filter-options');
             if (res.ok) {
                 const options = await res.json();
-                const select = document.getElementById('filterRoundType');
+
+                // Round types
+                const rtSelect = document.getElementById('filterRoundType');
                 options.round_types.forEach(rt => {
                     const option = document.createElement('option');
                     option.value = rt;
                     option.textContent = rt;
-                    select.appendChild(option);
+                    rtSelect.appendChild(option);
+                });
+
+                // Maps
+                const mapSelect = document.getElementById('filterMap');
+                options.maps.forEach(map => {
+                    const option = document.createElement('option');
+                    option.value = map;
+                    option.textContent = map;
+                    mapSelect.appendChild(option);
                 });
             }
         } catch (error) {
@@ -218,8 +231,8 @@
 
         filteredRounds = allRounds.filter(r => {
             if (roundTypeFilter && r.round_type !== roundTypeFilter) return false;
-            if (terrorFilter && (!r.terrors || !r.terrors.some(t => t.toLowerCase().includes(terrorFilter)))) return false;
-            if (mapFilter && (!r.map_name || !r.map_name.toLowerCase().includes(mapFilter))) return false;
+            if (terrorFilter && (!r.terrors || !r.terrors.some(terror => terror.toLowerCase().includes(terrorFilter)))) return false;
+            if (mapFilter && r.map_name !== mapFilter) return false;
             return true;
         });
 
@@ -286,7 +299,7 @@
     // Filter event listeners
     document.getElementById('filterRoundType').addEventListener('change', applyFilters);
     document.getElementById('filterTerror').addEventListener('input', debounce(applyFilters, 300));
-    document.getElementById('filterMap').addEventListener('input', debounce(applyFilters, 300));
+    document.getElementById('filterMap').addEventListener('change', applyFilters);
 
     // Pagination
     document.getElementById('prevPage').addEventListener('click', () => {

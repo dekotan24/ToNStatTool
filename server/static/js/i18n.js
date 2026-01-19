@@ -52,6 +52,7 @@ const translations = {
         'roundLog.allTypes': '全ての種別',
         'roundLog.filterByTerror': 'テラー名で絞り込み...',
         'roundLog.filterByMap': 'マップで絞り込み...',
+        'roundLog.allMaps': '全てのマップ',
 
         // Instances
         'instances.title': 'インスタンス検索',
@@ -270,6 +271,32 @@ const translations = {
 
         // Instances
         'instances.noInstancesFound': 'インスタンスが見つかりません',
+
+        // Index/Landing
+        'index.welcome': 'ようこそ',
+        'index.subtitle': 'Terror of Nowhere 統計ダッシュボード',
+        'index.goToDashboard': 'ダッシュボードへ',
+
+        // Global Statistics
+        'globalStats.title': 'グローバル統計',
+        'globalStats.roundTypes': 'ラウンド種別統計',
+        'globalStats.maps': 'マップ統計',
+        'globalStats.terrors': 'テラー統計',
+        'globalStats.items': 'アイテム統計',
+        'globalStats.occurrence': '発生回数',
+        'globalStats.percentage': '割合',
+        'globalStats.encounters': '遭遇数',
+        'globalStats.survivalRate': '生存率',
+        'globalStats.timesHeld': '所持回数',
+        'globalStats.survivals': '生存数',
+
+        // My Statistics (for my-history page)
+        'myStats.roundTypes': 'マイラウンド種別統計',
+        'myStats.maps': 'マイマップ統計',
+        'myStats.terrors': 'マイテラー統計',
+        'myStats.played': 'プレイ数',
+        'myStats.survived': '生存数',
+        'myStats.survivalRate': '生存率',
     },
     en: {
         // Navigation
@@ -323,6 +350,7 @@ const translations = {
         'roundLog.allTypes': 'All Types',
         'roundLog.filterByTerror': 'Filter by terror name...',
         'roundLog.filterByMap': 'Filter by map...',
+        'roundLog.allMaps': 'All Maps',
 
         // Instances
         'instances.title': 'Instance Search',
@@ -541,6 +569,32 @@ const translations = {
 
         // Instances
         'instances.noInstancesFound': 'No instances found',
+
+        // Index/Landing
+        'index.welcome': 'Welcome',
+        'index.subtitle': 'Terror of Nowhere Statistics Dashboard',
+        'index.goToDashboard': 'Go to Dashboard',
+
+        // Global Statistics
+        'globalStats.title': 'Global Statistics',
+        'globalStats.roundTypes': 'Round Type Statistics',
+        'globalStats.maps': 'Map Statistics',
+        'globalStats.terrors': 'Terror Statistics',
+        'globalStats.items': 'Item Statistics',
+        'globalStats.occurrence': 'Occurrence',
+        'globalStats.percentage': 'Percentage',
+        'globalStats.encounters': 'Encounters',
+        'globalStats.survivalRate': 'Survival Rate',
+        'globalStats.timesHeld': 'Times Held',
+        'globalStats.survivals': 'Survivals',
+
+        // My Statistics (for my-history page)
+        'myStats.roundTypes': 'My Round Type Stats',
+        'myStats.maps': 'My Map Stats',
+        'myStats.terrors': 'My Terror Stats',
+        'myStats.played': 'Played',
+        'myStats.survived': 'Survived',
+        'myStats.survivalRate': 'Survival Rate',
     }
 };
 
@@ -579,7 +633,7 @@ function applyTranslations() {
     // Update document title if has data-i18n-title
     const titleEl = document.querySelector('[data-i18n-title]');
     if (titleEl) {
-        document.title = t(titleEl.getAttribute('data-i18n-title')) + ' - ToN Stats';
+        document.title = t(titleEl.getAttribute('data-i18n-title')) + ' - ToN Stat Web';
     }
 }
 

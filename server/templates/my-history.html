@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}マイラウンド履歴 - ToN Stats{% endblock %}
+{% block title %}マイログ - ToN Stat Web{% endblock %}
 
 {% block content %}
 <div class="history-page">
@@ -58,8 +58,75 @@
         </div>
     </div>
 
+    <!-- Personal Stats Section -->
+    <div class="my-stats-row" id="myStatsSection" style="display: none;">
+        <!-- Round Types -->
+        <div class="stats-section">
+            <h2 data-i18n="myStats.roundTypes">マイラウンド種別統計</h2>
+            <div class="table-container">
+                <table class="data-table" id="myRoundTypesTable">
+                    <thead>
+                        <tr>
+                            <th data-i18n="table.roundType">種別</th>
+                            <th data-i18n="myStats.played">プレイ数</th>
+                            <th data-i18n="myStats.survived">生存数</th>
+                            <th data-i18n="myStats.survivalRate">生存率</th>
+                        </tr>
+                    </thead>
+                    <tbody id="myRoundTypesBody">
+                        <tr><td colspan="4" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Maps -->
+        <div class="stats-section">
+            <h2 data-i18n="myStats.maps">マイマップ統計</h2>
+            <div class="table-container">
+                <table class="data-table" id="myMapsTable">
+                    <thead>
+                        <tr>
+                            <th data-i18n="table.map">マップ</th>
+                            <th data-i18n="myStats.played">プレイ数</th>
+                            <th data-i18n="myStats.survived">生存数</th>
+                            <th data-i18n="myStats.survivalRate">生存率</th>
+                        </tr>
+                    </thead>
+                    <tbody id="myMapsBody">
+                        <tr><td colspan="4" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Terrors -->
+        <div class="stats-section">
+            <h2 data-i18n="myStats.terrors">マイテラー統計</h2>
+            <div class="search-bar">
+                <input type="text" id="myTerrorSearch" placeholder="テラー名を検索..." class="search-input">
+            </div>
+            <div class="table-container">
+                <table class="data-table" id="myTerrorsTable">
+                    <thead>
+                        <tr>
+                            <th data-i18n="table.terrors">テラー</th>
+                            <th data-i18n="table.encounters">遭遇数</th>
+                            <th data-i18n="myStats.survived">生存数</th>
+                            <th data-i18n="myStats.survivalRate">生存率</th>
+                        </tr>
+                    </thead>
+                    <tbody id="myTerrorsBody">
+                        <tr><td colspan="4" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <!-- History Table -->
     <div class="history-section">
+        <h2 data-i18n="profile.history">ラウンド履歴</h2>
         <div class="table-container">
             <table class="data-table" id="historyTable">
                 <thead>
@@ -264,6 +331,63 @@
     font-size: 0.875rem;
 }
 
+.my-stats-row {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.my-stats-row .stats-section {
+    flex: 1;
+    min-width: 280px;
+    max-height: 400px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+}
+
+.my-stats-row .stats-section h2 {
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+}
+
+.my-stats-row .stats-section .table-container {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.my-stats-row .search-bar {
+    margin-bottom: 0.5rem;
+}
+
+.my-stats-row .search-input {
+    width: 100%;
+    padding: 0.5rem;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.history-section h2 {
+    margin-bottom: 1rem;
+}
+
+@media (max-width: 1024px) {
+    .my-stats-row {
+        flex-direction: column;
+    }
+
+    .my-stats-row .stats-section {
+        max-height: 350px;
+    }
+}
+
 @media (max-width: 768px) {
     .filter-row {
         grid-template-columns: 1fr;
@@ -283,6 +407,8 @@
     let currentPage = 1;
     const perPage = 20;
     let playerProfile = null;
+    let myTerrorStats = [];
+    let myTerrorSearchQuery = '';
 
     // Load profile
     async function loadProfile() {
@@ -290,23 +416,91 @@
             const res = await fetch('/api/v1/profile/me');
             if (res.ok) {
                 playerProfile = await res.json();
-                if (playerProfile) {
-                    renderProfileStatus(playerProfile);
-                    loadHistory();
-                    loadRoundTypes();
-                } else {
-                    document.getElementById('profileStatus').innerHTML = `
-                        <div class="no-profile-message">
-                            <p>You don't have a player profile yet. Play some rounds with the C# app to create one!</p>
-                            <p><small>Make sure your C# app is sending player data with your VRChat name.</small></p>
-                        </div>
-                    `;
-                    document.getElementById('historyBody').innerHTML = `<tr><td colspan="7" class="empty">${t('myHistory.noProfileFound')}</td></tr>`;
-                }
+                renderProfileStatus(playerProfile);
+                document.getElementById('myStatsSection').style.display = 'flex';
+                loadHistory();
+                loadRoundTypes();
+                loadMyStats();
+            } else {
+                // Profile not found - show message
+                document.getElementById('profileStatus').innerHTML = `
+                    <div class="no-profile-message">
+                        <p>${t('myHistory.noProfile')}</p>
+                        <p><small>${t('myHistory.noProfileHint')}</small></p>
+                    </div>
+                `;
+                document.getElementById('historyBody').innerHTML = `<tr><td colspan="7" class="empty">${t('myHistory.noProfileFound')}</td></tr>`;
             }
         } catch (error) {
             console.error('Failed to load profile:', error);
+            document.getElementById('profileStatus').innerHTML = `
+                <div class="no-profile-message">
+                    <p>${t('myHistory.noProfile')}</p>
+                    <p><small>${t('myHistory.noProfileHint')}</small></p>
+                </div>
+            `;
+            document.getElementById('historyBody').innerHTML = `<tr><td colspan="7" class="empty">${t('myHistory.noProfileFound')}</td></tr>`;
         }
+    }
+
+    // Load my statistics
+    async function loadMyStats() {
+        if (!playerProfile) return;
+
+        try {
+            const res = await fetch(`/api/v1/profile/player/${encodeURIComponent(playerProfile.username)}/stats`);
+            if (res.ok) {
+                const stats = await res.json();
+                renderMyRoundTypeStats(stats.round_type_stats);
+                renderMyMapStats(stats.item_stats, stats.round_type_stats);
+                myTerrorStats = stats.terror_stats;
+                renderMyTerrorStats();
+            }
+        } catch (error) {
+            console.error('Failed to load my stats:', error);
+        }
+    }
+
+    function renderMyRoundTypeStats(roundTypeStats) {
+        const tbody = document.getElementById('myRoundTypesBody');
+        if (!roundTypeStats || roundTypeStats.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="empty">${t('common.noDataYet')}</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = roundTypeStats.map(rt => `
+            <tr>
+                <td><span class="round-type">${escapeHtml(rt.round_type)}</span></td>
+                <td>${rt.rounds_played}</td>
+                <td>${rt.survivals}</td>
+                <td>${rt.survival_rate}%</td>
+            </tr>
+        `).join('');
+    }
+
+
+    function renderMyTerrorStats() {
+        const tbody = document.getElementById('myTerrorsBody');
+        let filtered = myTerrorStats;
+
+        if (myTerrorSearchQuery) {
+            filtered = myTerrorStats.filter(ts =>
+                ts.terror_name.toLowerCase().includes(myTerrorSearchQuery.toLowerCase())
+            );
+        }
+
+        if (!filtered || filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="empty">${t('common.noTerrors')}</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(ts => `
+            <tr>
+                <td>${escapeHtml(ts.terror_name)}</td>
+                <td>${ts.encounters}</td>
+                <td>${ts.survivals}</td>
+                <td>${ts.survival_rate}%</td>
+            </tr>
+        `).join('');
     }
 
     function renderProfileStatus(profile) {
@@ -346,10 +540,49 @@
                 allHistory = await res.json();
                 applyFilters();
                 calculateUniqueItems();
+                // Update map stats after history is loaded
+                updateMyMapStats();
+            } else {
+                document.getElementById('historyBody').innerHTML = `<tr><td colspan="7" class="empty">${t('myHistory.noMatchingRounds')}</td></tr>`;
             }
         } catch (error) {
             console.error('Failed to load history:', error);
+            document.getElementById('historyBody').innerHTML = `<tr><td colspan="7" class="empty">${t('common.failedToLoad')}</td></tr>`;
         }
+    }
+
+    function updateMyMapStats() {
+        // Calculate map stats from history data
+        const mapData = {};
+        allHistory.forEach(h => {
+            if (h.map_name) {
+                if (!mapData[h.map_name]) {
+                    mapData[h.map_name] = { played: 0, survived: 0 };
+                }
+                mapData[h.map_name].played++;
+                if (h.survived) mapData[h.map_name].survived++;
+            }
+        });
+
+        const tbody = document.getElementById('myMapsBody');
+        const mapEntries = Object.entries(mapData).sort((a, b) => b[1].played - a[1].played);
+
+        if (mapEntries.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="empty">${t('common.noDataYet')}</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = mapEntries.map(([mapName, data]) => {
+            const rate = data.played > 0 ? (data.survived / data.played * 100).toFixed(1) : 0;
+            return `
+                <tr>
+                    <td>${escapeHtml(mapName)}</td>
+                    <td>${data.played}</td>
+                    <td>${data.survived}</td>
+                    <td>${rate}%</td>
+                </tr>
+            `;
+        }).join('');
     }
 
     async function loadRoundTypes() {
@@ -479,6 +712,12 @@
             timeout = setTimeout(later, wait);
         };
     }
+
+    // My terror search
+    document.getElementById('myTerrorSearch').addEventListener('input', (e) => {
+        myTerrorSearchQuery = e.target.value;
+        renderMyTerrorStats();
+    });
 
     // Initial load
     loadProfile();

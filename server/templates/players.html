@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}プレイヤー検索 - ToN Stats{% endblock %}
+{% block title %}プレイヤー検索 - ToN Stat Web{% endblock %}
 
 {% block content %}
 <div class="players-page">
@@ -23,26 +23,6 @@
         </div>
     </div>
 
-    <!-- Global Item Stats -->
-    <div class="global-stats-section">
-        <h2 data-i18n="players.globalItemStats">グローバルアイテム統計</h2>
-        <p class="subtitle" data-i18n="players.itemStatsSubtitle">特定アイテム所持時の生存率</p>
-        <div class="table-container">
-            <table class="data-table" id="itemStatsTable">
-                <thead>
-                    <tr>
-                        <th data-i18n="table.items">アイテム</th>
-                        <th data-i18n="table.timesHeld">所持回数</th>
-                        <th data-i18n="table.survivals">生存数</th>
-                        <th data-i18n="table.survivalRate">生存率</th>
-                    </tr>
-                </thead>
-                <tbody id="itemStatsBody">
-                    <tr><td colspan="4" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
 </div>
 
 <style>
@@ -176,47 +156,6 @@
     font-weight: 500;
 }
 
-.global-stats-section {
-    background: var(--bg-secondary);
-    padding: 1.5rem;
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-}
-
-.global-stats-section h2 {
-    margin-bottom: 0.5rem;
-}
-
-.global-stats-section .subtitle {
-    margin-bottom: 1.5rem;
-}
-
-.rate-bar-container {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.rate-bar {
-    flex: 1;
-    height: 8px;
-    background: var(--bg-tertiary);
-    border-radius: 4px;
-    overflow: hidden;
-    max-width: 100px;
-}
-
-.rate-bar-fill {
-    height: 100%;
-    background: var(--success);
-    border-radius: 4px;
-}
-
-.rate-text {
-    min-width: 50px;
-    text-align: right;
-}
-
 @media (max-width: 768px) {
     .search-form {
         flex-direction: column;
@@ -288,51 +227,10 @@
         }).join('');
     }
 
-    // Load global item stats
-    async function loadItemStats() {
-        try {
-            const res = await fetch('/api/v1/profile/items?limit=30');
-            if (res.ok) {
-                const items = await res.json();
-                renderItemStats(items);
-            }
-        } catch (error) {
-            console.error('Failed to load item stats:', error);
-        }
-    }
-
-    function renderItemStats(items) {
-        const tbody = document.getElementById('itemStatsBody');
-
-        if (items.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" class="empty">${t('players.noItemData')}</td></tr>`;
-            return;
-        }
-
-        tbody.innerHTML = items.map(item => `
-            <tr>
-                <td>${escapeHtml(item.item_name)}</td>
-                <td>${item.times_held}</td>
-                <td>${item.times_survived}</td>
-                <td>
-                    <div class="rate-bar-container">
-                        <div class="rate-bar">
-                            <div class="rate-bar-fill" style="width: ${item.survival_rate}%"></div>
-                        </div>
-                        <span class="rate-text">${item.survival_rate}%</span>
-                    </div>
-                </td>
-            </tr>
-        `).join('');
-    }
-
     // Event listeners
     document.getElementById('searchBtn').addEventListener('click', searchPlayers);
     document.getElementById('searchInput').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') searchPlayers();
     });
-
-    // Initial load
-    loadItemStats();
 </script>
 {% endblock %}
