@@ -110,7 +110,7 @@ async def search_players(
     ]
 
 
-@router.get("/me", response_model=Optional[PlayerProfile])
+@router.get("/me", response_model=PlayerProfile)
 async def get_my_profile(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -122,7 +122,10 @@ async def get_my_profile(
     player = result.scalar_one_or_none()
 
     if not player:
-        return None
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player profile not found"
+        )
 
     return PlayerProfile(
         id=player.id,
@@ -377,6 +380,39 @@ async def get_player_round_type_stats(db: AsyncSession, player_id: int) -> List[
     ]
 
 
+class ProfileUpdateRequest(BaseModel):
+    is_public: Optional[bool] = None
+    bio: Optional[str] = None
+
+
+@router.patch("/me")
+async def update_my_profile(
+    data: ProfileUpdateRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """プロフィール設定を更新"""
+    result = await db.execute(
+        select(Player).where(Player.user_id == user.id)
+    )
+    player = result.scalar_one_or_none()
+
+    if not player:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player profile not found. Play some rounds first!"
+        )
+
+    if data.is_public is not None:
+        player.is_public = data.is_public
+    if data.bio is not None:
+        player.bio = data.bio[:500] if data.bio else None  # 500文字制限
+
+    await db.commit()
+
+    return {"status": "updated"}
+
+
 @router.patch("/me/settings")
 async def update_profile_settings(
     is_public: Optional[bool] = None,
@@ -384,7 +420,7 @@ async def update_profile_settings(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """プロフィール設定を更新"""
+    """プロフィール設定を更新（レガシー）"""
     result = await db.execute(
         select(Player).where(Player.user_id == user.id)
     )

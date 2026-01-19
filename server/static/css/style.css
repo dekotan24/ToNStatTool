@@ -457,28 +457,245 @@ a:hover {
     margin-top: 4rem;
 }
 
+/* ===== Mobile Menu Toggle ===== */
+.nav-toggle {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+}
+
+.nav-toggle span {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: var(--text-primary);
+    margin: 5px 0;
+    transition: all 0.3s;
+}
+
+.nav-toggle.active span:nth-child(1) {
+    transform: rotate(45deg) translate(5px, 5px);
+}
+
+.nav-toggle.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.nav-toggle.active span:nth-child(3) {
+    transform: rotate(-45deg) translate(5px, -5px);
+}
+
 /* ===== Responsive ===== */
-@media (max-width: 768px) {
-    .navbar {
-        flex-direction: column;
-        gap: 1rem;
-        padding: 1rem;
+
+/* Tablet and below */
+@media (max-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
     }
 
     .nav-menu {
         gap: 1rem;
     }
+}
 
+/* Mobile */
+@media (max-width: 768px) {
+    /* Navigation */
+    .navbar {
+        flex-wrap: wrap;
+        padding: 1rem;
+        position: relative;
+    }
+
+    .nav-toggle {
+        display: block;
+        order: 1;
+    }
+
+    .nav-brand {
+        order: 0;
+        flex: 1;
+    }
+
+    .nav-user {
+        order: 2;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .nav-user .username {
+        display: none;
+    }
+
+    .nav-menu {
+        display: none;
+        flex-direction: column;
+        width: 100%;
+        order: 3;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border);
+        margin-top: 1rem;
+        gap: 0;
+    }
+
+    .nav-menu.active {
+        display: flex;
+    }
+
+    .nav-link {
+        display: block;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .nav-link:last-child {
+        border-bottom: none;
+    }
+
+    /* Container */
     .container {
         padding: 1rem;
     }
 
-    .dashboard-grid,
+    /* Stats Overview */
+    .stats-overview {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+
+    .stat-card {
+        padding: 1rem;
+    }
+
+    .stat-value {
+        font-size: 1.75rem;
+    }
+
+    /* Dashboard */
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .dashboard-section {
+        padding: 1rem;
+    }
+
+    /* Tables */
+    .table-container {
+        margin: 0 -1rem;
+        padding: 0 1rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .data-table {
+        min-width: 600px;
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    /* Welcome page */
+    .welcome {
+        padding: 2rem 1rem;
+    }
+
+    .welcome h1 {
+        font-size: 1.75rem;
+    }
+
+    .quick-links {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .quick-links .btn {
+        width: 100%;
+    }
+
+    /* Auth pages */
+    .auth-page {
+        padding: 1rem;
+    }
+
+    .auth-card {
+        padding: 1.5rem;
+    }
+
+    .auth-card h1 {
+        font-size: 1.5rem;
+    }
+
+    /* Page content */
+    .page-content h1 {
+        font-size: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Stats grid */
     .stats-grid {
         grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .stats-section {
+        padding: 1rem;
+    }
+
+    /* Buttons */
+    .btn {
+        padding: 0.625rem 1.25rem;
+        font-size: 0.875rem;
+    }
+
+    /* Error page */
+    .error-container h1 {
+        font-size: 4rem;
+    }
+
+    /* Footer */
+    .footer {
+        margin-top: 2rem;
+        padding: 1.5rem 1rem;
+    }
+}
+
+/* Small Mobile */
+@media (max-width: 480px) {
+    html {
+        font-size: 14px;
     }
 
     .stats-overview {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
+    }
+
+    .navbar {
+        padding: 0.75rem;
+    }
+
+    .nav-brand a {
+        font-size: 1.25rem;
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 0.4rem 0.5rem;
+        font-size: 0.8rem;
     }
 }

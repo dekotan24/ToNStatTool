@@ -53,8 +53,7 @@ async def verify_api_key(
             detail="無効または失効したAPIキーです"
         )
 
-    # 使用回数と最終使用日時を更新
-    api_key.use_count += 1
+    # 最終使用日時を更新
     api_key.last_used_at = datetime.now(timezone.utc)
 
     return api_key

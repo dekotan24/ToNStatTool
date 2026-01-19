@@ -871,7 +871,6 @@ class APIKeyResponse(BaseModel):
     name: str
     key_prefix: str
     is_active: bool
-    use_count: int
     created_at: datetime
     last_used_at: Optional[datetime]
 
@@ -943,7 +942,6 @@ async def list_api_keys(
             name=key.name,
             key_prefix=key.key_prefix,
             is_active=key.is_active,
-            use_count=key.use_count,
             created_at=key.created_at,
             last_used_at=key.last_used_at
         )

@@ -243,9 +243,15 @@ async def players_page(request: Request, user: User = Depends(get_current_user))
 
 @app.get("/api-keys", response_class=HTMLResponse)
 async def api_keys_page(request: Request, user: User = Depends(get_current_user)):
-    """APIキー管理ページ"""
+    """APIキー管理ページ（リダイレクト）"""
+    return RedirectResponse(url="/settings", status_code=302)
+
+
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request, user: User = Depends(get_current_user)):
+    """設定ページ"""
     return templates.TemplateResponse(
-        "api-keys.html",
+        "settings.html",
         {
             "request": request,
             "user": user,

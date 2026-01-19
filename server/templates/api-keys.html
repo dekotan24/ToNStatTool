@@ -40,14 +40,13 @@
                         <th>Name</th>
                         <th>Key Prefix</th>
                         <th>Status</th>
-                        <th>Uses</th>
                         <th>Last Used</th>
                         <th>Created</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="keysBody">
-                    <tr><td colspan="7" class="loading">Loading...</td></tr>
+                    <tr><td colspan="6" class="loading">Loading...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -281,7 +280,7 @@
             const tbody = document.getElementById('keysBody');
 
             if (keys.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty">No API keys yet. Create one above.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="empty">No API keys yet. Create one above.</td></tr>';
                 return;
             }
 
@@ -292,7 +291,6 @@
                     <td class="${key.is_active ? 'status-active' : 'status-revoked'}">
                         ${key.is_active ? 'Active' : 'Revoked'}
                     </td>
-                    <td>${key.use_count.toLocaleString()}</td>
                     <td>${key.last_used_at ? new Date(key.last_used_at).toLocaleString('ja-JP') : '-'}</td>
                     <td>${new Date(key.created_at).toLocaleString('ja-JP')}</td>
                     <td>
@@ -302,7 +300,7 @@
             `).join('');
         } catch (error) {
             console.error('Failed to load API keys:', error);
-            document.getElementById('keysBody').innerHTML = '<tr><td colspan="7" class="empty">Failed to load API keys</td></tr>';
+            document.getElementById('keysBody').innerHTML = '<tr><td colspan="6" class="empty">Failed to load API keys</td></tr>';
         }
     }
 

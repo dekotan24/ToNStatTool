@@ -15,18 +15,23 @@
         <div class="nav-brand">
             <a href="/">ToN Stats</a>
         </div>
-        <div class="nav-menu">
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+        <div class="nav-user">
+            <span class="username">{{ user.username }}</span>
+            <button id="logoutBtn" class="btn btn-outline">Logout</button>
+        </div>
+        <div class="nav-menu" id="navMenu">
             <a href="/dashboard" class="nav-link">Dashboard</a>
             <a href="/round-log" class="nav-link">Round Log</a>
             <a href="/instances" class="nav-link">Instances</a>
             <a href="/players" class="nav-link">Players</a>
             <a href="/statistics" class="nav-link">Statistics</a>
             <a href="/my-history" class="nav-link">My Log</a>
-            <a href="/api-keys" class="nav-link">API Keys</a>
-        </div>
-        <div class="nav-user">
-            <span class="username">{{ user.username }}</span>
-            <button id="logoutBtn" class="btn btn-outline">Logout</button>
+            <a href="/settings" class="nav-link">Settings</a>
         </div>
     </nav>
     {% endif %}
