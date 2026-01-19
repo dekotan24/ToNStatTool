@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using NAudio.Wave;
 using Newtonsoft.Json;
+using ToNStatTool.Services;
 
 namespace ToNStatTool
 {
@@ -80,6 +81,9 @@ namespace ToNStatTool
 		// Sound settings
 		public SoundSettings SoundSettings { get; private set; } = new SoundSettings();
 		private const string SOUND_SETTINGS_FILE = "sound_settings.json";
+
+		// Cloud service
+		private CloudService cloudService;
 		private const int MAX_ROUND_LOGS = 2000; // ラウンドログの最大保持数
 		private bool isProcessingBufferedEvents = false; // バッファイベント処理中フラグ
 		private readonly object audioLock = new object(); // 音声再生の排他制御用
@@ -100,6 +104,7 @@ namespace ToNStatTool
 			LoadWarningUsers();
 			InitializeWarningSound();
 			LoadSoundSettings();
+			cloudService = new CloudService();
 		}
 
 		/// <summary>
@@ -859,6 +864,9 @@ namespace ToNStatTool
 				// ラウンド終了イベントを発火
 				OnRoundEnd?.Invoke();
 				Logger.Info("RoundType", $"ラウンド終了イベントを発火: {roundType}");
+
+				// クラウドにラウンド情報を送信
+				SendRoundEndToCloud(finishedRoundType);
 
 				// アイテムリマインダー対象ラウンドかチェック（Punished/8Pages）
 				// 注意: 受信したroundType(Intermission)ではなく、終了前のラウンドタイプを使用
@@ -2677,6 +2685,73 @@ namespace ToNStatTool
 				RoundLogs.Clear();
 
 				System.Diagnostics.Debug.WriteLine("[リセット] ラウンド統計、テラー統計、ラウンドログをリセットしました");
+			}
+		}
+
+		/// <summary>
+		/// クラウドにラウンド終了情報を送信する
+		/// </summary>
+		private void SendRoundEndToCloud(ToNRoundType roundType)
+		{
+			if (cloudService == null)
+				return;
+
+			try
+			{
+				// 現在のラウンド情報を取得
+				string mapName = GetGameDataValue("location", "Unknown").Split('(')[0].Trim();
+				var terrors = CurrentTerrors.Select(t => t.Name).ToArray();
+
+				// 生存プレイヤー数をカウント
+				int aliveCount = 0;
+				int totalPlayerCount = 0;
+				lock (dataLock)
+				{
+					aliveCount = Players.Values.Count(p => p.IsAlive);
+					totalPlayerCount = Players.Count;
+				}
+
+				var roundEvent = new CloudRoundEndEvent
+				{
+					InstanceId = InstanceState.InstanceUrl,
+					Timestamp = DateTime.UtcNow,
+					Round = new CloudRoundInfo
+					{
+						Type = ToNRoundTypeHelper.GetDisplayName(roundType),
+						MapName = mapName,
+						Terrors = terrors
+					},
+					Instance = new CloudInstanceInfo
+					{
+						PlayerCount = totalPlayerCount,
+						SurvivorCount = aliveCount
+					}
+				};
+
+				// 非同期で送信（結果を待たない）
+				_ = cloudService.SendRoundEndAsync(roundEvent);
+				Logger.Debug("Cloud", $"ラウンド情報をクラウドに送信: {roundType}, Players={totalPlayerCount}, Survivors={aliveCount}");
+			}
+			catch (Exception ex)
+			{
+				Logger.Warn("Cloud", $"クラウド送信エラー: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// クラウド設定を更新する
+		/// </summary>
+		public void UpdateCloudSettings(bool enabled, string serverUrl, string apiKey = null)
+		{
+			if (cloudService != null)
+			{
+				cloudService.SetEnabled(enabled);
+				cloudService.SetServerUrl(serverUrl);
+				if (apiKey != null)
+				{
+					cloudService.SetApiKey(apiKey);
+				}
+				Logger.Info("Cloud", $"クラウド設定を更新: Enabled={enabled}, URL={serverUrl}");
 			}
 		}
 

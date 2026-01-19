@@ -173,6 +173,12 @@ namespace ToNStatTool
                     {
                         Logger.DisableVerboseLogging();
                     }
+
+                    // クラウド設定を反映
+                    webSocketClient.UpdateCloudSettings(
+                        settingsForm.CloudSyncEnabled,
+                        settingsForm.CloudServerUrl,
+                        settingsForm.CloudApiKey);
                 }
             }
         }

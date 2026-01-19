@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - ToN Stats{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <h1>Dashboard</h1>
+
+    <div class="stats-overview" id="statsOverview">
+        <div class="stat-card">
+            <div class="stat-value" id="totalRounds">-</div>
+            <div class="stat-label">Total Rounds</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="totalInstances">-</div>
+            <div class="stat-label">Total Instances</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="totalTerrors">-</div>
+            <div class="stat-label">Terrors Encountered</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="survivalRate">-</div>
+            <div class="stat-label">Avg Survival Rate</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="last24h">-</div>
+            <div class="stat-label">Rounds (24h)</div>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="dashboard-section">
+            <h2>Recent Rounds</h2>
+            <div class="table-container">
+                <table class="data-table" id="recentRoundsTable">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Type</th>
+                            <th>Map</th>
+                            <th>Terrors</th>
+                            <th>Survivors</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentRoundsBody">
+                        <tr><td colspan="5" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="dashboard-section">
+            <h2>Active Instances</h2>
+            <div class="table-container">
+                <table class="data-table" id="activeInstancesTable">
+                    <thead>
+                        <tr>
+                            <th>Instance</th>
+                            <th>Rounds</th>
+                            <th>Last Activity</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activeInstancesBody">
+                        <tr><td colspan="3" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadDashboard() {
+        try {
+            // Overview stats
+            const overviewRes = await fetch('/api/v1/stats/overview');
+            if (overviewRes.ok) {
+                const overview = await overviewRes.json();
+                document.getElementById('totalRounds').textContent = overview.total_rounds.toLocaleString();
+                document.getElementById('totalInstances').textContent = overview.total_instances.toLocaleString();
+                document.getElementById('totalTerrors').textContent = overview.total_terrors_encountered.toLocaleString();
+                document.getElementById('survivalRate').textContent = overview.average_survival_rate.toFixed(1) + '%';
+                document.getElementById('last24h').textContent = overview.last_24h_rounds.toLocaleString();
+            }
+
+            // Recent rounds
+            const roundsRes = await fetch('/api/v1/stats/recent-rounds?limit=10');
+            if (roundsRes.ok) {
+                const rounds = await roundsRes.json();
+                const tbody = document.getElementById('recentRoundsBody');
+                if (rounds.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty">No rounds recorded yet</td></tr>';
+                } else {
+                    tbody.innerHTML = rounds.map(r => `
+                        <tr>
+                            <td>${new Date(r.started_at).toLocaleString('ja-JP')}</td>
+                            <td><span class="round-type">${r.round_type}</span></td>
+                            <td>${r.map_name || '-'}</td>
+                            <td>${r.terrors.slice(0, 2).join(', ')}${r.terrors.length > 2 ? '...' : ''}</td>
+                            <td>${r.survivor_count}/${r.player_count}</td>
+                        </tr>
+                    `).join('');
+                }
+            }
+
+            // Active instances
+            const instancesRes = await fetch('/api/v1/stats/active-instances?hours=1');
+            if (instancesRes.ok) {
+                const instances = await instancesRes.json();
+                const tbody = document.getElementById('activeInstancesBody');
+                if (instances.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="empty">No active instances</td></tr>';
+                } else {
+                    tbody.innerHTML = instances.map(i => `
+                        <tr>
+                            <td class="instance-id">${i.instance_id}</td>
+                            <td>${i.total_rounds}</td>
+                            <td>${new Date(i.last_activity_at).toLocaleString('ja-JP')}</td>
+                        </tr>
+                    `).join('');
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load dashboard:', error);
+        }
+    }
+
+    // Initial load
+    loadDashboard();
+
+    // Auto refresh every 30 seconds
+    setInterval(loadDashboard, 30000);
+</script>
+{% endblock %}

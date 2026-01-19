@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+    <title>Login - ToN Stats</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <div class="auth-card">
+            <h1>ToN Stats</h1>
+            <h2>Login</h2>
+
+            <div id="error-message" class="error-message hidden"></div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required autocomplete="username">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password">
+                </div>
+
+                <div class="form-group turnstile-container">
+                    <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-callback="onTurnstileSuccess"></div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-full" id="submitBtn" disabled>Login</button>
+            </form>
+
+            <div class="auth-links">
+                <p>Don't have an account? <a href="/register">Register</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let turnstileToken = null;
+
+        function onTurnstileSuccess(token) {
+            turnstileToken = token;
+            document.getElementById('submitBtn').disabled = false;
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const errorDiv = document.getElementById('error-message');
+            const submitBtn = document.getElementById('submitBtn');
+
+            if (!turnstileToken) {
+                errorDiv.textContent = 'Please complete the verification';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Logging in...';
+
+            try {
+                const response = await fetch('/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: document.getElementById('username').value,
+                        password: document.getElementById('password').value,
+                        turnstile_token: turnstileToken
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    window.location.href = '/dashboard';
+                } else {
+                    errorDiv.textContent = data.detail || 'Login failed';
+                    errorDiv.classList.remove('hidden');
+                    // Reset Turnstile
+                    if (typeof turnstile !== 'undefined') {
+                        turnstile.reset();
+                    }
+                    turnstileToken = null;
+                    submitBtn.disabled = true;
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Connection error. Please try again.';
+                errorDiv.classList.remove('hidden');
+            }
+
+            submitBtn.textContent = 'Login';
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Round Stats - ToN Stats{% endblock %}
+
+{% block content %}
+<div class="page-content">
+    <h1>Round Statistics</h1>
+
+    <div class="stats-grid">
+        <div class="stats-section">
+            <h2>Round Types</h2>
+            <div class="table-container">
+                <table class="data-table" id="roundTypesTable">
+                    <thead>
+                        <tr>
+                            <th>Round Type</th>
+                            <th>Count</th>
+                            <th>%</th>
+                            <th>Survival Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody id="roundTypesBody">
+                        <tr><td colspan="4" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="stats-section">
+            <h2>Maps</h2>
+            <div class="table-container">
+                <table class="data-table" id="mapsTable">
+                    <thead>
+                        <tr>
+                            <th>Map Name</th>
+                            <th>Count</th>
+                            <th>%</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mapsBody">
+                        <tr><td colspan="3" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadRoundStats() {
+        try {
+            // Round types
+            const typesRes = await fetch('/api/v1/stats/round-types');
+            if (typesRes.ok) {
+                const types = await typesRes.json();
+                const tbody = document.getElementById('roundTypesBody');
+                if (types.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="empty">No data yet</td></tr>';
+                } else {
+                    tbody.innerHTML = types.map(t => `
+                        <tr>
+                            <td><span class="round-type">${escapeHtml(t.round_type)}</span></td>
+                            <td>${t.occurrence_count.toLocaleString()}</td>
+                            <td>${t.percentage.toFixed(1)}%</td>
+                            <td>
+                                <div class="survival-rate">
+                                    <div class="rate-bar" style="width: ${t.survival_rate}%"></div>
+                                    <span>${t.survival_rate.toFixed(1)}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            }
+
+            // Maps
+            const mapsRes = await fetch('/api/v1/stats/maps?limit=50');
+            if (mapsRes.ok) {
+                const maps = await mapsRes.json();
+                const tbody = document.getElementById('mapsBody');
+                if (maps.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="empty">No data yet</td></tr>';
+                } else {
+                    tbody.innerHTML = maps.map(m => `
+                        <tr>
+                            <td>${escapeHtml(m.map_name)}</td>
+                            <td>${m.occurrence_count.toLocaleString()}</td>
+                            <td>${m.percentage.toFixed(1)}%</td>
+                        </tr>
+                    `).join('');
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load round stats:', error);
+        }
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    loadRoundStats();
+</script>
+{% endblock %}

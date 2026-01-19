@@ -33,6 +33,21 @@ namespace ToNStatTool
 		public bool EnableVerboseLog { get; set; } = false;
 
 		/// <summary>
+		/// クラウドにラウンド情報を送信するか（デフォルトはオフ）
+		/// </summary>
+		public bool EnableCloudSync { get; set; } = false;
+
+		/// <summary>
+		/// クラウドサーバーのURL
+		/// </summary>
+		public string CloudServerUrl { get; set; } = "https://ton-stats.example.com";
+
+		/// <summary>
+		/// クラウドAPIキー（Webで発行したキー）
+		/// </summary>
+		public string CloudApiKey { get; set; } = "";
+
+		/// <summary>
 		/// 設定をファイルから読み込む
 		/// </summary>
 		public static AppSettings Load()

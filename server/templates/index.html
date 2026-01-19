@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}ToN Stats{% endblock %}
+
+{% block content %}
+<div class="welcome">
+    <h1>Welcome, {{ user.username }}!</h1>
+    <p>Terror of Nowhere Statistics Dashboard</p>
+    <div class="quick-links">
+        <a href="/dashboard" class="btn btn-primary">Go to Dashboard</a>
+    </div>
+</div>
+{% endblock %}
