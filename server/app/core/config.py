@@ -8,10 +8,14 @@ load_dotenv()
 
 class Settings:
     # データベース設定
-    DATABASE_URL: str = os.getenv(
+    _raw_database_url: str = os.getenv(
         "DATABASE_URL",
         "postgresql+asyncpg://ton_user:password@localhost:5432/ton_stats"
     )
+    # Railway等のpostgresql://形式をasyncpg形式に変換
+    DATABASE_URL: str = _raw_database_url.replace(
+        "postgresql://", "postgresql+asyncpg://"
+    ) if _raw_database_url.startswith("postgresql://") else _raw_database_url
 
     # セキュリティ設定
     SECRET_KEY: str = os.getenv("SECRET_KEY", "change-this-in-production")
