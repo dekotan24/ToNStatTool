@@ -39,5 +39,18 @@ async def get_db() -> AsyncSession:
 
 async def init_db():
     """データベース初期化"""
+    from sqlalchemy import text
+
     async with engine.begin() as conn:
+        # api_keysテーブルにkey_prefixカラムがなければ追加
+        try:
+            await conn.execute(text(
+                "ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS key_prefix VARCHAR(16)"
+            ))
+            await conn.execute(text(
+                "ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS use_count INTEGER DEFAULT 0"
+            ))
+        except Exception:
+            pass  # カラムが既に存在する場合はスキップ
+
         await conn.run_sync(Base.metadata.create_all)
