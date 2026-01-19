@@ -19,7 +19,8 @@ router = APIRouter(prefix="/api/v1/profile", tags=["profile"])
 
 class PlayerProfile(BaseModel):
     id: int
-    vrchat_name: str
+    username: str  # Webアカウントのユーザー名（URL用）
+    vrchat_name: str  # VRChatのプレイヤー名（表示用）
     avatar_seed: Optional[str]
     bio: Optional[str]
     is_public: bool
@@ -45,7 +46,8 @@ class PlayerRoundHistory(BaseModel):
 
 class PlayerSearchResult(BaseModel):
     id: int
-    vrchat_name: str
+    username: str  # Webアカウントのユーザー名（URL用）
+    vrchat_name: str  # VRChatのプレイヤー名（表示用）
     avatar_seed: Optional[str]
     total_rounds: int
     survival_rate: float
@@ -86,27 +88,30 @@ async def search_players(
     db: AsyncSession = Depends(get_db),
     limit: int = Query(default=20, le=50)
 ):
-    """プレイヤーを検索（公開プロフィールのみ）"""
+    """プレイヤーを検索（公開プロフィールのみ、Webアカウント紐付け必須）"""
     result = await db.execute(
-        select(Player)
+        select(Player, User)
+        .join(User, Player.user_id == User.id)
         .where(
             Player.is_public == True,
+            Player.user_id.isnot(None),
             Player.vrchat_name.ilike(f"%{q}%")
         )
         .order_by(desc(Player.total_rounds))
         .limit(limit)
     )
-    players = result.scalars().all()
+    rows = result.all()
 
     return [
         PlayerSearchResult(
             id=p.id,
+            username=u.username,
             vrchat_name=p.vrchat_name,
             avatar_seed=p.avatar_seed,
             total_rounds=p.total_rounds,
             survival_rate=round(p.total_survivals / p.total_rounds * 100, 2) if p.total_rounds > 0 else 0
         )
-        for p in players
+        for p, u in rows
     ]
 
 
@@ -129,6 +134,7 @@ async def get_my_profile(
 
     return PlayerProfile(
         id=player.id,
+        username=user.username,
         vrchat_name=player.vrchat_name,
         avatar_seed=player.avatar_seed,
         bio=player.bio,
@@ -141,22 +147,35 @@ async def get_my_profile(
     )
 
 
-@router.get("/player/{vrchat_name}", response_model=PlayerProfile)
+@router.get("/player/{username}", response_model=PlayerProfile)
 async def get_player_profile(
-    vrchat_name: str,
+    username: str,
     user: Optional[User] = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """プレイヤープロフィールを取得"""
+    """プレイヤープロフィールを取得（Webアカウントのユーザー名で検索）"""
+    # Webアカウントを検索
+    user_result = await db.execute(
+        select(User).where(User.username == username)
+    )
+    target_user = user_result.scalar_one_or_none()
+
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    # 紐づいたプレイヤーを取得
     result = await db.execute(
-        select(Player).where(Player.vrchat_name == vrchat_name)
+        select(Player).where(Player.user_id == target_user.id)
     )
     player = result.scalar_one_or_none()
 
     if not player:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player not found"
+            detail="Player profile not found"
         )
 
     # 自分のプロフィールかチェック
@@ -171,6 +190,7 @@ async def get_player_profile(
 
     return PlayerProfile(
         id=player.id,
+        username=target_user.username,
         vrchat_name=player.vrchat_name,
         avatar_seed=player.avatar_seed,
         bio=player.bio,
@@ -183,25 +203,37 @@ async def get_player_profile(
     )
 
 
-@router.get("/player/{vrchat_name}/history", response_model=List[PlayerRoundHistory])
+@router.get("/player/{username}/history", response_model=List[PlayerRoundHistory])
 async def get_player_history(
-    vrchat_name: str,
+    username: str,
     user: Optional[User] = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db),
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0)
 ):
     """プレイヤーのラウンド履歴を取得"""
-    # プレイヤーを取得
+    # Webアカウントを検索
+    user_result = await db.execute(
+        select(User).where(User.username == username)
+    )
+    target_user = user_result.scalar_one_or_none()
+
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    # 紐づいたプレイヤーを取得
     result = await db.execute(
-        select(Player).where(Player.vrchat_name == vrchat_name)
+        select(Player).where(Player.user_id == target_user.id)
     )
     player = result.scalar_one_or_none()
 
     if not player:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player not found"
+            detail="Player profile not found"
         )
 
     # 自分のプロフィールかチェック
@@ -242,23 +274,35 @@ async def get_player_history(
     ]
 
 
-@router.get("/player/{vrchat_name}/stats", response_model=DetailedStats)
+@router.get("/player/{username}/stats", response_model=DetailedStats)
 async def get_player_detailed_stats(
-    vrchat_name: str,
+    username: str,
     user: Optional[User] = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db)
 ):
     """プレイヤーの詳細統計を取得"""
-    # プレイヤーを取得
+    # Webアカウントを検索
+    user_result = await db.execute(
+        select(User).where(User.username == username)
+    )
+    target_user = user_result.scalar_one_or_none()
+
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    # 紐づいたプレイヤーを取得
     result = await db.execute(
-        select(Player).where(Player.vrchat_name == vrchat_name)
+        select(Player).where(Player.user_id == target_user.id)
     )
     player = result.scalar_one_or_none()
 
     if not player:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player not found"
+            detail="Player profile not found"
         )
 
     # 自分のプロフィールかチェック

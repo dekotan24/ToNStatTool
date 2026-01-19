@@ -268,7 +268,7 @@
         grid.innerHTML = players.map(p => {
             const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${p.avatar_seed || p.vrchat_name}`;
             return `
-                <a href="/player/${encodeURIComponent(p.vrchat_name)}" class="player-card">
+                <a href="/player/${encodeURIComponent(p.username)}" class="player-card">
                     <div class="player-avatar">
                         <img src="${avatarUrl}" alt="Avatar">
                     </div>

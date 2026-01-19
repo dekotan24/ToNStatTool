@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ player_name }} - ToN Stats{% endblock %}
+{% block title %}{{ username }} - ToN Stats{% endblock %}
 
 {% block content %}
 <div class="profile-page">
@@ -346,7 +346,7 @@
 
 {% block scripts %}
 <script>
-    const playerName = "{{ player_name }}";
+    const username = "{{ username }}";
     let historyOffset = 0;
     const historyLimit = 50;
     let detailedStats = null;
@@ -354,7 +354,7 @@
     // Load profile data
     async function loadProfile() {
         try {
-            const res = await fetch(`/api/v1/profile/player/${encodeURIComponent(playerName)}`);
+            const res = await fetch(`/api/v1/profile/player/${encodeURIComponent(username)}`);
             if (!res.ok) {
                 if (res.status === 404) {
                     document.getElementById('profileHeader').innerHTML = `
@@ -423,7 +423,7 @@
 
     async function loadDetailedStats() {
         try {
-            const res = await fetch(`/api/v1/profile/player/${encodeURIComponent(playerName)}/stats`);
+            const res = await fetch(`/api/v1/profile/player/${encodeURIComponent(username)}/stats`);
             if (res.ok) {
                 detailedStats = await res.json();
                 renderRoundTypeStats();
@@ -509,7 +509,7 @@
 
     async function loadHistory(append = false) {
         try {
-            const res = await fetch(`/api/v1/profile/player/${encodeURIComponent(playerName)}/history?limit=${historyLimit}&offset=${historyOffset}`);
+            const res = await fetch(`/api/v1/profile/player/${encodeURIComponent(username)}/history?limit=${historyLimit}&offset=${historyOffset}`);
             if (res.ok) {
                 const history = await res.json();
                 renderHistory(history, append);

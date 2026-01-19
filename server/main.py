@@ -307,10 +307,10 @@ async def settings_page(request: Request, user: User = Depends(get_current_user)
     )
 
 
-@app.get("/player/{player_name}", response_class=HTMLResponse)
+@app.get("/player/{username}", response_class=HTMLResponse)
 async def player_profile_page(
     request: Request,
-    player_name: str,
+    username: str,
     user: User = Depends(get_optional_user)
 ):
     """プレイヤープロフィールページ"""
@@ -319,7 +319,7 @@ async def player_profile_page(
         {
             "request": request,
             "user": user,
-            "player_name": player_name
+            "username": username
         }
     )
 
