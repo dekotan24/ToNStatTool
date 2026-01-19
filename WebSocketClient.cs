@@ -2703,6 +2703,14 @@ namespace ToNStatTool
 				return;
 			}
 
+			// パブリックインスタンス以外はスキップ
+			if (string.IsNullOrEmpty(InstanceState.InstanceUrl) ||
+				!InstanceState.InstanceUrl.Contains("public", StringComparison.OrdinalIgnoreCase))
+			{
+				Logger.Debug("Cloud", "パブリックインスタンスではないためクラウド送信をスキップ");
+				return;
+			}
+
 			try
 			{
 				// 現在のラウンド情報を取得
