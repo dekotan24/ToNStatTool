@@ -216,19 +216,19 @@
     let totalPages = 1;
     let perPage = 20;
 
-    function createInstanceLink(instanceDbId, instanceId) {
-        if (!instanceDbId) return '-';
+    function createInstanceLink(instanceId) {
+        if (!instanceId) return '-';
 
-        // Extract short instance number for display
-        let shortId = 'View';
-        if (instanceId) {
-            const parts = instanceId.split(':');
-            if (parts.length >= 2) {
-                shortId = parts.slice(1).join(':').split('~')[0] || 'View';
-            }
+        // Extract short instance number from instance_id (e.g., wrld_xxx:12345~region(...) -> 12345)
+        let shortId = null;
+        const parts = instanceId.split(':');
+        if (parts.length >= 2) {
+            shortId = parts.slice(1).join(':').split('~')[0];
         }
 
-        return `<a href="/instance/${instanceDbId}" class="instance-link" title="${escapeHtml(instanceId || '')}">${escapeHtml(shortId)}</a>`;
+        if (!shortId) return '-';
+
+        return `<a href="/instance/${encodeURIComponent(shortId)}" class="instance-link" title="${escapeHtml(instanceId)}">${escapeHtml(shortId)}</a>`;
     }
 
     // Load filter options on page load
@@ -303,7 +303,7 @@
                 } else {
                     tbody.innerHTML = data.results.map(i => `
                         <tr>
-                            <td>${createInstanceLink(i.id, i.instance_id)}</td>
+                            <td>${createInstanceLink(i.instance_id)}</td>
                             <td><span class="round-type">${escapeHtml(i.latest_round_type || '-')}</span></td>
                             <td>${i.latest_terrors && i.latest_terrors.length > 0
                                 ? i.latest_terrors.slice(0, 2).map(t => escapeHtml(t)).join(', ') + (i.latest_terrors.length > 2 ? '...' : '')

@@ -461,18 +461,33 @@ class InstanceDetail(BaseModel):
     map_stats: dict
 
 
-@router.get("/instance/{instance_db_id}", response_model=InstanceDetail)
+@router.get("/instance/{instance_short_id}", response_model=InstanceDetail)
 async def get_instance_detail(
-    instance_db_id: int,
+    instance_short_id: str,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """インスタンス詳細を取得"""
-    # インスタンスを取得
+    """インスタンス詳細を取得（インスタンスURLの5桁IDで検索）"""
+    # インスタンスIDに短縮IDを含むものを検索
+    # 例: wrld_xxx:12345~region(...) から 12345 で検索
+    # まずチルダ付きで検索、見つからなければチルダなしでも検索
     result = await db.execute(
-        select(Instance).where(Instance.id == instance_db_id)
+        select(Instance).where(
+            Instance.instance_id.like(f"%:{instance_short_id}~%")
+        ).order_by(desc(Instance.last_activity_at))
+        .limit(1)
     )
     instance = result.scalar_one_or_none()
+
+    # チルダなしの形式でも検索（フォールバック）
+    if not instance:
+        result = await db.execute(
+            select(Instance).where(
+                Instance.instance_id.like(f"%:{instance_short_id}")
+            ).order_by(desc(Instance.last_activity_at))
+            .limit(1)
+        )
+        instance = result.scalar_one_or_none()
 
     if not instance:
         from fastapi import HTTPException, status

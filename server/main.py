@@ -229,10 +229,10 @@ async def instances_page(request: Request, user: User = Depends(get_current_user
     )
 
 
-@app.get("/instance/{instance_db_id}", response_class=HTMLResponse)
+@app.get("/instance/{instance_short_id}", response_class=HTMLResponse)
 async def instance_detail_page(
     request: Request,
-    instance_db_id: int,
+    instance_short_id: str,
     user: User = Depends(get_current_user)
 ):
     """インスタンス詳細ページ"""
@@ -241,7 +241,7 @@ async def instance_detail_page(
         {
             "request": request,
             "user": user,
-            "instance_db_id": instance_db_id
+            "instance_short_id": instance_short_id
         }
     )
 

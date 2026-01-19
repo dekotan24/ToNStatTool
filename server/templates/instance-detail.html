@@ -230,7 +230,7 @@
 
 {% block scripts %}
 <script>
-    const instanceId = {{ instance_db_id }};
+    const instanceShortId = "{{ instance_short_id }}";
 
     function createVRChatLaunchUrl(instanceIdStr) {
         if (!instanceIdStr) return null;
@@ -246,7 +246,7 @@
 
     async function loadInstanceDetail() {
         try {
-            const res = await fetch(`/api/v1/stats/instance/${instanceId}`);
+            const res = await fetch(`/api/v1/stats/instance/${encodeURIComponent(instanceShortId)}`);
 
             if (!res.ok) {
                 if (res.status === 404) {
