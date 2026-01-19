@@ -4,12 +4,12 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import select, func, desc, or_, any_
+from sqlalchemy import select, func, desc, or_, any_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.api.auth import get_current_user
-from app.models import User, Instance, Round, TerrorStats, RoundTypeStats, MapStats
+from app.models import User, Instance, Round, TerrorStats, RoundTypeStats, MapStats, Player, PlayerRound
 
 router = APIRouter(prefix="/api/v1/stats", tags=["stats"])
 
@@ -555,3 +555,191 @@ async def get_instance_detail(
         round_type_stats=round_type_counts,
         map_stats=map_counts
     )
+
+
+# ========== User-specific Dashboard Endpoints ==========
+
+class MyOverviewStats(BaseModel):
+    total_rounds: int
+    total_survivals: int
+    survival_rate: float
+    terrors_encountered: int
+    last_24h_rounds: int
+
+
+class MyRecentRound(BaseModel):
+    id: int
+    round_type: str
+    map_name: Optional[str]
+    terrors: List[str]
+    items: List[str]
+    survived: bool
+    player_count: int
+    started_at: datetime
+
+
+@router.get("/my/overview", response_model=MyOverviewStats)
+async def get_my_overview(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """自分の統計概要を取得"""
+    # ユーザーに紐づくプレイヤーを取得
+    player_result = await db.execute(
+        select(Player).where(Player.user_id == user.id)
+    )
+    player = player_result.scalar_one_or_none()
+
+    if not player:
+        return MyOverviewStats(
+            total_rounds=0,
+            total_survivals=0,
+            survival_rate=0,
+            terrors_encountered=0,
+            last_24h_rounds=0
+        )
+
+    # 総ラウンド数と生存数はPlayerテーブルにキャッシュされている
+    total_rounds = player.total_rounds
+    total_survivals = player.total_survivals
+    survival_rate = (total_survivals / total_rounds * 100) if total_rounds > 0 else 0
+
+    # 遭遇したテラー数（ユニーク数）
+    terror_result = await db.execute(
+        select(func.unnest(Round.terrors))
+        .select_from(PlayerRound)
+        .join(Round, PlayerRound.round_id == Round.id)
+        .where(PlayerRound.player_id == player.id)
+        .distinct()
+    )
+    terrors_encountered = len(terror_result.all())
+
+    # 過去24時間のラウンド数
+    yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+    last_24h_result = await db.execute(
+        select(func.count(PlayerRound.id))
+        .join(Round, PlayerRound.round_id == Round.id)
+        .where(
+            PlayerRound.player_id == player.id,
+            Round.started_at >= yesterday
+        )
+    )
+    last_24h_rounds = last_24h_result.scalar() or 0
+
+    return MyOverviewStats(
+        total_rounds=total_rounds,
+        total_survivals=total_survivals,
+        survival_rate=round(survival_rate, 2),
+        terrors_encountered=terrors_encountered,
+        last_24h_rounds=last_24h_rounds
+    )
+
+
+@router.get("/my/recent-rounds", response_model=List[MyRecentRound])
+async def get_my_recent_rounds(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    limit: int = Query(default=20, le=100)
+):
+    """自分の最近のラウンドを取得"""
+    # ユーザーに紐づくプレイヤーを取得
+    player_result = await db.execute(
+        select(Player).where(Player.user_id == user.id)
+    )
+    player = player_result.scalar_one_or_none()
+
+    if not player:
+        return []
+
+    # プレイヤーのラウンドを取得
+    result = await db.execute(
+        select(PlayerRound, Round)
+        .join(Round, PlayerRound.round_id == Round.id)
+        .where(PlayerRound.player_id == player.id)
+        .order_by(desc(Round.started_at))
+        .limit(limit)
+    )
+    rows = result.all()
+
+    return [
+        MyRecentRound(
+            id=pr.id,
+            round_type=r.round_type,
+            map_name=r.map_name,
+            terrors=r.terrors or [],
+            items=pr.items or [],
+            survived=pr.survived,
+            player_count=r.player_count,
+            started_at=r.started_at
+        )
+        for pr, r in rows
+    ]
+
+
+class MyActiveInstance(BaseModel):
+    instance_short_id: str
+    instance_id: str
+    last_activity_at: datetime
+    total_rounds: int
+    my_rounds: int
+    my_survivals: int
+
+
+@router.get("/my/active-instances", response_model=List[MyActiveInstance])
+async def get_my_active_instances(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    hours: int = Query(default=2, le=24)
+):
+    """自分がプレイしたアクティブなインスタンスを取得"""
+    # ユーザーに紐づくプレイヤーを取得
+    player_result = await db.execute(
+        select(Player).where(Player.user_id == user.id)
+    )
+    player = player_result.scalar_one_or_none()
+
+    if not player:
+        return []
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+    # 自分が参加したインスタンス（最近のもの）
+    result = await db.execute(
+        select(
+            Instance,
+            func.count(PlayerRound.id).label('my_rounds'),
+            func.sum(case((PlayerRound.survived == True, 1), else_=0)).label('my_survivals')
+        )
+        .select_from(PlayerRound)
+        .join(Round, PlayerRound.round_id == Round.id)
+        .join(Instance, Round.instance_id == Instance.id)
+        .where(
+            PlayerRound.player_id == player.id,
+            Round.started_at >= cutoff
+        )
+        .group_by(Instance.id)
+        .order_by(desc(Instance.last_activity_at))
+        .limit(20)
+    )
+    rows = result.all()
+
+    active_instances = []
+    for instance, my_rounds, my_survivals in rows:
+        # インスタンスIDから5桁の短縮IDを抽出
+        short_id = ""
+        if ":" in instance.instance_id:
+            parts = instance.instance_id.split(":")
+            if len(parts) >= 2:
+                id_part = parts[1].split("~")[0] if "~" in parts[1] else parts[1]
+                short_id = id_part
+
+        active_instances.append(MyActiveInstance(
+            instance_short_id=short_id,
+            instance_id=instance.instance_id[:50] + "..." if len(instance.instance_id) > 50 else instance.instance_id,
+            last_activity_at=instance.last_activity_at,
+            total_rounds=instance.total_rounds,
+            my_rounds=my_rounds or 0,
+            my_survivals=my_survivals or 0
+        ))
+
+    return active_instances

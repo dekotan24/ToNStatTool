@@ -2755,6 +2755,7 @@ namespace ToNStatTool
 					Player = new CloudPlayerInfo
 					{
 						VRChatName = LocalPlayerName,
+						VRChatId = LocalPlayerUserId,
 						Survived = playerSurvived,
 						Items = playerItems.ToArray()
 					}

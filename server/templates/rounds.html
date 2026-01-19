@@ -1,26 +1,26 @@
 {% extends "base.html" %}
 
-{% block title %}Statistics - ToN Stats{% endblock %}
+{% block title %}統計 - ToN Stats{% endblock %}
 
 {% block content %}
 <div class="page-content">
-    <h1>Statistics</h1>
+    <h1 data-i18n="statistics.title">統計</h1>
 
     <div class="stats-row">
         <!-- Round Types -->
         <div class="stats-section">
-            <h2>Round Types</h2>
+            <h2 data-i18n="statistics.roundTypes">ラウンド種別統計</h2>
             <div class="table-container">
                 <table class="data-table" id="roundTypesTable">
                     <thead>
                         <tr>
-                            <th>Round Type</th>
-                            <th>Count</th>
-                            <th>%</th>
+                            <th data-i18n="table.roundType">種別</th>
+                            <th data-i18n="statistics.occurrence">回数</th>
+                            <th data-i18n="statistics.percentage">割合</th>
                         </tr>
                     </thead>
                     <tbody id="roundTypesBody">
-                        <tr><td colspan="3" class="loading">Loading...</td></tr>
+                        <tr><td colspan="3" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -28,18 +28,18 @@
 
         <!-- Maps -->
         <div class="stats-section">
-            <h2>Maps</h2>
+            <h2 data-i18n="statistics.maps">マップ統計</h2>
             <div class="table-container">
                 <table class="data-table" id="mapsTable">
                     <thead>
                         <tr>
-                            <th>Map Name</th>
-                            <th>Count</th>
-                            <th>%</th>
+                            <th data-i18n="table.map">マップ名</th>
+                            <th data-i18n="statistics.occurrence">回数</th>
+                            <th data-i18n="statistics.percentage">割合</th>
                         </tr>
                     </thead>
                     <tbody id="mapsBody">
-                        <tr><td colspan="3" class="loading">Loading...</td></tr>
+                        <tr><td colspan="3" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -47,21 +47,21 @@
 
         <!-- Terrors -->
         <div class="stats-section">
-            <h2>Terrors</h2>
+            <h2 data-i18n="statistics.terrors">テラー統計</h2>
             <div class="search-bar">
-                <input type="text" id="terrorSearch" placeholder="Search terror name..." class="search-input">
+                <input type="text" id="terrorSearch" placeholder="テラー名を検索..." class="search-input">
             </div>
             <div class="table-container">
                 <table class="data-table" id="terrorTable">
                     <thead>
                         <tr>
-                            <th>Terror Name</th>
-                            <th>Count</th>
-                            <th>%</th>
+                            <th data-i18n="table.terrors">テラー名</th>
+                            <th data-i18n="statistics.encounterCount">遭遇数</th>
+                            <th data-i18n="statistics.percentage">割合</th>
                         </tr>
                     </thead>
                     <tbody id="terrorTableBody">
-                        <tr><td colspan="3" class="loading">Loading...</td></tr>
+                        <tr><td colspan="3" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
                     </tbody>
                 </table>
             </div>

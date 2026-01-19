@@ -53,4 +53,20 @@ async def init_db():
         except Exception:
             pass  # カラムが既に存在する場合はスキップ
 
+        # playersテーブルにvrchat_idカラムを追加（VRChat GUID用）
+        try:
+            await conn.execute(text(
+                "ALTER TABLE players ADD COLUMN IF NOT EXISTS vrchat_id VARCHAR(100)"
+            ))
+            # vrchat_idにユニークインデックスを追加（NULL許容）
+            await conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_players_vrchat_id ON players (vrchat_id) WHERE vrchat_id IS NOT NULL"
+            ))
+            # vrchat_nameからユニーク制約を削除（同じ名前で複数のGUIDがありえる）
+            await conn.execute(text(
+                "ALTER TABLE players DROP CONSTRAINT IF EXISTS players_vrchat_name_key"
+            ))
+        except Exception:
+            pass  # エラーはスキップ
+
         await conn.run_sync(Base.metadata.create_all)

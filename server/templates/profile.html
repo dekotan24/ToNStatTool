@@ -6,15 +6,15 @@
 <div class="profile-page">
     <!-- Profile Header -->
     <div class="profile-header" id="profileHeader">
-        <div class="profile-loading">Loading profile...</div>
+        <div class="profile-loading" data-i18n="common.loading">読み込み中...</div>
     </div>
 
     <!-- Stats Tabs -->
     <div class="stats-tabs">
-        <button class="tab-btn active" data-tab="overview">Overview</button>
-        <button class="tab-btn" data-tab="history">Round History</button>
-        <button class="tab-btn" data-tab="items">Items</button>
-        <button class="tab-btn" data-tab="terrors">Terrors</button>
+        <button class="tab-btn active" data-tab="overview" data-i18n="profile.overview">概要</button>
+        <button class="tab-btn" data-tab="history" data-i18n="profile.history">ラウンド履歴</button>
+        <button class="tab-btn" data-tab="items" data-i18n="profile.items">アイテム</button>
+        <button class="tab-btn" data-tab="terrors" data-i18n="profile.terrors">テラー</button>
     </div>
 
     <!-- Tab Content -->
@@ -23,19 +23,19 @@
         <div class="tab-pane active" id="overview">
             <div class="stats-grid">
                 <div class="stats-section">
-                    <h3>Round Type Stats</h3>
+                    <h3 data-i18n="profile.roundTypeStats">ラウンド種別統計</h3>
                     <div class="table-container">
                         <table class="data-table" id="roundTypeStatsTable">
                             <thead>
                                 <tr>
-                                    <th>Round Type</th>
-                                    <th>Played</th>
-                                    <th>Survived</th>
-                                    <th>Rate</th>
+                                    <th data-i18n="table.roundType">ラウンド種別</th>
+                                    <th data-i18n="table.played">プレイ数</th>
+                                    <th data-i18n="table.survived">生存数</th>
+                                    <th data-i18n="table.rate">生存率</th>
                                 </tr>
                             </thead>
                             <tbody id="roundTypeStatsBody">
-                                <tr><td colspan="4" class="loading">Loading...</td></tr>
+                                <tr><td colspan="4" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -49,21 +49,21 @@
                 <table class="data-table" id="historyTable">
                     <thead>
                         <tr>
-                            <th>Time</th>
-                            <th>Round Type</th>
-                            <th>Map</th>
-                            <th>Terrors</th>
-                            <th>Items</th>
-                            <th>Result</th>
+                            <th data-i18n="table.time">時間</th>
+                            <th data-i18n="table.roundType">ラウンド種別</th>
+                            <th data-i18n="table.map">マップ</th>
+                            <th data-i18n="table.terrors">テラー</th>
+                            <th data-i18n="table.items">アイテム</th>
+                            <th data-i18n="table.result">結果</th>
                         </tr>
                     </thead>
                     <tbody id="historyBody">
-                        <tr><td colspan="6" class="loading">Loading...</td></tr>
+                        <tr><td colspan="6" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
                     </tbody>
                 </table>
             </div>
             <div class="load-more">
-                <button id="loadMoreHistory" class="btn btn-outline" style="display: none;">Load More</button>
+                <button id="loadMoreHistory" class="btn btn-outline" style="display: none;" data-i18n="profile.loadMore">もっと読み込む</button>
             </div>
         </div>
 
@@ -73,14 +73,14 @@
                 <table class="data-table" id="itemsTable">
                     <thead>
                         <tr>
-                            <th>Item</th>
-                            <th>Times Held</th>
-                            <th>Survivals</th>
-                            <th>Survival Rate</th>
+                            <th data-i18n="table.items">アイテム</th>
+                            <th data-i18n="table.timesHeld">所持回数</th>
+                            <th data-i18n="table.survivals">生存数</th>
+                            <th data-i18n="table.survivalRate">生存率</th>
                         </tr>
                     </thead>
                     <tbody id="itemsBody">
-                        <tr><td colspan="4" class="loading">Loading...</td></tr>
+                        <tr><td colspan="4" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -92,14 +92,14 @@
                 <table class="data-table" id="terrorsTable">
                     <thead>
                         <tr>
-                            <th>Terror</th>
-                            <th>Encounters</th>
-                            <th>Survivals</th>
-                            <th>Survival Rate</th>
+                            <th data-i18n="table.terrors">テラー</th>
+                            <th data-i18n="table.encounters">遭遇数</th>
+                            <th data-i18n="table.survivals">生存数</th>
+                            <th data-i18n="table.survivalRate">生存率</th>
                         </tr>
                     </thead>
                     <tbody id="terrorsBody">
-                        <tr><td colspan="4" class="loading">Loading...</td></tr>
+                        <tr><td colspan="4" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -358,13 +358,13 @@
             if (!res.ok) {
                 if (res.status === 404) {
                     document.getElementById('profileHeader').innerHTML = `
-                        <div class="profile-loading">Player not found</div>
+                        <div class="profile-loading">${t('profile.notFound')}</div>
                     `;
                     return;
                 }
                 if (res.status === 403) {
                     document.getElementById('profileHeader').innerHTML = `
-                        <div class="profile-loading">This profile is private</div>
+                        <div class="profile-loading">${t('profile.isPrivate')}</div>
                     `;
                     return;
                 }
@@ -378,14 +378,14 @@
         } catch (error) {
             console.error('Failed to load profile:', error);
             document.getElementById('profileHeader').innerHTML = `
-                <div class="profile-loading">Failed to load profile</div>
+                <div class="profile-loading">${t('common.error')}</div>
             `;
         }
     }
 
     function renderProfile(profile) {
         // Generate avatar URL using DiceBear API with the seed
-        const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${profile.avatar_seed || profile.vrchat_name}`;
+        const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(profile.avatar_seed || profile.vrchat_name)}`;
 
         document.getElementById('profileHeader').innerHTML = `
             <div class="profile-avatar">
@@ -394,28 +394,28 @@
             <div class="profile-info">
                 <div class="profile-name">
                     ${escapeHtml(profile.vrchat_name)}
-                    ${!profile.is_public ? '<span class="profile-badge private">Private</span>' : ''}
-                    ${profile.is_own_profile ? '<span class="profile-badge">Your Profile</span>' : ''}
+                    ${!profile.is_public ? `<span class="profile-badge private">${t('profile.private')}</span>` : ''}
+                    ${profile.is_own_profile ? `<span class="profile-badge">${t('profile.yourProfile')}</span>` : ''}
                 </div>
                 ${profile.bio ? `<div class="profile-bio">${escapeHtml(profile.bio)}</div>` : ''}
                 <div class="profile-stats">
                     <div class="profile-stat">
                         <div class="profile-stat-value">${profile.total_rounds}</div>
-                        <div class="profile-stat-label">Rounds</div>
+                        <div class="profile-stat-label">${t('profile.rounds')}</div>
                     </div>
                     <div class="profile-stat">
                         <div class="profile-stat-value">${profile.total_survivals}</div>
-                        <div class="profile-stat-label">Survivals</div>
+                        <div class="profile-stat-label">${t('profile.survivals')}</div>
                     </div>
                     <div class="profile-stat">
                         <div class="profile-stat-value">${profile.survival_rate}%</div>
-                        <div class="profile-stat-label">Survival Rate</div>
+                        <div class="profile-stat-label">${t('profile.survivalRate')}</div>
                     </div>
                 </div>
             </div>
             ${profile.is_own_profile ? `
                 <div class="profile-actions">
-                    <a href="/my-history" class="btn btn-primary">My Detailed Log</a>
+                    <a href="/my-history" class="btn btn-primary">${t('profile.myDetailedLog')}</a>
                 </div>
             ` : ''}
         `;
@@ -438,7 +438,7 @@
     function renderRoundTypeStats() {
         const tbody = document.getElementById('roundTypeStatsBody');
         if (!detailedStats || detailedStats.round_type_stats.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="empty">No data yet</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="4" class="empty">${t('profile.noData')}</td></tr>`;
             return;
         }
 
@@ -462,7 +462,7 @@
     function renderItemStats() {
         const tbody = document.getElementById('itemsBody');
         if (!detailedStats || detailedStats.item_stats.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="empty">No items data yet</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="4" class="empty">${t('profile.noData')}</td></tr>`;
             return;
         }
 
@@ -486,7 +486,7 @@
     function renderTerrorStats() {
         const tbody = document.getElementById('terrorsBody');
         if (!detailedStats || detailedStats.terror_stats.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="empty">No terror data yet</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="4" class="empty">${t('profile.noData')}</td></tr>`;
             return;
         }
 
@@ -531,7 +531,7 @@
         const tbody = document.getElementById('historyBody');
 
         if (!append && history.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty">No round history yet</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="6" class="empty">${t('profile.noData')}</td></tr>`;
             return;
         }
 
@@ -550,7 +550,7 @@
                 </td>
                 <td>
                     <span class="survival-badge ${h.survived ? 'survived' : 'died'}">
-                        ${h.survived ? 'Survived' : 'Died'}
+                        ${h.survived ? t('profile.survived') : t('profile.died')}
                     </span>
                 </td>
             </tr>

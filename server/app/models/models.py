@@ -61,8 +61,8 @@ class Instance(Base):
     last_activity_at = Column(DateTime(timezone=True), server_default=func.now())
     total_rounds = Column(Integer, default=0)
 
-    # リレーション
-    rounds = relationship("Round", back_populates="instance", cascade="all, delete-orphan")
+    # リレーション（ラウンドはインスタンス削除時にinstance_id=NULLになる）
+    rounds = relationship("Round", back_populates="instance")
 
 
 class Round(Base):
@@ -70,7 +70,8 @@ class Round(Base):
     __tablename__ = "rounds"
 
     id = Column(Integer, primary_key=True, index=True)
-    instance_id = Column(Integer, ForeignKey("instances.id", ondelete="CASCADE"), nullable=False)
+    # インスタンスが削除されてもラウンドは保持（NULLになる）
+    instance_id = Column(Integer, ForeignKey("instances.id", ondelete="SET NULL"), nullable=True)
     fingerprint = Column(String(64), unique=True, nullable=False, index=True)
     round_type = Column(String(50), nullable=False, index=True)
     map_name = Column(String(100), nullable=True)
@@ -89,7 +90,8 @@ class Player(Base):
     __tablename__ = "players"
 
     id = Column(Integer, primary_key=True, index=True)
-    vrchat_name = Column(String(100), unique=True, nullable=False, index=True)
+    vrchat_id = Column(String(100), unique=True, nullable=True, index=True)  # VRChat GUID (usr_xxx)
+    vrchat_name = Column(String(100), nullable=False, index=True)  # VRChat表示名（変更可能）
     api_key_id = Column(Integer, ForeignKey("api_keys.id", ondelete="SET NULL"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     avatar_seed = Column(String(32), nullable=True)  # ランダムアバター用シード

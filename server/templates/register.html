@@ -4,43 +4,50 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
-    <title>Register - ToN Stats</title>
+    <title>新規登録 - ToN Stats</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <script src="/static/js/i18n.js"></script>
 </head>
 <body class="auth-page">
     <div class="auth-container">
         <div class="auth-card">
-            <h1>ToN Stats</h1>
-            <h2>Register</h2>
+            <div class="auth-header">
+                <h1>ToN Stats</h1>
+                <select id="languageSelector" class="lang-selector auth-lang">
+                    <option value="ja">日本語</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+            <h2 data-i18n="register.title">新規登録</h2>
 
             <div id="error-message" class="error-message hidden"></div>
 
             <form id="registerForm">
                 <div class="form-group">
-                    <label for="username">Username</label>
+                    <label for="username" data-i18n="login.username">ユーザー名</label>
                     <input type="text" id="username" name="username" required
                            minlength="3" maxlength="50"
                            pattern="[a-zA-Z0-9_-]+"
                            title="Letters, numbers, underscore and hyphen only"
                            autocomplete="username">
-                    <small>3-50 characters, letters, numbers, _ and - only</small>
+                    <small data-i18n="register.usernameHint">3-50文字、英数字と_-のみ</small>
                 </div>
 
                 <div class="form-group">
-                    <label for="email">Email</label>
+                    <label for="email" data-i18n="register.email">メールアドレス</label>
                     <input type="email" id="email" name="email" required autocomplete="email">
                 </div>
 
                 <div class="form-group">
-                    <label for="password">Password</label>
+                    <label for="password" data-i18n="login.password">パスワード</label>
                     <input type="password" id="password" name="password" required
                            minlength="8" autocomplete="new-password">
-                    <small>Minimum 8 characters</small>
+                    <small data-i18n="register.passwordHint">8文字以上</small>
                 </div>
 
                 <div class="form-group">
-                    <label for="confirmPassword">Confirm Password</label>
+                    <label for="confirmPassword" data-i18n="register.confirmPassword">パスワード確認</label>
                     <input type="password" id="confirmPassword" name="confirmPassword" required autocomplete="new-password">
                 </div>
 
@@ -48,11 +55,11 @@
                     <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-callback="onTurnstileSuccess"></div>
                 </div>
 
-                <button type="submit" class="btn btn-primary btn-full" id="submitBtn" disabled>Register</button>
+                <button type="submit" class="btn btn-primary btn-full" id="submitBtn" disabled data-i18n="register.submit">登録</button>
             </form>
 
             <div class="auth-links">
-                <p>Already have an account? <a href="/login">Login</a></p>
+                <p><span data-i18n="register.hasAccount">すでにアカウントをお持ちの方は</span> <a href="/login" data-i18n="register.login">ログイン</a></p>
             </div>
         </div>
     </div>
@@ -74,19 +81,19 @@
             const confirmPassword = document.getElementById('confirmPassword').value;
 
             if (password !== confirmPassword) {
-                errorDiv.textContent = 'Passwords do not match';
+                errorDiv.textContent = t('register.passwordMismatch');
                 errorDiv.classList.remove('hidden');
                 return;
             }
 
             if (!turnstileToken) {
-                errorDiv.textContent = 'Please complete the verification';
+                errorDiv.textContent = t('register.completeVerification');
                 errorDiv.classList.remove('hidden');
                 return;
             }
 
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Creating account...';
+            submitBtn.textContent = t('register.creating');
 
             try {
                 const response = await fetch('/api/v1/auth/register', {
@@ -107,7 +114,7 @@
                 if (response.ok) {
                     window.location.href = '/dashboard';
                 } else {
-                    errorDiv.textContent = data.detail || 'Registration failed';
+                    errorDiv.textContent = data.detail || t('register.failed');
                     errorDiv.classList.remove('hidden');
                     // Reset Turnstile
                     if (typeof turnstile !== 'undefined') {
@@ -117,11 +124,11 @@
                     submitBtn.disabled = true;
                 }
             } catch (error) {
-                errorDiv.textContent = 'Connection error. Please try again.';
+                errorDiv.textContent = t('common.connectionError');
                 errorDiv.classList.remove('hidden');
             }
 
-            submitBtn.textContent = 'Register';
+            submitBtn.textContent = t('register.submit');
         });
     </script>
 </body>

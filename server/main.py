@@ -19,7 +19,7 @@ from app.core.config import settings
 from app.core.database import init_db, async_session_maker
 from app.api import auth_router, events_router, stats_router, profile_router
 from app.api.auth import get_current_user, get_optional_user
-from app.models import User, Instance
+from app.models import User, Instance, Round
 
 
 # ========== Security Headers Middleware ==========
@@ -35,7 +35,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "default-src 'self'",
             "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
             "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data: blob:",
+            "img-src 'self' data: blob: https://api.dicebear.com",
             "font-src 'self'",
             "connect-src 'self'",
             "frame-src https://challenges.cloudflare.com",
@@ -102,7 +102,7 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 # ========== Cleanup Task ==========
 
 async def cleanup_old_instances():
-    """2日以上経過したインスタンスを削除"""
+    """2日以上経過したインスタンスを削除（ラウンドはinstance_id=NULLで保持）"""
     try:
         async with async_session_maker() as db:
             cutoff = datetime.now(timezone.utc) - timedelta(days=2)
@@ -114,13 +114,30 @@ async def cleanup_old_instances():
             if deleted_count > 0:
                 print(f"[Cleanup] Deleted {deleted_count} old instances")
     except Exception as e:
-        print(f"[Cleanup] Error: {e}")
+        print(f"[Cleanup] Instance cleanup error: {e}")
+
+
+async def cleanup_old_rounds():
+    """1週間以上経過したラウンドを削除（関連するPlayerRoundもカスケード削除）"""
+    try:
+        async with async_session_maker() as db:
+            cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+            result = await db.execute(
+                delete(Round).where(Round.started_at < cutoff)
+            )
+            await db.commit()
+            deleted_count = result.rowcount
+            if deleted_count > 0:
+                print(f"[Cleanup] Deleted {deleted_count} old rounds")
+    except Exception as e:
+        print(f"[Cleanup] Round cleanup error: {e}")
 
 
 async def periodic_cleanup():
     """定期的にクリーンアップを実行（1時間ごと）"""
     while True:
-        await cleanup_old_instances()
+        await cleanup_old_instances()  # インスタンス: 2日
+        await cleanup_old_rounds()     # ラウンド: 1週間
         await asyncio.sleep(3600)  # 1時間
 
 

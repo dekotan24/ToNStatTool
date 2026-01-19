@@ -1,77 +1,77 @@
 {% extends "base.html" %}
 
-{% block title %}Settings - ToN Stats{% endblock %}
+{% block title %}設定 - ToN Stats{% endblock %}
 
 {% block content %}
 <div class="settings-page">
-    <h1>Settings</h1>
+    <h1 data-i18n="settings.title">設定</h1>
 
     <!-- Tabs -->
     <div class="settings-tabs">
-        <button class="tab-btn active" data-tab="api-keys">API Keys</button>
-        <button class="tab-btn" data-tab="security">Security</button>
-        <button class="tab-btn" data-tab="profile">Profile</button>
+        <button class="tab-btn active" data-tab="api-keys" data-i18n="settings.apiKeys">APIキー</button>
+        <button class="tab-btn" data-tab="security" data-i18n="settings.security">セキュリティ</button>
+        <button class="tab-btn" data-tab="profile" data-i18n="settings.profile">プロフィール</button>
     </div>
 
     <!-- API Keys Tab -->
     <div id="api-keys-tab" class="tab-content active">
         <div class="section">
-            <h2>Create API Key</h2>
-            <p class="section-desc">C#アプリとの連携に使用するAPIキーを作成します。</p>
+            <h2 data-i18n="settings.createApiKey">APIキーを作成</h2>
+            <p class="section-desc" data-i18n="settings.apiKeysDesc">C#アプリとの連携に使用するAPIキーを作成します。</p>
             <form id="createKeyForm" class="create-key-form">
                 <div class="form-group">
-                    <label for="keyName">Key Name</label>
+                    <label for="keyName" data-i18n="settings.keyName">キー名</label>
                     <input type="text" id="keyName" name="name" placeholder="My PC" required maxlength="100">
                 </div>
-                <button type="submit" class="btn btn-primary">Create</button>
+                <button type="submit" class="btn btn-primary" data-i18n="settings.create">作成</button>
             </form>
         </div>
 
         <!-- New Key Display -->
         <div id="newKeyDisplay" class="new-key-display" style="display: none;">
             <div class="alert alert-warning">
-                <strong>Important:</strong> このキーは一度だけ表示されます。安全に保管してください。
+                <strong data-i18n="settings.important">重要:</strong> <span data-i18n="settings.keyOnlyOnce">このキーは一度だけ表示されます。安全に保管してください。</span>
             </div>
             <div class="key-value">
                 <code id="newKeyValue"></code>
-                <button id="copyKeyBtn" class="btn btn-small">Copy</button>
+                <button id="copyKeyBtn" class="btn btn-small" data-i18n="settings.copy">コピー</button>
             </div>
         </div>
 
         <div class="section">
-            <h2>Your API Keys</h2>
+            <h2 data-i18n="settings.yourApiKeys">あなたのAPIキー</h2>
             <div class="table-container">
                 <table class="data-table" id="keysTable">
                     <thead>
                         <tr>
-                            <th>Name</th>
-                            <th>Key Prefix</th>
-                            <th>Status</th>
-                            <th>Last Used</th>
-                            <th>Created</th>
-                            <th>Actions</th>
+                            <th data-i18n="settings.name">名前</th>
+                            <th data-i18n="settings.keyPrefix">キー接頭辞</th>
+                            <th data-i18n="settings.status">状態</th>
+                            <th data-i18n="settings.lastUsed">最終使用</th>
+                            <th data-i18n="settings.createdAt">作成日</th>
+                            <th data-i18n="settings.actions">操作</th>
                         </tr>
                     </thead>
                     <tbody id="keysBody">
-                        <tr><td colspan="6" class="loading">Loading...</td></tr>
+                        <tr><td colspan="6" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
         <div class="section">
-            <h2>Setup Guide</h2>
+            <h2 data-i18n="settings.setupGuide">セットアップガイド</h2>
             <div class="instructions">
                 <ol class="setup-steps">
-                    <li>上の「Create API Key」でキー名を入力して <strong>Create</strong> をクリック</li>
-                    <li>表示されたAPIキー（<code>ton_</code>で始まる文字列）をコピー</li>
-                    <li>C#アプリを開き、<strong>設定</strong> 画面へ移動</li>
-                    <li><strong>クラウド同期を有効化</strong> にチェック</li>
-                    <li><strong>サーバーURL</strong> に <code>{{ site_url }}</code> を入力</li>
-                    <li><strong>APIキー</strong> にコピーしたキーを貼り付け</li>
-                    <li><strong>保存</strong> をクリック</li>
+                    <li data-i18n="settings.step1">上の「APIキーを作成」でキー名を入力して <strong>作成</strong> をクリック</li>
+                    <li data-i18n="settings.step2">表示されたAPIキー（<code>ton_</code>で始まる文字列）をコピー</li>
+                    <li data-i18n="settings.step3">C#アプリを開き、<strong>設定</strong> 画面へ移動</li>
+                    <li data-i18n="settings.step4"><strong>クラウド同期を有効化</strong> にチェック</li>
+                    <li><span data-i18n="settings.step5"><strong>サーバーURL</strong> に</span> <code>{{ site_url }}</code> <span data-i18n="settings.step5b">を入力</span></li>
+                    <li data-i18n="settings.step6"><strong>APIキー</strong> にコピーしたキーを貼り付け</li>
+                    <li data-i18n="settings.step7"><strong>保存</strong> をクリック</li>
                 </ol>
-                <p class="note">APIキーは一度だけ表示されます。紛失した場合は新しいキーを作成してください。</p>
+                <p class="note" data-i18n="settings.keyNote">APIキーは一度だけ表示されます。紛失した場合は新しいキーを作成してください。</p>
             </div>
         </div>
     </div>
@@ -79,52 +79,52 @@
     <!-- Security Tab -->
     <div id="security-tab" class="tab-content">
         <div class="section">
-            <h2>Change Password</h2>
+            <h2 data-i18n="settings.changePassword">パスワード変更</h2>
             <form id="changePasswordForm" class="settings-form">
                 <div class="form-group">
-                    <label for="currentPassword">Current Password</label>
+                    <label for="currentPassword" data-i18n="settings.currentPassword">現在のパスワード</label>
                     <input type="password" id="currentPassword" required>
                 </div>
                 <div class="form-group">
-                    <label for="newPassword">New Password</label>
+                    <label for="newPassword" data-i18n="settings.newPassword">新しいパスワード</label>
                     <input type="password" id="newPassword" required minlength="8">
-                    <span class="hint">8文字以上</span>
+                    <span class="hint" data-i18n="settings.minChars">8文字以上</span>
                 </div>
                 <div class="form-group">
-                    <label for="confirmPassword">Confirm New Password</label>
+                    <label for="confirmPassword" data-i18n="settings.confirmNewPassword">新しいパスワード（確認）</label>
                     <input type="password" id="confirmPassword" required minlength="8">
                 </div>
-                <button type="submit" class="btn btn-primary">Change Password</button>
+                <button type="submit" class="btn btn-primary" data-i18n="settings.changePasswordBtn">パスワードを変更</button>
             </form>
         </div>
 
         <div class="section">
-            <h2>Two-Factor Authentication (2FA)</h2>
+            <h2 data-i18n="settings.twoFactorAuth">二要素認証 (2FA)</h2>
             <div id="totpStatus">
-                <p class="section-desc">Loading...</p>
+                <p class="section-desc" data-i18n="common.loading">読み込み中...</p>
             </div>
 
             <!-- 2FA Setup (hidden by default) -->
             <div id="totpSetup" style="display: none;">
-                <p class="section-desc">認証アプリでQRコードをスキャンしてください。</p>
+                <p class="section-desc" data-i18n="settings.scanQrCode">認証アプリでQRコードをスキャンしてください。</p>
                 <div class="totp-qr">
                     <img id="totpQrCode" alt="QR Code">
                 </div>
                 <div class="totp-secret">
-                    <label>Secret Key (手動入力用):</label>
+                    <label data-i18n="settings.secretKey">Secret Key (手動入力用):</label>
                     <code id="totpSecretKey"></code>
                 </div>
                 <div class="backup-codes">
-                    <label>Backup Codes (安全に保管):</label>
+                    <label data-i18n="settings.backupCodes">バックアップコード (安全に保管):</label>
                     <div id="backupCodes" class="codes-list"></div>
                 </div>
                 <form id="verifyTotpForm" class="settings-form">
                     <div class="form-group">
-                        <label for="totpVerifyCode">認証コードを入力</label>
+                        <label for="totpVerifyCode" data-i18n="settings.enterAuthCode">認証コードを入力</label>
                         <input type="text" id="totpVerifyCode" pattern="[0-9]{6}" maxlength="6" required placeholder="000000">
                     </div>
-                    <button type="submit" class="btn btn-primary">Verify & Enable</button>
-                    <button type="button" id="cancelTotpBtn" class="btn btn-outline">Cancel</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="settings.verifyAndEnable">確認して有効化</button>
+                    <button type="button" id="cancelTotpBtn" class="btn btn-outline" data-i18n="settings.cancel">キャンセル</button>
                 </form>
             </div>
 
@@ -132,10 +132,10 @@
             <div id="totpDisable" style="display: none;">
                 <form id="disableTotpForm" class="settings-form">
                     <div class="form-group">
-                        <label for="totpDisableCode">認証コードを入力して無効化</label>
+                        <label for="totpDisableCode" data-i18n="settings.enterCodeToDisable">認証コードを入力して無効化</label>
                         <input type="text" id="totpDisableCode" pattern="[0-9]{6}" maxlength="6" required placeholder="000000">
                     </div>
-                    <button type="submit" class="btn btn-danger">Disable 2FA</button>
+                    <button type="submit" class="btn btn-danger" data-i18n="settings.disable2fa">2FAを無効化</button>
                 </form>
             </div>
         </div>
@@ -144,33 +144,33 @@
     <!-- Profile Tab -->
     <div id="profile-tab" class="tab-content">
         <div class="section">
-            <h2>Player Profile Settings</h2>
+            <h2 data-i18n="settings.playerProfileSettings">プレイヤープロフィール設定</h2>
             <div id="playerProfileSettings">
-                <p class="section-desc">Loading...</p>
+                <p class="section-desc" data-i18n="common.loading">読み込み中...</p>
             </div>
 
             <div id="profileForm" style="display: none;">
                 <div class="form-group">
                     <label class="toggle-label">
                         <input type="checkbox" id="isPublicToggle">
-                        <span class="toggle-text">プロフィールを公開する</span>
+                        <span class="toggle-text" data-i18n="settings.makeProfilePublic">プロフィールを公開する</span>
                     </label>
-                    <p class="hint">オフにすると、プレイヤー検索に表示されなくなります。</p>
+                    <p class="hint" data-i18n="settings.publicProfileHint">オフにすると、プレイヤー検索に表示されなくなります。</p>
                 </div>
-                <button id="saveProfileBtn" class="btn btn-primary">Save Changes</button>
+                <button id="saveProfileBtn" class="btn btn-primary" data-i18n="settings.saveChanges">変更を保存</button>
             </div>
 
             <div id="noPlayerProfile" style="display: none;">
-                <p class="section-desc">プレイヤープロフィールがまだありません。C#アプリでラウンドデータを送信すると自動的に作成されます。</p>
+                <p class="section-desc" data-i18n="settings.noPlayerProfile">プレイヤープロフィールがまだありません。C#アプリでラウンドデータを送信すると自動的に作成されます。</p>
             </div>
         </div>
 
         <div class="section">
-            <h2>Account Info</h2>
+            <h2 data-i18n="settings.accountInfo">アカウント情報</h2>
             <div class="account-info">
-                <p><strong>Username:</strong> <span id="accountUsername">-</span></p>
-                <p><strong>Email:</strong> <span id="accountEmail">-</span></p>
-                <p><strong>Created:</strong> <span id="accountCreated">-</span></p>
+                <p><strong data-i18n="settings.username">ユーザー名:</strong> <span id="accountUsername">-</span></p>
+                <p><strong data-i18n="settings.email">メールアドレス:</strong> <span id="accountEmail">-</span></p>
+                <p><strong data-i18n="settings.createdAt">作成日:</strong> <span id="accountCreated">-</span></p>
             </div>
         </div>
     </div>
@@ -535,7 +535,7 @@
             const tbody = document.getElementById('keysBody');
 
             if (keys.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="empty">No API keys yet</td></tr>';
+                tbody.innerHTML = `<tr><td colspan="6" class="empty">${t('settings.noApiKeys')}</td></tr>`;
                 return;
             }
 
@@ -544,18 +544,18 @@
                     <td>${escapeHtml(key.name)}</td>
                     <td><code>${key.key_prefix}...</code></td>
                     <td class="${key.is_active ? 'status-active' : 'status-revoked'}">
-                        ${key.is_active ? 'Active' : 'Revoked'}
+                        ${key.is_active ? t('settings.statusActive') : t('settings.statusRevoked')}
                     </td>
                     <td>${key.last_used_at ? new Date(key.last_used_at).toLocaleString('ja-JP') : '-'}</td>
                     <td>${new Date(key.created_at).toLocaleString('ja-JP')}</td>
                     <td>
-                        ${key.is_active ? `<button class="btn btn-small btn-danger" onclick="revokeKey(${key.id})">Revoke</button>` : '-'}
+                        ${key.is_active ? `<button class="btn btn-small btn-danger" onclick="revokeKey(${key.id})">${t('settings.revoke')}</button>` : '-'}
                     </td>
                 </tr>
             `).join('');
         } catch (error) {
             console.error('Failed to load API keys:', error);
-            document.getElementById('keysBody').innerHTML = '<tr><td colspan="6" class="empty">Failed to load</td></tr>';
+            document.getElementById('keysBody').innerHTML = `<tr><td colspan="6" class="empty">${t('common.error')}</td></tr>`;
         }
     }
 
@@ -573,7 +573,7 @@
 
             if (!res.ok) {
                 const error = await res.json();
-                alert(error.detail || 'Failed to create API key');
+                alert(error.detail || t('settings.createFailed'));
                 return;
             }
 
@@ -584,34 +584,34 @@
             loadApiKeys();
         } catch (error) {
             console.error('Failed to create API key:', error);
-            alert('Failed to create API key');
+            alert(t('settings.createFailed'));
         }
     });
 
     document.getElementById('copyKeyBtn').addEventListener('click', () => {
         const keyValue = document.getElementById('newKeyValue').textContent;
         navigator.clipboard.writeText(keyValue).then(() => {
-            document.getElementById('copyKeyBtn').textContent = 'Copied!';
+            document.getElementById('copyKeyBtn').textContent = t('settings.copied');
             setTimeout(() => {
-                document.getElementById('copyKeyBtn').textContent = 'Copy';
+                document.getElementById('copyKeyBtn').textContent = t('settings.copy');
             }, 2000);
         });
     });
 
     async function revokeKey(keyId) {
-        if (!confirm('このAPIキーを無効化しますか？')) return;
+        if (!confirm(t('settings.revokeConfirm'))) return;
 
         try {
             const res = await fetch(`/api/v1/auth/api-keys/${keyId}`, { method: 'DELETE' });
             if (!res.ok) {
                 const error = await res.json();
-                alert(error.detail || 'Failed to revoke API key');
+                alert(error.detail || t('settings.revokeFailed'));
                 return;
             }
             loadApiKeys();
         } catch (error) {
             console.error('Failed to revoke API key:', error);
-            alert('Failed to revoke API key');
+            alert(t('settings.revokeFailed'));
         }
     }
 
@@ -623,7 +623,7 @@
         const confirm = document.getElementById('confirmPassword').value;
 
         if (newPw !== confirm) {
-            alert('新しいパスワードが一致しません');
+            alert(t('settings.passwordMismatch'));
             return;
         }
 
@@ -639,15 +639,15 @@
 
             const data = await res.json();
             if (!res.ok) {
-                alert(data.detail || 'Failed to change password');
+                alert(data.detail || t('settings.changePasswordFailed'));
                 return;
             }
 
-            alert('パスワードが変更されました');
+            alert(t('settings.passwordChanged'));
             document.getElementById('changePasswordForm').reset();
         } catch (error) {
             console.error('Failed to change password:', error);
-            alert('Failed to change password');
+            alert(t('settings.changePasswordFailed'));
         }
     });
 
@@ -665,15 +665,15 @@
             if (user.totp_enabled) {
                 statusDiv.innerHTML = `
                     <p class="section-desc">
-                        <span style="color: var(--success);">✓ 2FAは有効です</span>
+                        <span style="color: var(--success);">✓ ${t('settings.2faEnabled')}</span>
                     </p>
                 `;
                 disableDiv.style.display = 'block';
                 setupDiv.style.display = 'none';
             } else {
                 statusDiv.innerHTML = `
-                    <p class="section-desc">2FAを有効にしてアカウントを保護しましょう。</p>
-                    <button id="setupTotpBtn" class="btn btn-primary">Setup 2FA</button>
+                    <p class="section-desc">${t('settings.2faDescription')}</p>
+                    <button id="setupTotpBtn" class="btn btn-primary">${t('settings.setup2fa')}</button>
                 `;
                 disableDiv.style.display = 'none';
                 setupDiv.style.display = 'none';
@@ -695,7 +695,7 @@
             const res = await fetch('/api/v1/auth/totp/setup', { method: 'POST' });
             if (!res.ok) {
                 const error = await res.json();
-                alert(error.detail || 'Failed to setup 2FA');
+                alert(error.detail || t('settings.setup2faFailed'));
                 return;
             }
 
@@ -710,7 +710,7 @@
             document.getElementById('totpSetup').style.display = 'block';
         } catch (error) {
             console.error('Failed to setup 2FA:', error);
-            alert('Failed to setup 2FA');
+            alert(t('settings.setup2faFailed'));
         }
     }
 
@@ -732,22 +732,22 @@
 
             const data = await res.json();
             if (!res.ok) {
-                alert(data.detail || 'Invalid code');
+                alert(data.detail || t('settings.invalidCode'));
                 return;
             }
 
-            alert('2FAが有効になりました');
+            alert(t('settings.2faEnabledSuccess'));
             document.getElementById('totpSetup').style.display = 'none';
             loadTotpStatus();
         } catch (error) {
             console.error('Failed to verify 2FA:', error);
-            alert('Failed to verify 2FA');
+            alert(t('settings.verify2faFailed'));
         }
     });
 
     document.getElementById('disableTotpForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (!confirm('2FAを無効化しますか？')) return;
+        if (!confirm(t('settings.disable2faConfirm'))) return;
 
         const code = document.getElementById('totpDisableCode').value;
 
@@ -760,16 +760,16 @@
 
             const data = await res.json();
             if (!res.ok) {
-                alert(data.detail || 'Invalid code');
+                alert(data.detail || t('settings.invalidCode'));
                 return;
             }
 
-            alert('2FAが無効になりました');
+            alert(t('settings.2faDisabled'));
             document.getElementById('totpDisableCode').value = '';
             loadTotpStatus();
         } catch (error) {
             console.error('Failed to disable 2FA:', error);
-            alert('Failed to disable 2FA');
+            alert(t('settings.disable2faFailed'));
         }
     });
 
@@ -794,7 +794,7 @@
             document.getElementById('noPlayerProfile').style.display = 'none';
         } catch (error) {
             console.error('Failed to load profile:', error);
-            document.getElementById('playerProfileSettings').innerHTML = '<p class="section-desc">Failed to load profile settings</p>';
+            document.getElementById('playerProfileSettings').innerHTML = `<p class="section-desc">${t('common.error')}</p>`;
         }
     }
 
@@ -810,14 +810,14 @@
 
             if (!res.ok) {
                 const error = await res.json();
-                alert(error.detail || 'Failed to save settings');
+                alert(error.detail || t('settings.saveFailed'));
                 return;
             }
 
-            alert('設定を保存しました');
+            alert(t('settings.saved'));
         } catch (error) {
             console.error('Failed to save profile:', error);
-            alert('Failed to save settings');
+            alert(t('settings.saveFailed'));
         }
     });
 

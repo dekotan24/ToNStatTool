@@ -9,15 +9,15 @@
     <div class="stats-overview" id="statsOverview">
         <div class="stat-card">
             <div class="stat-value" id="totalRounds">-</div>
-            <div class="stat-label" data-i18n="dashboard.totalRounds">総ラウンド数</div>
+            <div class="stat-label" data-i18n="dashboard.myTotalRounds">マイラウンド数</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value" id="totalInstances">-</div>
-            <div class="stat-label" data-i18n="dashboard.totalInstances">総インスタンス数</div>
+            <div class="stat-value" id="totalSurvivals">-</div>
+            <div class="stat-label" data-i18n="dashboard.mySurvivals">生存数</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value" id="totalTerrors">-</div>
-            <div class="stat-label" data-i18n="dashboard.terrorsEncountered">テラー遭遇数</div>
+            <div class="stat-value" id="survivalRate">-</div>
+            <div class="stat-label" data-i18n="dashboard.mySurvivalRate">生存率</div>
         </div>
         <div class="stat-card">
             <div class="stat-value" id="last24h">-</div>
@@ -27,7 +27,7 @@
 
     <div class="dashboard-grid">
         <div class="dashboard-section">
-            <h2 data-i18n="dashboard.recentRounds">最近のラウンド</h2>
+            <h2 data-i18n="dashboard.myRecentRounds">最近のラウンド</h2>
             <div class="table-container">
                 <table class="data-table" id="recentRoundsTable">
                     <thead>
@@ -36,8 +36,8 @@
                             <th data-i18n="table.roundType">種別</th>
                             <th data-i18n="table.map">マップ</th>
                             <th data-i18n="table.terrors">テラー</th>
-                            <th data-i18n="table.players">人数</th>
-                            <th data-i18n="table.instance">インスタンス</th>
+                            <th data-i18n="table.items">アイテム</th>
+                            <th data-i18n="table.result">結果</th>
                         </tr>
                     </thead>
                     <tbody id="recentRoundsBody">
@@ -46,26 +46,25 @@
                 </table>
             </div>
             <div class="view-all-link">
-                <a href="/round-log" data-i18n="dashboard.viewAllRounds">全てのラウンドを表示</a>
+                <a href="/my-history" data-i18n="dashboard.viewMyHistory">マイ履歴を見る</a>
             </div>
         </div>
 
         <div class="dashboard-section">
-            <h2 data-i18n="dashboard.activeInstances">アクティブインスタンス</h2>
+            <h2 data-i18n="dashboard.instanceHistory">インスタンス履歴</h2>
             <div class="table-container">
-                <table class="data-table" id="activeInstancesTable">
+                <table class="data-table" id="instanceHistoryTable">
                     <thead>
                         <tr>
-                            <th data-i18n="table.instance">インスタンス</th>
-                            <th data-i18n="table.roundType">種別</th>
-                            <th data-i18n="table.terrors">テラー</th>
-                            <th data-i18n="table.map">マップ</th>
-                            <th data-i18n="table.players">人数</th>
+                            <th data-i18n="table.instanceId">インスタンスID</th>
+                            <th data-i18n="dashboard.myRounds">マイラウンド</th>
+                            <th data-i18n="dashboard.mySurvivals">生存</th>
+                            <th data-i18n="table.totalRounds">総ラウンド</th>
                             <th data-i18n="table.lastActivity">最終アクティビティ</th>
                         </tr>
                     </thead>
-                    <tbody id="activeInstancesBody">
-                        <tr><td colspan="6" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
+                    <tbody id="instanceHistoryBody">
+                        <tr><td colspan="5" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -84,72 +83,76 @@
     font-size: 0.875rem;
 }
 
-.instance-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
+.survival-badge {
+    display: inline-block;
     padding: 0.25rem 0.5rem;
-    background: var(--accent);
-    color: white;
     border-radius: 4px;
     font-size: 0.75rem;
-    text-decoration: none;
-    transition: background 0.2s;
-}
-
-.instance-link:hover {
-    background: var(--accent-hover);
-    color: white;
-}
-
-.instance-link::before {
-    content: "▶";
-    font-size: 0.625rem;
-}
-
-.player-count {
     font-weight: 500;
+}
+
+.survival-badge.survived {
+    background: rgba(34, 197, 94, 0.2);
+    color: var(--success);
+}
+
+.survival-badge.died {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--error);
+}
+
+.items-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.item-tag {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    font-size: 0.7rem;
+}
+
+.stat-highlight {
+    color: var(--success);
+    font-weight: 500;
+}
+
+.no-profile-message {
+    padding: 2rem;
+    text-align: center;
     color: var(--text-secondary);
+}
+
+.no-profile-message a {
+    color: var(--accent);
 }
 </style>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    function createInstanceLink(instanceId) {
-        if (!instanceId) return '-';
-
-        // Extract short instance number from instance_id (e.g., wrld_xxx:12345~region(...) -> 12345)
-        let shortId = null;
-        const parts = instanceId.split(':');
-        if (parts.length >= 2) {
-            shortId = parts.slice(1).join(':').split('~')[0];
-        }
-
-        if (!shortId) return '-';
-
-        return `<a href="/instance/${encodeURIComponent(shortId)}" class="instance-link" title="${escapeHtml(instanceId)}">${escapeHtml(shortId)}</a>`;
-    }
-
     async function loadDashboard() {
         try {
-            // Overview stats
-            const overviewRes = await fetch('/api/v1/stats/overview');
+            // My overview stats
+            const overviewRes = await fetch('/api/v1/stats/my/overview');
             if (overviewRes.ok) {
                 const overview = await overviewRes.json();
                 document.getElementById('totalRounds').textContent = overview.total_rounds.toLocaleString();
-                document.getElementById('totalInstances').textContent = overview.total_instances.toLocaleString();
-                document.getElementById('totalTerrors').textContent = overview.total_terrors_encountered.toLocaleString();
+                document.getElementById('totalSurvivals').textContent = overview.total_survivals.toLocaleString();
+                document.getElementById('survivalRate').textContent = overview.survival_rate.toFixed(1) + '%';
                 document.getElementById('last24h').textContent = overview.last_24h_rounds.toLocaleString();
             }
 
-            // Recent rounds
-            const roundsRes = await fetch('/api/v1/stats/recent-rounds?limit=10');
+            // My recent rounds
+            const roundsRes = await fetch('/api/v1/stats/my/recent-rounds?limit=10');
             if (roundsRes.ok) {
                 const rounds = await roundsRes.json();
                 const tbody = document.getElementById('recentRoundsBody');
                 if (rounds.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="6" class="empty">${t('common.noRoundsYet')}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6" class="empty">${t('dashboard.noRoundsYet')}</td></tr>`;
                 } else {
                     tbody.innerHTML = rounds.map(r => `
                         <tr>
@@ -157,30 +160,29 @@
                             <td><span class="round-type">${escapeHtml(r.round_type)}</span></td>
                             <td>${escapeHtml(r.map_name || '-')}</td>
                             <td>${r.terrors.slice(0, 2).map(t => escapeHtml(t)).join(', ')}${r.terrors.length > 2 ? '...' : ''}</td>
-                            <td><span class="player-count">${r.player_count}</span></td>
-                            <td>${createInstanceLink(r.instance_id)}</td>
+                            <td>${r.items && r.items.length > 0 ?
+                                `<div class="items-list">${r.items.slice(0, 2).map(i => `<span class="item-tag">${escapeHtml(i)}</span>`).join('')}${r.items.length > 2 ? '...' : ''}</div>`
+                                : '-'}</td>
+                            <td><span class="survival-badge ${r.survived ? 'survived' : 'died'}">${r.survived ? t('profile.survived') : t('profile.died')}</span></td>
                         </tr>
                     `).join('');
                 }
             }
 
-            // Active instances
-            const instancesRes = await fetch('/api/v1/stats/active-instances?hours=1');
+            // Instance history (longer timeframe for history)
+            const instancesRes = await fetch('/api/v1/stats/my/active-instances?hours=24');
             if (instancesRes.ok) {
                 const instances = await instancesRes.json();
-                const tbody = document.getElementById('activeInstancesBody');
+                const tbody = document.getElementById('instanceHistoryBody');
                 if (instances.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="6" class="empty">${t('common.noActiveInstances')}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="5" class="empty">${t('dashboard.noInstanceHistory')}</td></tr>`;
                 } else {
                     tbody.innerHTML = instances.map(i => `
                         <tr>
-                            <td>${createInstanceLink(i.instance_id)}</td>
-                            <td><span class="round-type">${escapeHtml(i.latest_round_type || '-')}</span></td>
-                            <td>${i.latest_terrors && i.latest_terrors.length > 0
-                                ? i.latest_terrors.slice(0, 2).map(t => escapeHtml(t)).join(', ') + (i.latest_terrors.length > 2 ? '...' : '')
-                                : '-'}</td>
-                            <td>${escapeHtml(i.latest_map || '-')}</td>
-                            <td><span class="player-count">${i.latest_player_count}</span></td>
+                            <td><code>${escapeHtml(i.instance_short_id || '-')}</code></td>
+                            <td><span class="stat-highlight">${i.my_rounds}</span></td>
+                            <td><span class="stat-highlight">${i.my_survivals}</span></td>
+                            <td>${i.total_rounds}</td>
                             <td>${new Date(i.last_activity_at).toLocaleString('ja-JP')}</td>
                         </tr>
                     `).join('');

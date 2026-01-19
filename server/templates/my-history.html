@@ -1,39 +1,39 @@
 {% extends "base.html" %}
 
-{% block title %}My History - ToN Stats{% endblock %}
+{% block title %}マイラウンド履歴 - ToN Stats{% endblock %}
 
 {% block content %}
 <div class="history-page">
     <div class="page-header">
-        <h1>My Round History</h1>
-        <p class="subtitle">Your personal round log with detailed item and survival data</p>
+        <h1 data-i18n="myHistory.title">マイラウンド履歴</h1>
+        <p class="subtitle" data-i18n="myHistory.subtitle">アイテムと生存データを含む個人のラウンドログ</p>
     </div>
 
     <!-- Profile Status -->
     <div class="profile-status" id="profileStatus">
-        <div class="loading">Loading...</div>
+        <div class="loading" data-i18n="common.loading">読み込み中...</div>
     </div>
 
     <!-- Filter Section -->
     <div class="filter-section">
         <div class="filter-row">
             <div class="filter-group">
-                <label for="filterSurvival">Survival</label>
+                <label for="filterSurvival" data-i18n="myHistory.filterSurvival">生存状態</label>
                 <select id="filterSurvival" class="filter-select">
-                    <option value="">All</option>
-                    <option value="survived">Survived</option>
-                    <option value="died">Died</option>
+                    <option value="" data-i18n="myHistory.all">全て</option>
+                    <option value="survived" data-i18n="myHistory.survived">生存</option>
+                    <option value="died" data-i18n="myHistory.died">死亡</option>
                 </select>
             </div>
             <div class="filter-group">
-                <label for="filterRoundType">Round Type</label>
+                <label for="filterRoundType" data-i18n="roundLog.filterRoundType">ラウンド種別</label>
                 <select id="filterRoundType" class="filter-select">
-                    <option value="">All Types</option>
+                    <option value="" data-i18n="roundLog.allTypes">全ての種別</option>
                 </select>
             </div>
             <div class="filter-group">
-                <label for="filterItem">Item</label>
-                <input type="text" id="filterItem" class="filter-input" placeholder="Filter by item...">
+                <label for="filterItem" data-i18n="myHistory.filterItem">アイテム</label>
+                <input type="text" id="filterItem" class="filter-input" placeholder="アイテムで絞り込み..." data-i18n="myHistory.filterByItem">
             </div>
         </div>
     </div>
@@ -42,19 +42,19 @@
     <div class="stats-summary" id="statsSummary">
         <div class="stat-card mini">
             <div class="stat-value" id="totalRounds">-</div>
-            <div class="stat-label">Total Rounds</div>
+            <div class="stat-label" data-i18n="myHistory.totalRounds">総ラウンド数</div>
         </div>
         <div class="stat-card mini">
             <div class="stat-value" id="totalSurvivals">-</div>
-            <div class="stat-label">Survivals</div>
+            <div class="stat-label" data-i18n="myHistory.survivals">生存数</div>
         </div>
         <div class="stat-card mini">
             <div class="stat-value" id="survivalRate">-</div>
-            <div class="stat-label">Survival Rate</div>
+            <div class="stat-label" data-i18n="myHistory.survivalRate">生存率</div>
         </div>
         <div class="stat-card mini">
             <div class="stat-value" id="uniqueItems">-</div>
-            <div class="stat-label">Unique Items</div>
+            <div class="stat-label" data-i18n="myHistory.uniqueItems">ユニークアイテム</div>
         </div>
     </div>
 
@@ -64,46 +64,28 @@
             <table class="data-table" id="historyTable">
                 <thead>
                     <tr>
-                        <th>Time</th>
-                        <th>Round Type</th>
-                        <th>Map</th>
-                        <th>Terrors</th>
-                        <th>Items Held</th>
-                        <th>Players</th>
-                        <th>Result</th>
+                        <th data-i18n="table.time">時間</th>
+                        <th data-i18n="table.roundType">種別</th>
+                        <th data-i18n="table.map">マップ</th>
+                        <th data-i18n="table.terrors">テラー</th>
+                        <th data-i18n="myHistory.itemsHeld">所持アイテム</th>
+                        <th data-i18n="table.players">人数</th>
+                        <th data-i18n="table.result">結果</th>
                     </tr>
                 </thead>
                 <tbody id="historyBody">
-                    <tr><td colspan="7" class="loading">Loading...</td></tr>
+                    <tr><td colspan="7" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
                 </tbody>
             </table>
         </div>
 
         <div class="pagination-controls">
-            <button id="prevPage" class="btn btn-outline btn-small" disabled>Previous</button>
-            <span id="pageInfo">Page 1</span>
-            <button id="nextPage" class="btn btn-outline btn-small">Next</button>
+            <button id="prevPage" class="btn btn-outline btn-small" disabled data-i18n="common.previous">前へ</button>
+            <span id="pageInfo">ページ 1</span>
+            <button id="nextPage" class="btn btn-outline btn-small" data-i18n="common.next">次へ</button>
         </div>
     </div>
 
-    <!-- Profile Settings -->
-    <div class="settings-section">
-        <h2>Profile Settings</h2>
-        <form id="settingsForm">
-            <div class="form-group">
-                <label for="bioInput">Bio</label>
-                <textarea id="bioInput" class="form-textarea" placeholder="Write something about yourself..." maxlength="500"></textarea>
-                <small>Max 500 characters</small>
-            </div>
-            <div class="form-group checkbox-group">
-                <label>
-                    <input type="checkbox" id="isPublicInput" checked>
-                    <span>Make profile public (others can view your stats)</span>
-                </label>
-            </div>
-            <button type="submit" class="btn btn-primary">Save Settings</button>
-        </form>
-    </div>
 </div>
 
 <style>
@@ -277,53 +259,6 @@
     font-size: 0.75rem;
 }
 
-.settings-section {
-    background: var(--bg-secondary);
-    padding: 1.5rem;
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-}
-
-.settings-section h2 {
-    margin-bottom: 1.5rem;
-}
-
-.form-textarea {
-    width: 100%;
-    min-height: 100px;
-    padding: 0.75rem 1rem;
-    background-color: var(--bg-tertiary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text-primary);
-    font-size: 1rem;
-    resize: vertical;
-}
-
-.form-textarea:focus {
-    outline: none;
-    border-color: var(--accent);
-}
-
-.checkbox-group {
-    display: flex;
-    align-items: center;
-}
-
-.checkbox-group label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-    color: var(--text-primary);
-}
-
-.checkbox-group input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--accent);
-}
-
 .btn-small {
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
@@ -375,7 +310,8 @@
     }
 
     function renderProfileStatus(profile) {
-        const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${profile.avatar_seed || profile.vrchat_name}`;
+        const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(profile.avatar_seed || profile.vrchat_name)}`;
+        const isPublicText = profile.is_public ? t('myHistory.publicProfile') : t('myHistory.privateProfile');
 
         document.getElementById('profileStatus').innerHTML = `
             <div class="profile-link-section">
@@ -384,17 +320,16 @@
                     <div>
                         <strong>${escapeHtml(profile.vrchat_name)}</strong>
                         <span style="color: var(--text-secondary); margin-left: 0.5rem;">
-                            ${profile.is_public ? 'Public Profile' : 'Private Profile'}
+                            ${isPublicText}
                         </span>
                     </div>
                 </div>
-                <a href="/player/${encodeURIComponent(profile.vrchat_name)}" class="btn btn-outline">View Public Profile</a>
+                <div style="display: flex; gap: 0.5rem;">
+                    ${profile.is_public ? `<a href="/player/${encodeURIComponent(profile.username)}" class="btn btn-outline">${t('myHistory.viewPublicProfile')}</a>` : ''}
+                    <a href="/settings" class="btn btn-outline">${t('nav.settings')}</a>
+                </div>
             </div>
         `;
-
-        // Populate settings
-        document.getElementById('bioInput').value = profile.bio || '';
-        document.getElementById('isPublicInput').checked = profile.is_public;
 
         // Update stats
         document.getElementById('totalRounds').textContent = profile.total_rounds;
@@ -406,7 +341,7 @@
         if (!playerProfile) return;
 
         try {
-            const res = await fetch(`/api/v1/profile/player/${encodeURIComponent(playerProfile.vrchat_name)}/history?limit=500`);
+            const res = await fetch(`/api/v1/profile/player/${encodeURIComponent(playerProfile.username)}/history?limit=500`);
             if (res.ok) {
                 allHistory = await res.json();
                 applyFilters();
@@ -529,33 +464,6 @@
         if (currentPage < totalPages) {
             currentPage++;
             renderHistory();
-        }
-    });
-
-    // Settings form
-    document.getElementById('settingsForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const bio = document.getElementById('bioInput').value;
-        const isPublic = document.getElementById('isPublicInput').checked;
-
-        try {
-            const res = await fetch('/api/v1/profile/me/settings', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ bio, is_public: isPublic })
-            });
-
-            if (res.ok) {
-                alert('Settings saved!');
-                loadProfile();
-            } else {
-                const error = await res.json();
-                alert(error.detail || 'Failed to save settings');
-            }
-        } catch (error) {
-            console.error('Failed to save settings:', error);
-            alert('Failed to save settings');
         }
     });
 

@@ -75,6 +75,7 @@ class InstanceInfo(BaseModel):
 class PlayerInfo(BaseModel):
     """C#アプリから送信されるプレイヤー情報"""
     vrchatName: str  # VRChat表示名
+    vrchatId: Optional[str] = None  # VRChat GUID (usr_xxx) - 推奨
     survived: bool  # このラウンドで生存したか
     items: List[str] = []  # 所持アイテムリスト
     notes: Optional[str] = None  # メモ（任意）
@@ -231,14 +232,34 @@ async def process_player_data(
     round_id: int
 ) -> int:
     """プレイヤーデータを処理"""
-    # プレイヤーを取得または作成
-    result = await db.execute(
-        select(Player).where(Player.vrchat_name == player_info.vrchatName)
-    )
-    player = result.scalar_one_or_none()
+    player = None
+
+    # VRChat GUIDが提供されている場合は優先的に検索
+    if player_info.vrchatId:
+        result = await db.execute(
+            select(Player).where(Player.vrchat_id == player_info.vrchatId)
+        )
+        player = result.scalar_one_or_none()
+
+        if player:
+            # GUIDで見つかった場合、表示名が変わっていたら更新
+            if player.vrchat_name != player_info.vrchatName:
+                player.vrchat_name = player_info.vrchatName
+
+    # GUIDで見つからない場合は名前で検索（後方互換性）
+    if not player:
+        result = await db.execute(
+            select(Player).where(Player.vrchat_name == player_info.vrchatName)
+        )
+        player = result.scalar_one_or_none()
+
+        # 名前で見つかった場合、GUIDを更新（GUIDが提供されていれば）
+        if player and player_info.vrchatId and not player.vrchat_id:
+            player.vrchat_id = player_info.vrchatId
 
     if not player:
         player = Player(
+            vrchat_id=player_info.vrchatId,
             vrchat_name=player_info.vrchatName,
             api_key_id=api_key.id,
             user_id=api_key.user_id,

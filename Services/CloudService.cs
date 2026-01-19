@@ -161,6 +161,9 @@ namespace ToNStatTool.Services
 		[JsonProperty("vrchatName")]
 		public string VRChatName { get; set; }
 
+		[JsonProperty("vrchatId")]
+		public string VRChatId { get; set; }
+
 		[JsonProperty("survived")]
 		public bool Survived { get; set; }
 
