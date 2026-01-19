@@ -2696,6 +2696,13 @@ namespace ToNStatTool
 			if (cloudService == null)
 				return;
 
+			// TSMからの履歴データ（バッファイベント）処理中はスキップ
+			if (isProcessingBufferedEvents)
+			{
+				Logger.Debug("Cloud", "バッファイベント処理中のためクラウド送信をスキップ");
+				return;
+			}
+
 			try
 			{
 				// 現在のラウンド情報を取得
