@@ -73,7 +73,7 @@ class InstanceInfo(BaseModel):
 
 
 class PlayerInfo(BaseModel):
-    """C#アプリから送信されるプレイヤー情報"""
+    """ToNStatToolから送信されるプレイヤー情報"""
     vrchatName: str  # VRChat表示名
     vrchatId: Optional[str] = None  # VRChat GUID (usr_xxx) - 推奨
     survived: bool  # このラウンドで生存したか
@@ -186,30 +186,7 @@ async def handle_round_end(event: RoundEndEvent, api_key: APIKey, db: AsyncSessi
         instance.total_rounds += 1
         instance.last_activity_at = datetime.now(timezone.utc)
 
-        # ラウンドタイプ統計を更新
-        await update_round_type_stats(
-            db,
-            event.round.type,
-            event.instance.playerCount,
-            event.instance.survivorCount
-        )
-
-        # マップ統計を更新
-        if event.round.mapName:
-            await update_map_stats(
-                db,
-                event.round.mapName,
-                event.instance.playerCount,
-                event.instance.survivorCount
-            )
-
-        # テラー統計を更新
-        for terror_name in event.round.terrors:
-            await update_terror_stats(
-                db,
-                terror_name,
-                event.instance.survivorCount
-            )
+        # ラウンドタイプ統計、マップ統計、テラー統計はPlayerRound作成時に更新
 
     # プレイヤー情報を処理
     player_id = None
@@ -218,7 +195,10 @@ async def handle_round_end(event: RoundEndEvent, api_key: APIKey, db: AsyncSessi
             db,
             api_key,
             event.player,
-            round_id
+            round_id,
+            event.round.type,
+            event.round.mapName,
+            event.round.terrors
         )
 
     await db.flush()
@@ -234,7 +214,10 @@ async def process_player_data(
     db: AsyncSession,
     api_key: APIKey,
     player_info: PlayerInfo,
-    round_id: int
+    round_id: int,
+    round_type: str,
+    map_name: Optional[str],
+    terrors: List[str]
 ) -> int:
     """プレイヤーデータを処理"""
     player = None
@@ -311,6 +294,17 @@ async def process_player_data(
             for item_name in player_info.items:
                 await update_item_stats(db, item_name, player_info.survived)
 
+        # ラウンドタイプ統計を更新（プレイヤー参加ベース）
+        await update_round_type_stats(db, round_type, player_info.survived)
+
+        # マップ統計を更新（プレイヤー参加ベース）
+        if map_name:
+            await update_map_stats(db, map_name, player_info.survived)
+
+        # テラー統計を更新（プレイヤー参加ベース）
+        for terror_name in terrors:
+            await update_terror_stats(db, terror_name, player_info.survived)
+
     return player.id
 
 
@@ -339,39 +333,38 @@ async def handle_instance_update(event: InstanceUpdateEvent, db: AsyncSession):
 async def update_round_type_stats(
     db: AsyncSession,
     round_type: str,
-    player_count: int,
-    survivor_count: int
+    survived: bool
 ):
-    """ラウンドタイプ統計を更新"""
+    """ラウンドタイプ統計を更新（プレイヤー参加ベース）"""
     stmt = insert(RoundTypeStats).values(
         round_type=round_type,
-        occurrence_count=1,
-        total_players=player_count,
-        total_survivors=survivor_count
+        occurrence_count=1,  # 参加回数
+        total_players=1,     # 参加回数（後方互換性のため残す）
+        total_survivors=1 if survived else 0
     ).on_conflict_do_update(
         index_elements=["round_type"],
         set_={
             "occurrence_count": RoundTypeStats.occurrence_count + 1,
-            "total_players": RoundTypeStats.total_players + player_count,
-            "total_survivors": RoundTypeStats.total_survivors + survivor_count
+            "total_players": RoundTypeStats.total_players + 1,
+            "total_survivors": RoundTypeStats.total_survivors + (1 if survived else 0)
         }
     )
     await db.execute(stmt)
 
 
-async def update_map_stats(db: AsyncSession, map_name: str, player_count: int, survivor_count: int):
-    """マップ統計を更新"""
+async def update_map_stats(db: AsyncSession, map_name: str, survived: bool):
+    """マップ統計を更新（プレイヤー参加ベース）"""
     stmt = insert(MapStats).values(
         map_name=map_name,
-        occurrence_count=1,
-        total_players=player_count,
-        total_survivors=survivor_count
+        occurrence_count=1,  # 参加回数
+        total_players=1,     # 参加回数（後方互換性のため残す）
+        total_survivors=1 if survived else 0
     ).on_conflict_do_update(
         index_elements=["map_name"],
         set_={
             "occurrence_count": MapStats.occurrence_count + 1,
-            "total_players": MapStats.total_players + player_count,
-            "total_survivors": MapStats.total_survivors + survivor_count
+            "total_players": MapStats.total_players + 1,
+            "total_survivors": MapStats.total_survivors + (1 if survived else 0)
         }
     )
     await db.execute(stmt)
@@ -380,20 +373,20 @@ async def update_map_stats(db: AsyncSession, map_name: str, player_count: int, s
 async def update_terror_stats(
     db: AsyncSession,
     terror_name: str,
-    survivor_count: int
+    survived: bool
 ):
-    """テラー統計を更新"""
+    """テラー統計を更新（プレイヤー参加ベース）"""
     stmt = insert(TerrorStats).values(
         terror_name=terror_name,
-        encounter_count=1,
-        total_rounds=1,
-        total_survivors=survivor_count
+        encounter_count=1,  # 遭遇回数（参加回数）
+        total_rounds=1,     # 遭遇回数（後方互換性のため残す）
+        total_survivors=1 if survived else 0
     ).on_conflict_do_update(
         index_elements=["terror_name"],
         set_={
             "encounter_count": TerrorStats.encounter_count + 1,
             "total_rounds": TerrorStats.total_rounds + 1,
-            "total_survivors": TerrorStats.total_survivors + survivor_count
+            "total_survivors": TerrorStats.total_survivors + (1 if survived else 0)
         }
     )
     await db.execute(stmt)

@@ -15,7 +15,7 @@
                     <thead>
                         <tr>
                             <th data-i18n="table.roundType">種別</th>
-                            <th data-i18n="globalStats.occurrence">発生回数</th>
+                            <th data-i18n="globalStats.participations">参加回数</th>
                             <th data-i18n="globalStats.percentage">割合</th>
                             <th data-i18n="globalStats.survivals">生存数</th>
                             <th data-i18n="globalStats.survivalRate">生存率</th>
@@ -36,7 +36,7 @@
                     <thead>
                         <tr>
                             <th data-i18n="table.map">マップ名</th>
-                            <th data-i18n="globalStats.occurrence">発生回数</th>
+                            <th data-i18n="globalStats.participations">参加回数</th>
                             <th data-i18n="globalStats.percentage">割合</th>
                             <th data-i18n="globalStats.survivals">生存数</th>
                             <th data-i18n="globalStats.survivalRate">生存率</th>
@@ -62,11 +62,12 @@
                     <tr>
                         <th data-i18n="table.terrors">テラー名</th>
                         <th data-i18n="globalStats.encounters">遭遇数</th>
-                        <th data-i18n="globalStats.encounterRate">遭遇率</th>
+                        <th data-i18n="globalStats.survivals">生存数</th>
+                        <th data-i18n="globalStats.survivalRate">生存率</th>
                     </tr>
                 </thead>
                 <tbody id="terrorTableBody">
-                    <tr><td colspan="3" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
+                    <tr><td colspan="4" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -82,12 +83,13 @@
                     <tr>
                         <th data-i18n="table.items">アイテム</th>
                         <th data-i18n="globalStats.timesHeld">所持回数</th>
+                        <th data-i18n="globalStats.holdRate">所持率</th>
                         <th data-i18n="globalStats.survivals">生存数</th>
                         <th data-i18n="globalStats.survivalRate">生存率</th>
                     </tr>
                 </thead>
                 <tbody id="itemStatsBody">
-                    <tr><td colspan="4" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
+                    <tr><td colspan="5" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -310,33 +312,32 @@
         }
 
         if (filtered.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="3" class="empty">${t('common.noTerrors')}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" class="empty">${t('common.noTerrors')}</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = filtered.map(ts => {
-            const encounterRate = totalTerrorEncounters > 0 ? (ts.encounter_count / totalTerrorEncounters * 100) : 0;
-            return `
+        tbody.innerHTML = filtered.map(ts => `
             <tr>
                 <td>${escapeHtml(ts.name)}</td>
                 <td>${ts.encounter_count.toLocaleString()}</td>
+                <td>${ts.total_survivors.toLocaleString()}</td>
                 <td>
                     <div class="rate-bar-container">
                         <div class="rate-bar">
-                            <div class="rate-bar-fill" style="width: ${encounterRate}%"></div>
+                            <div class="rate-bar-fill" style="width: ${ts.survival_rate}%"></div>
                         </div>
-                        <span class="rate-text">${encounterRate.toFixed(1)}%</span>
+                        <span class="rate-text">${ts.survival_rate.toFixed(1)}%</span>
                     </div>
                 </td>
             </tr>
-        `}).join('');
+        `).join('');
     }
 
     function renderItemStats(items) {
         const tbody = document.getElementById('itemStatsBody');
 
         if (items.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" class="empty">${t('players.noItemData')}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="empty">${t('players.noItemData')}</td></tr>`;
             return;
         }
 
@@ -344,6 +345,7 @@
             <tr>
                 <td>${escapeHtml(item.item_name)}</td>
                 <td>${item.times_held.toLocaleString()}</td>
+                <td>${item.hold_rate != null ? item.hold_rate.toFixed(1) + '%' : '-'}</td>
                 <td>${item.times_survived.toLocaleString()}</td>
                 <td>
                     <div class="rate-bar-container">

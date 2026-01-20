@@ -58,6 +58,7 @@ class ItemSurvivalStat(BaseModel):
     times_held: int
     times_survived: int
     survival_rate: float
+    hold_rate: Optional[float] = None  # 所持率（グローバル統計用）
 
 
 class TerrorSurvivalStat(BaseModel):
@@ -492,6 +493,10 @@ async def get_global_item_stats(
     limit: int = Query(default=50, le=200)
 ):
     """グローバルアイテム統計を取得"""
+    # 全PlayerRound数を取得（所持率計算用）
+    total_result = await db.execute(select(func.count(PlayerRound.id)))
+    total_player_rounds = total_result.scalar() or 0
+
     result = await db.execute(
         select(ItemStats)
         .order_by(desc(ItemStats.total_held))
@@ -504,7 +509,8 @@ async def get_global_item_stats(
             item_name=item.item_name,
             times_held=item.total_held,
             times_survived=item.total_survivals,
-            survival_rate=round(item.total_survivals / item.total_held * 100, 2) if item.total_held > 0 else 0
+            survival_rate=round(item.total_survivals / item.total_held * 100, 2) if item.total_held > 0 else 0,
+            hold_rate=round(item.total_held / total_player_rounds * 100, 2) if total_player_rounds > 0 else 0
         )
         for item in items
     ]

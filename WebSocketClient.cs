@@ -2705,7 +2705,7 @@ namespace ToNStatTool
 
 			// パブリックインスタンス以外はスキップ
 			if (string.IsNullOrEmpty(InstanceState.InstanceUrl) ||
-				!InstanceState.InstanceUrl.Contains("public", StringComparison.OrdinalIgnoreCase))
+				!InstanceState.InstanceUrl.Contains("public"))
 			{
 				Logger.Debug("Cloud", "パブリックインスタンスではないためクラウド送信をスキップ");
 				return;

@@ -527,7 +527,7 @@ namespace ToNStatTool
 
 			// 説明ラベル
 			var labelCloudDescription = new Label();
-			labelCloudDescription.Text = "ラウンド終了時にテラー・マップ・生存人数などの情報を\nクラウドサーバーに送信します。\n※ プレイヤー名やユーザーIDは送信されません";
+			labelCloudDescription.Text = "ラウンド終了時にテラー・マップ・生存人数などの情報を\nクラウドサーバーに送信します。\n使用にはAPIキーを発行する必要があります。";
 			labelCloudDescription.Location = new Point(15, 50);
 			labelCloudDescription.Size = new Size(380, 50);
 			labelCloudDescription.ForeColor = Color.Gray;

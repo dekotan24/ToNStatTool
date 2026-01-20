@@ -40,7 +40,7 @@ namespace ToNStatTool
 		/// <summary>
 		/// クラウドサーバーのURL
 		/// </summary>
-		public string CloudServerUrl { get; set; } = "https://ton-stats.example.com";
+		public string CloudServerUrl { get; set; } = "https://ton.fanet.work";
 
 		/// <summary>
 		/// クラウドAPIキー（Webで発行したキー）

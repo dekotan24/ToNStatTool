@@ -17,7 +17,7 @@
     <div id="api-keys-tab" class="tab-content active">
         <div class="section">
             <h2 data-i18n="settings.createApiKey">APIキーを作成</h2>
-            <p class="section-desc" data-i18n="settings.apiKeysDesc">C#アプリとの連携に使用するAPIキーを作成します。</p>
+            <p class="section-desc"><a href="https://github.com/dekotan24/ToNStatTool/releases" target="_blank" class="app-link">ToNStatTool</a><span data-i18n="settings.apiKeysDesc">との連携に使用するAPIキーを作成します。</span></p>
             <form id="createKeyForm" class="create-key-form">
                 <div class="form-group">
                     <label for="keyName" data-i18n="settings.keyName">キー名</label>
@@ -65,7 +65,7 @@
                 <ol class="setup-steps">
                     <li data-i18n="settings.step1">上の「APIキーを作成」でキー名を入力して <strong>作成</strong> をクリック</li>
                     <li data-i18n="settings.step2">表示されたAPIキー（<code>ton_</code>で始まる文字列）をコピー</li>
-                    <li data-i18n="settings.step3">C#アプリを開き、<strong>設定</strong> 画面へ移動</li>
+                    <li><a href="https://github.com/dekotan24/ToNStatTool/releases" target="_blank" class="app-link">ToNStatTool</a><span data-i18n="settings.step3">を開き、設定画面へ移動</span></li>
                     <li data-i18n="settings.step4"><strong>クラウド同期を有効化</strong> にチェック</li>
                     <li><span data-i18n="settings.step5"><strong>サーバーURL</strong> に</span> <code>{{ site_url }}</code> <span data-i18n="settings.step5b">を入力</span></li>
                     <li data-i18n="settings.step6"><strong>APIキー</strong> にコピーしたキーを貼り付け</li>
@@ -161,7 +161,7 @@
             </div>
 
             <div id="noPlayerProfile" style="display: none;">
-                <p class="section-desc" data-i18n="settings.noPlayerProfile">プレイヤープロフィールがまだありません。C#アプリでラウンドデータを送信すると自動的に作成されます。</p>
+                <p class="section-desc"><span data-i18n="settings.noPlayerProfilePre">プレイヤープロフィールがまだありません。</span><a href="https://github.com/dekotan24/ToNStatTool/releases" target="_blank" class="app-link">ToNStatTool</a><span data-i18n="settings.noPlayerProfilePost">でラウンドデータを送信すると自動的に作成されます。</span></p>
             </div>
         </div>
 

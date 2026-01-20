@@ -27,6 +27,7 @@ class OverviewStats(BaseModel):
 class TerrorStatItem(BaseModel):
     name: str
     encounter_count: int
+    total_survivors: int
     survival_rate: float
 
 
@@ -158,12 +159,13 @@ async def get_terror_stats(
     items = []
     for stat in stats:
         survival_rate = 0
-        if stat.total_rounds > 0:
-            survival_rate = stat.total_survivors / stat.total_rounds * 100
+        if stat.encounter_count > 0:
+            survival_rate = stat.total_survivors / stat.encounter_count * 100
 
         items.append(TerrorStatItem(
             name=stat.terror_name,
             encounter_count=stat.encounter_count,
+            total_survivors=stat.total_survivors,
             survival_rate=round(survival_rate, 2)
         ))
 
