@@ -1776,15 +1776,18 @@ namespace ToNStatTool
 					lastInstanceUrl = instanceUrl;
 					InstanceState.InstanceUrl = instanceUrl;
 					Logger.Info("Instance", $"インスタンスURL更新: {instanceUrl}");
-					
+
 					// インスタンス変更時は状態をリセット
 					InstanceState.MasterChanged = false;
-					
+
 					// リスポーン追跡用フラグをリセット（新しいインスタンスでは初めからやり直し）
 					InstanceState.WasOptedInThisInstance = false;
 					InstanceState.HadRespawnedInRound = false;
 					InstanceState.IsRespawnSaveCode = false;
-					
+
+					// クラウドからインスタンス状態を取得（非同期）
+					_ = FetchInstanceStateFromCloudAsync(instanceUrl);
+
 					OnInstanceStateChanged?.Invoke();
 				}
 				
@@ -2784,6 +2787,57 @@ namespace ToNStatTool
 					cloudService.SetApiKey(apiKey);
 				}
 				Logger.Info("Cloud", $"クラウド設定を更新: Enabled={enabled}, URL={serverUrl}");
+			}
+		}
+
+		/// <summary>
+		/// クラウドからインスタンス状態を取得してInstanceStateに反映する
+		/// </summary>
+		private async Task FetchInstanceStateFromCloudAsync(string instanceUrl)
+		{
+			if (cloudService == null)
+				return;
+
+			try
+			{
+				var moonState = await cloudService.FetchInstanceStateAsync(instanceUrl);
+				if (moonState != null)
+				{
+					// 取得した状態をInstanceStateに反映（既存の状態とORで結合）
+					if (moonState.BloodMoonUnlocked)
+						InstanceState.BloodMoonUnlocked = true;
+					if (moonState.TwilightUnlocked)
+						InstanceState.TwilightUnlocked = true;
+					if (moonState.MysticMoonUnlocked)
+						InstanceState.MysticMoonUnlocked = true;
+					if (moonState.SolsticeUnlocked)
+						InstanceState.SolsticeUnlocked = true;
+
+					// 鳥遭遇状態
+					if (moonState.BigBirdEncountered)
+						InstanceState.MetBigBird = true;
+					if (moonState.JudgementBirdEncountered)
+						InstanceState.MetJudgementBird = true;
+					if (moonState.PunishingBirdEncountered)
+						InstanceState.MetPunishingBird = true;
+
+					// Twilight/Solstice解禁なら全鳥遭遇済み
+					if (InstanceState.TwilightUnlocked || InstanceState.SolsticeUnlocked)
+					{
+						InstanceState.MetBigBird = true;
+						InstanceState.MetJudgementBird = true;
+						InstanceState.MetPunishingBird = true;
+					}
+
+					Logger.Info("Cloud", $"インスタンス状態をクラウドから復元: Moon(B={InstanceState.BloodMoonUnlocked},T={InstanceState.TwilightUnlocked},M={InstanceState.MysticMoonUnlocked},S={InstanceState.SolsticeUnlocked}) Birds({InstanceState.MetBigBird},{InstanceState.MetJudgementBird},{InstanceState.MetPunishingBird})");
+
+					// UIを更新
+					OnInstanceStateChanged?.Invoke();
+				}
+			}
+			catch (Exception ex)
+			{
+				Logger.Warn("Cloud", $"クラウドからインスタンス状態取得エラー: {ex.Message}");
 			}
 		}
 

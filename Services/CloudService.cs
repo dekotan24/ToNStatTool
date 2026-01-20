@@ -120,6 +120,86 @@ namespace ToNStatTool.Services
 			}
 		}
 
+		/// <summary>
+		/// インスタンスの状態をWebから取得
+		/// </summary>
+		/// <param name="instanceId">インスタンスID（例: wrld_xxx:12345~region(...)）</param>
+		/// <returns>インスタンス状態、取得できなければnull</returns>
+		public async Task<CloudInstanceMoonState> FetchInstanceStateAsync(string instanceId)
+		{
+			if (!isEnabled || string.IsNullOrEmpty(serverUrl) || string.IsNullOrEmpty(instanceId))
+				return null;
+
+			try
+			{
+				// インスタンスIDから短縮ID（5桁）を抽出
+				string shortId = ExtractShortInstanceId(instanceId);
+				if (string.IsNullOrEmpty(shortId))
+				{
+					Logger.Debug("CloudService", $"Could not extract short ID from: {instanceId}");
+					return null;
+				}
+
+				var response = await httpClient.GetAsync($"{serverUrl.TrimEnd('/')}/api/v1/stats/instance/{shortId}");
+
+				if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+				{
+					// インスタンスがまだ記録されていない場合は正常
+					Logger.Debug("CloudService", $"Instance not found on server: {shortId}");
+					return null;
+				}
+
+				if (!response.IsSuccessStatusCode)
+				{
+					Logger.Warn("CloudService", $"Failed to fetch instance state: {response.StatusCode}");
+					return null;
+				}
+
+				var responseBody = await response.Content.ReadAsStringAsync();
+				var instanceDetail = JsonConvert.DeserializeObject<CloudInstanceDetailResponse>(responseBody);
+
+				if (instanceDetail?.MoonState != null)
+				{
+					Logger.Info("CloudService", $"Fetched instance state: BloodMoon={instanceDetail.MoonState.BloodMoonUnlocked}, Twilight={instanceDetail.MoonState.TwilightUnlocked}, MysticMoon={instanceDetail.MoonState.MysticMoonUnlocked}, Solstice={instanceDetail.MoonState.SolsticeUnlocked}");
+					Logger.Info("CloudService", $"Birds: BigBird={instanceDetail.MoonState.BigBirdEncountered}, Judgement={instanceDetail.MoonState.JudgementBirdEncountered}, Punishing={instanceDetail.MoonState.PunishingBirdEncountered}");
+				}
+
+				return instanceDetail?.MoonState;
+			}
+			catch (Exception ex)
+			{
+				Logger.Error("CloudService", $"Error fetching instance state: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// インスタンスIDから短縮ID（5桁）を抽出
+		/// 例: wrld_xxx:12345~region(...) -> 12345
+		/// </summary>
+		private string ExtractShortInstanceId(string instanceId)
+		{
+			if (string.IsNullOrEmpty(instanceId))
+				return null;
+
+			// コロンで分割してインスタンス部分を取得
+			var colonIndex = instanceId.IndexOf(':');
+			if (colonIndex < 0)
+				return null;
+
+			var instancePart = instanceId.Substring(colonIndex + 1);
+
+			// チルダで分割して短縮IDを取得
+			var tildeIndex = instancePart.IndexOf('~');
+			if (tildeIndex > 0)
+			{
+				return instancePart.Substring(0, tildeIndex);
+			}
+
+			// チルダがなければそのまま返す
+			return instancePart;
+		}
+
 		public void Dispose()
 		{
 			httpClient?.Dispose();
@@ -239,6 +319,58 @@ namespace ToNStatTool.Services
 
 		[JsonProperty("solsticeUnlocked")]
 		public bool SolsticeUnlocked { get; set; }
+	}
+
+	#endregion
+
+	#region クラウド取得用データモデル
+
+	/// <summary>
+	/// インスタンス詳細レスポンス（クラウド取得用）
+	/// </summary>
+	public class CloudInstanceDetailResponse
+	{
+		[JsonProperty("id")]
+		public int Id { get; set; }
+
+		[JsonProperty("instance_id")]
+		public string InstanceId { get; set; }
+
+		[JsonProperty("total_rounds")]
+		public int TotalRounds { get; set; }
+
+		[JsonProperty("moon_state")]
+		public CloudInstanceMoonState MoonState { get; set; }
+	}
+
+	/// <summary>
+	/// インスタンスのMoon/鳥状態（クラウド取得用）
+	/// </summary>
+	public class CloudInstanceMoonState
+	{
+		[JsonProperty("normal_round_count")]
+		public int NormalRoundCount { get; set; }
+
+		[JsonProperty("blood_moon_unlocked")]
+		public bool BloodMoonUnlocked { get; set; }
+
+		[JsonProperty("twilight_unlocked")]
+		public bool TwilightUnlocked { get; set; }
+
+		[JsonProperty("mystic_moon_unlocked")]
+		public bool MysticMoonUnlocked { get; set; }
+
+		[JsonProperty("solstice_unlocked")]
+		public bool SolsticeUnlocked { get; set; }
+
+		[JsonProperty("big_bird_encountered")]
+		public bool BigBirdEncountered { get; set; }
+
+		[JsonProperty("judgement_bird_encountered")]
+		public bool JudgementBirdEncountered { get; set; }
+
+		[JsonProperty("punishing_bird_encountered")]
+		public bool PunishingBirdEncountered { get; set; }
 	}
 
 	#endregion
