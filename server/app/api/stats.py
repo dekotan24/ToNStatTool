@@ -265,10 +265,11 @@ async def get_recent_rounds(
     db: AsyncSession = Depends(get_db),
     limit: int = Query(default=20, le=500)
 ):
-    """最近のラウンドを取得"""
+    """最近のラウンドを取得（publicインスタンスのみ）"""
     result = await db.execute(
         select(Round, Instance.instance_id, Instance.id)
         .join(Instance, Round.instance_id == Instance.id)
+        .where(Instance.instance_id.contains("~public("))
         .order_by(desc(Round.started_at))
         .limit(limit)
     )
