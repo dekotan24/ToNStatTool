@@ -295,12 +295,15 @@ async def get_active_instances(
     db: AsyncSession = Depends(get_db),
     hours: int = Query(default=1, le=24)
 ):
-    """アクティブなインスタンスを取得（最新ラウンド情報付き）"""
+    """アクティブなインスタンスを取得（最新ラウンド情報付き、publicのみ）"""
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
 
     result = await db.execute(
         select(Instance)
-        .where(Instance.last_activity_at >= cutoff)
+        .where(
+            Instance.last_activity_at >= cutoff,
+            Instance.instance_id.contains("~public(")  # publicインスタンスのみ
+        )
         .order_by(desc(Instance.last_activity_at))
         .limit(50)
     )
@@ -360,8 +363,8 @@ async def search_instances(
     if map_name:
         round_filters.append(Round.map_name.ilike(f"%{map_name}%"))
 
-    # Build the main query
-    query = select(Instance)
+    # Build the main query (publicインスタンスのみ)
+    query = select(Instance).where(Instance.instance_id.contains("~public("))
 
     if instance_id:
         # Search for instance_id containing the search term
@@ -516,6 +519,14 @@ async def get_instance_detail(
         instance = result.scalar_one_or_none()
 
     if not instance:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Instance not found"
+        )
+
+    # publicインスタンスかチェック
+    if "~public(" not in instance.instance_id:
         from fastapi import HTTPException, status
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

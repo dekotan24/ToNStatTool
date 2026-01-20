@@ -2703,11 +2703,10 @@ namespace ToNStatTool
 				return;
 			}
 
-			// パブリックインスタンス以外はスキップ
-			if (string.IsNullOrEmpty(InstanceState.InstanceUrl) ||
-				!InstanceState.InstanceUrl.Contains("public"))
+			// インスタンスURLが空の場合はスキップ
+			if (string.IsNullOrEmpty(InstanceState.InstanceUrl))
 			{
-				Logger.Debug("Cloud", "パブリックインスタンスではないためクラウド送信をスキップ");
+				Logger.Debug("Cloud", "インスタンスURLが空のためクラウド送信をスキップ");
 				return;
 			}
 
