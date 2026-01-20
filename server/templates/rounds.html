@@ -100,14 +100,12 @@
 <style>
 .stats-row {
     display: flex;
+    flex-direction: column;
     gap: 1.5rem;
-    flex-wrap: wrap;
     margin-bottom: 1.5rem;
 }
 
 .stats-row .stats-section {
-    flex: 1;
-    min-width: 280px;
     max-height: 500px;
     display: flex;
     flex-direction: column;
@@ -209,15 +207,6 @@
     text-align: right;
 }
 
-@media (max-width: 1024px) {
-    .stats-row {
-        flex-direction: column;
-    }
-
-    .stats-row .stats-section {
-        max-height: 400px;
-    }
-}
 </style>
 {% endblock %}
 
