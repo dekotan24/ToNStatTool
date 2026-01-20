@@ -230,7 +230,14 @@
                         <tr>
                             <td><span class="round-type">${escapeHtml(rt.round_type)}</span></td>
                             <td>${rt.occurrence_count.toLocaleString()}</td>
-                            <td>${rt.percentage.toFixed(1)}%</td>
+                            <td>
+                                <div class="rate-bar-container">
+                                    <div class="rate-bar">
+                                        <div class="rate-bar-fill" style="width: ${rt.percentage}%"></div>
+                                    </div>
+                                    <span class="rate-text">${rt.percentage.toFixed(1)}%</span>
+                                </div>
+                            </td>
                             <td>${rt.total_survivors.toLocaleString()}</td>
                             <td>
                                 <div class="rate-bar-container">
@@ -257,7 +264,14 @@
                         <tr>
                             <td>${escapeHtml(m.map_name)}</td>
                             <td>${m.occurrence_count.toLocaleString()}</td>
-                            <td>${m.percentage.toFixed(1)}%</td>
+                            <td>
+                                <div class="rate-bar-container">
+                                    <div class="rate-bar">
+                                        <div class="rate-bar-fill" style="width: ${m.percentage}%"></div>
+                                    </div>
+                                    <span class="rate-text">${m.percentage.toFixed(1)}%</span>
+                                </div>
+                            </td>
                             <td>${m.total_survivors.toLocaleString()}</td>
                             <td>
                                 <div class="rate-bar-container">
@@ -310,7 +324,14 @@
             <tr>
                 <td>${escapeHtml(ts.name)}</td>
                 <td>${ts.encounter_count.toLocaleString()}</td>
-                <td>${ts.encounter_rate.toFixed(1)}%</td>
+                <td>
+                    <div class="rate-bar-container">
+                        <div class="rate-bar">
+                            <div class="rate-bar-fill" style="width: ${ts.encounter_rate}%"></div>
+                        </div>
+                        <span class="rate-text">${ts.encounter_rate.toFixed(1)}%</span>
+                    </div>
+                </td>
                 <td>${ts.total_survivors.toLocaleString()}</td>
                 <td>
                     <div class="rate-bar-container">
@@ -336,7 +357,14 @@
             <tr>
                 <td>${escapeHtml(item.item_name)}</td>
                 <td>${item.times_held.toLocaleString()}</td>
-                <td>${item.hold_rate != null ? item.hold_rate.toFixed(1) + '%' : '-'}</td>
+                <td>
+                    <div class="rate-bar-container">
+                        <div class="rate-bar">
+                            <div class="rate-bar-fill" style="width: ${item.hold_rate || 0}%"></div>
+                        </div>
+                        <span class="rate-text">${item.hold_rate != null ? item.hold_rate.toFixed(1) + '%' : '-'}</span>
+                    </div>
+                </td>
                 <td>${item.times_survived.toLocaleString()}</td>
                 <td>
                     <div class="rate-bar-container">
