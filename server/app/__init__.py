@@ -1,1 +1,0 @@
-"""ToN Stats Server Application"""
