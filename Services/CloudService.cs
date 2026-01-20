@@ -127,7 +127,8 @@ namespace ToNStatTool.Services
 		/// <returns>インスタンス状態、取得できなければnull</returns>
 		public async Task<CloudInstanceMoonState> FetchInstanceStateAsync(string instanceId)
 		{
-			if (!isEnabled || string.IsNullOrEmpty(serverUrl) || string.IsNullOrEmpty(instanceId))
+			// クラウド同期が有効、サーバーURL設定済み、APIキー設定済み、インスタンスIDありの場合のみ取得
+			if (!isEnabled || string.IsNullOrEmpty(serverUrl) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(instanceId))
 				return null;
 
 			try
