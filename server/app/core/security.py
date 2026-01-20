@@ -137,8 +137,8 @@ def generate_csrf_token() -> str:
 def get_encryption_key() -> bytes:
     """TOTP暗号化用のキーを取得"""
     if settings.TOTP_ENCRYPTION_KEY:
-        # 環境変数から取得
-        return base64.urlsafe_b64decode(settings.TOTP_ENCRYPTION_KEY)
+        # 環境変数から取得（すでにbase64エンコードされたキー）
+        return settings.TOTP_ENCRYPTION_KEY.encode()
     else:
         # SECRET_KEYから派生
         kdf = PBKDF2HMAC(
