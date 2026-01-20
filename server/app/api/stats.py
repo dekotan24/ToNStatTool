@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import select, func, desc, or_, any_, case
+from sqlalchemy import select, func, desc, or_, and_, not_, any_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -12,6 +12,64 @@ from app.api.auth import get_current_user
 from app.models import User, Instance, Round, TerrorStats, RoundTypeStats, MapStats, Player, PlayerRound
 
 router = APIRouter(prefix="/api/v1/stats", tags=["stats"])
+
+
+# ========== Helper Functions ==========
+
+def is_public_instance_filter():
+    """
+    パブリックインスタンスを判定するSQLAlchemyフィルタを返す
+
+    パブリックパターン:
+    - 通常パブリック: 12345~region(jp) - プライベートマーカーなし
+    - グループパブリック: ~groupAccessType(public) を含む
+
+    非パブリックパターン:
+    - ~private( - Invite
+    - ~hidden( - Invite+
+    - ~friends( - Friends
+    - ~friends+( - Friends+
+    - ~group( があり ~groupAccessType(public) がない - プライベートグループ
+    """
+    # プライベートインスタンスのマーカー
+    private_markers = [
+        Instance.instance_id.contains("~private("),
+        Instance.instance_id.contains("~hidden("),
+        Instance.instance_id.contains("~friends("),
+        Instance.instance_id.contains("~friends+("),
+    ]
+
+    # グループインスタンスでpublicでないもの
+    private_group = and_(
+        Instance.instance_id.contains("~group("),
+        not_(Instance.instance_id.contains("~groupAccessType(public)"))
+    )
+
+    # パブリック = プライベートマーカーがない AND (グループでない OR グループパブリック)
+    return and_(
+        not_(or_(*private_markers)),
+        not_(private_group)
+    )
+
+
+def is_public_instance(instance_id: str) -> bool:
+    """
+    インスタンスIDがパブリックかどうかを判定（Python関数版）
+    """
+    private_markers = ["~private(", "~hidden(", "~friends(", "~friends+("]
+
+    # プライベートマーカーがあればFalse
+    for marker in private_markers:
+        if marker in instance_id:
+            return False
+
+    # グループインスタンスの場合
+    if "~group(" in instance_id:
+        # groupAccessType(public) があればTrue
+        return "~groupAccessType(public)" in instance_id
+
+    # それ以外はパブリック
+    return True
 
 
 # ========== Pydantic Models ==========
@@ -269,7 +327,7 @@ async def get_recent_rounds(
     result = await db.execute(
         select(Round, Instance.instance_id, Instance.id)
         .join(Instance, Round.instance_id == Instance.id)
-        .where(Instance.instance_id.contains("~public("))
+        .where(is_public_instance_filter())
         .order_by(desc(Round.started_at))
         .limit(limit)
     )
@@ -303,7 +361,7 @@ async def get_active_instances(
         select(Instance)
         .where(
             Instance.last_activity_at >= cutoff,
-            Instance.instance_id.contains("~public(")  # publicインスタンスのみ
+            is_public_instance_filter()  # publicインスタンスのみ
         )
         .order_by(desc(Instance.last_activity_at))
         .limit(50)
@@ -365,7 +423,7 @@ async def search_instances(
         round_filters.append(Round.map_name.ilike(f"%{map_name}%"))
 
     # Build the main query (publicインスタンスのみ)
-    query = select(Instance).where(Instance.instance_id.contains("~public("))
+    query = select(Instance).where(is_public_instance_filter())
 
     if instance_id:
         # Search for instance_id containing the search term
@@ -527,7 +585,7 @@ async def get_instance_detail(
         )
 
     # publicインスタンスかチェック
-    if "~public(" not in instance.instance_id:
+    if not is_public_instance(instance.instance_id):
         from fastapi import HTTPException, status
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
