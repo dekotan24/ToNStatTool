@@ -27,6 +27,7 @@ class OverviewStats(BaseModel):
 class TerrorStatItem(BaseModel):
     name: str
     encounter_count: int
+    encounter_rate: float
     total_survivors: int
     survival_rate: float
 
@@ -148,6 +149,12 @@ async def get_terror_stats(
     offset: int = Query(default=0, ge=0)
 ):
     """テラー統計を取得"""
+    # 全遭遇数の合計を取得（遭遇率計算用）
+    total_result = await db.execute(
+        select(func.sum(TerrorStats.encounter_count))
+    )
+    total_encounters = total_result.scalar() or 0
+
     result = await db.execute(
         select(TerrorStats)
         .order_by(desc(TerrorStats.encounter_count))
@@ -162,9 +169,14 @@ async def get_terror_stats(
         if stat.encounter_count > 0:
             survival_rate = stat.total_survivors / stat.encounter_count * 100
 
+        encounter_rate = 0
+        if total_encounters > 0:
+            encounter_rate = stat.encounter_count / total_encounters * 100
+
         items.append(TerrorStatItem(
             name=stat.terror_name,
             encounter_count=stat.encounter_count,
+            encounter_rate=round(encounter_rate, 2),
             total_survivors=stat.total_survivors,
             survival_rate=round(survival_rate, 2)
         ))

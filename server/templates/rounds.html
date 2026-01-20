@@ -62,12 +62,13 @@
                     <tr>
                         <th data-i18n="table.terrors">テラー名</th>
                         <th data-i18n="globalStats.encounters">遭遇数</th>
+                        <th data-i18n="globalStats.encounterRate">遭遇率</th>
                         <th data-i18n="globalStats.survivals">生存数</th>
                         <th data-i18n="globalStats.survivalRate">生存率</th>
                     </tr>
                 </thead>
                 <tbody id="terrorTableBody">
-                    <tr><td colspan="4" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
+                    <tr><td colspan="5" class="loading" data-i18n="common.loading">読み込み中...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -312,7 +313,7 @@
         }
 
         if (filtered.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" class="empty">${t('common.noTerrors')}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="empty">${t('common.noTerrors')}</td></tr>`;
             return;
         }
 
@@ -320,6 +321,7 @@
             <tr>
                 <td>${escapeHtml(ts.name)}</td>
                 <td>${ts.encounter_count.toLocaleString()}</td>
+                <td>${ts.encounter_rate.toFixed(1)}%</td>
                 <td>${ts.total_survivors.toLocaleString()}</td>
                 <td>
                     <div class="rate-bar-container">
