@@ -16,6 +16,10 @@ namespace ToNStatTool.Services
 		private string apiKey;
 		private bool isEnabled;
 
+		// インスタンスIDごとのaccess_keyを保持（非パブリックインスタンス用）
+		private readonly System.Collections.Generic.Dictionary<string, string> instanceAccessKeys
+			= new System.Collections.Generic.Dictionary<string, string>();
+
 		public CloudService()
 		{
 			httpClient = new HttpClient();
@@ -83,7 +87,25 @@ namespace ToNStatTool.Services
 
 				var response = await httpClient.PostAsync($"{serverUrl.TrimEnd('/')}/api/v1/events", content);
 
-				if (!response.IsSuccessStatusCode)
+				if (response.IsSuccessStatusCode)
+				{
+					// access_keyをレスポンスから取得して保存（非パブリックインスタンス用）
+					try
+					{
+						var responseBody = await response.Content.ReadAsStringAsync();
+						var eventResponse = JsonConvert.DeserializeObject<CloudEventResponse>(responseBody);
+						if (!string.IsNullOrEmpty(eventResponse?.AccessKey) && !string.IsNullOrEmpty(roundEvent.InstanceId))
+						{
+							instanceAccessKeys[roundEvent.InstanceId] = eventResponse.AccessKey;
+							Logger.Debug("CloudService", $"Stored access_key for instance");
+						}
+					}
+					catch (Exception parseEx)
+					{
+						Logger.Debug("CloudService", $"Could not parse event response: {parseEx.Message}");
+					}
+				}
+				else
 				{
 					Logger.Warn("CloudService", $"Failed to send round end event: {response.StatusCode}");
 				}
@@ -141,11 +163,21 @@ namespace ToNStatTool.Services
 					return null;
 				}
 
-				var response = await httpClient.GetAsync($"{serverUrl.TrimEnd('/')}/api/v1/stats/instance/{shortId}");
+				// API URLを構築（非パブリックの場合はaccess_keyを付与）
+				string apiUrl = $"{serverUrl.TrimEnd('/')}/api/v1/stats/instance/{shortId}";
+
+				// 非パブリックインスタンスの場合、保存されたaccess_keyを使用
+				if (!IsPublicInstance(instanceId) && instanceAccessKeys.TryGetValue(instanceId, out string accessKey))
+				{
+					apiUrl += $"?key={Uri.EscapeDataString(accessKey)}";
+					Logger.Debug("CloudService", "Using stored access_key for non-public instance");
+				}
+
+				var response = await httpClient.GetAsync(apiUrl);
 
 				if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
 				{
-					// インスタンスがまだ記録されていない場合は正常
+					// インスタンスがまだ記録されていない、またはアクセス権がない場合
 					Logger.Debug("CloudService", $"Instance not found on server: {shortId}");
 					return null;
 				}
@@ -199,6 +231,49 @@ namespace ToNStatTool.Services
 
 			// チルダがなければそのまま返す
 			return instancePart;
+		}
+
+		/// <summary>
+		/// インスタンスIDが通常パブリックかどうかを判定
+		///
+		/// 通常パブリック: プライベートマーカーもグループマーカーもないインスタンス
+		/// 例: wrld_xxx:12345~region(jp)
+		///
+		/// 注意: グループパブリックは「パブリック」扱いしない
+		/// 理由: 同じshort_idで複数のグループパブリックインスタンスが存在しうるため、
+		/// 一意に特定するにはaccess_keyが必要
+		/// </summary>
+		private bool IsPublicInstance(string instanceId)
+		{
+			if (string.IsNullOrEmpty(instanceId))
+				return true; // デフォルトはパブリック扱い
+
+			// プライベートマーカーをチェック
+			string[] privateMarkers = { "~private(", "~hidden(", "~friends(", "~friends+(" };
+			foreach (var marker in privateMarkers)
+			{
+				if (instanceId.Contains(marker))
+					return false;
+			}
+
+			// グループインスタンスの場合は全てFalse（グループパブリック含む）
+			// 同じshort_idで複数グループが存在しうるため、keyで区別する必要がある
+			if (instanceId.Contains("~group("))
+			{
+				return false;
+			}
+
+			// プライベートマーカーもグループマーカーもない = 通常パブリック
+			return true;
+		}
+
+		/// <summary>
+		/// インスタンス移動時にaccess_keyキャッシュをクリア
+		/// </summary>
+		public void ClearAccessKeyCache()
+		{
+			instanceAccessKeys.Clear();
+			Logger.Debug("CloudService", "Cleared access key cache");
 		}
 
 		public void Dispose()
@@ -325,6 +400,24 @@ namespace ToNStatTool.Services
 	#endregion
 
 	#region クラウド取得用データモデル
+
+	/// <summary>
+	/// イベントAPIレスポンス
+	/// </summary>
+	public class CloudEventResponse
+	{
+		[JsonProperty("status")]
+		public string Status { get; set; }
+
+		[JsonProperty("round_id")]
+		public int? RoundId { get; set; }
+
+		[JsonProperty("player_id")]
+		public int? PlayerId { get; set; }
+
+		[JsonProperty("access_key")]
+		public string AccessKey { get; set; }
+	}
 
 	/// <summary>
 	/// インスタンス詳細レスポンス（クラウド取得用）
