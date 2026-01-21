@@ -279,7 +279,10 @@ namespace ToNStatTool.Services
 				return true; // デフォルトはパブリック扱い
 
 			// プライベートマーカーをチェック
-			string[] privateMarkers = { "~private(", "~hidden(", "~friends(", "~friends+(" };
+			// ~private( - Invite / Invite+
+			// ~hidden( - Friends+
+			// ~friends( - Friends
+			string[] privateMarkers = { "~private(", "~hidden(", "~friends(" };
 			foreach (var marker in privateMarkers)
 			{
 				if (instanceId.Contains(marker))
