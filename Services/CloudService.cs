@@ -163,12 +163,19 @@ namespace ToNStatTool.Services
 					return null;
 				}
 
-				// API URLを構築（非パブリックの場合はaccess_keyを付与）
+				// API URLを構築
 				string apiUrl = $"{serverUrl.TrimEnd('/')}/api/v1/stats/instance/{shortId}";
 
-				// 非パブリックインスタンスの場合、保存されたaccess_keyを使用
-				if (!IsPublicInstance(instanceId) && instanceAccessKeys.TryGetValue(instanceId, out string accessKey))
+				if (IsPublicInstance(instanceId))
 				{
+					// パブリックインスタンスの場合、regionパラメータを付与（デフォルト: jp）
+					string region = ExtractRegion(instanceId) ?? "jp";
+					apiUrl += $"?region={Uri.EscapeDataString(region)}";
+					Logger.Debug("CloudService", $"Using region={region} for public instance");
+				}
+				else if (instanceAccessKeys.TryGetValue(instanceId, out string accessKey))
+				{
+					// 非パブリックインスタンスの場合、保存されたaccess_keyを使用
 					apiUrl += $"?key={Uri.EscapeDataString(accessKey)}";
 					Logger.Debug("CloudService", "Using stored access_key for non-public instance");
 				}
@@ -231,6 +238,29 @@ namespace ToNStatTool.Services
 
 			// チルダがなければそのまま返す
 			return instancePart;
+		}
+
+		/// <summary>
+		/// インスタンスIDからリージョンを抽出
+		/// 例: wrld_xxx:12345~region(jp) -> jp
+		/// VRChatリージョン: us (US West), use (US East), eu (Europe), jp (Japan)
+		/// </summary>
+		private string ExtractRegion(string instanceId)
+		{
+			if (string.IsNullOrEmpty(instanceId))
+				return null;
+
+			// ~region(xxx)パターンを検索
+			var regionStart = instanceId.IndexOf("~region(");
+			if (regionStart < 0)
+				return null;
+
+			var start = regionStart + 8; // "~region(" の長さ
+			var end = instanceId.IndexOf(')', start);
+			if (end < 0)
+				return null;
+
+			return instanceId.Substring(start, end - start);
 		}
 
 		/// <summary>
