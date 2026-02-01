@@ -698,7 +698,24 @@ namespace ToNStatTool
 				// バッファされたイベントを処理（サウンドを鳴らさない）
 				if (jsonData["Args"] is JArray args)
 				{
-					System.Diagnostics.Debug.WriteLine($"[CONNECTED] バッファされたイベント数: {args.Count}");
+					Logger.Info("Connected", $"バッファイベント数: {args.Count}");
+
+					// バッファ内のINSTANCEイベントを確認
+					var instanceEvents = args.OfType<JObject>()
+						.Where(a => (a["Type"]?.ToString() ?? a["TYPE"]?.ToString() ?? "").ToUpper() == "INSTANCE")
+						.ToList();
+					if (instanceEvents.Count > 0)
+					{
+						foreach (var ie in instanceEvents)
+						{
+							string instanceValue = ie["Value"]?.ToString() ?? "(null)";
+							Logger.Info("Connected", $"バッファ内INSTANCEイベント: Value='{instanceValue}'");
+						}
+					}
+					else
+					{
+						Logger.Warn("Connected", $"バッファ内にINSTANCEイベントがありません (現在のInstanceUrl={InstanceState.InstanceUrl})");
+					}
 
 					// バッファイベント処理中フラグを立てる（サウンドを鳴らさない）
 					isProcessingBufferedEvents = true;
@@ -1242,21 +1259,19 @@ namespace ToNStatTool
 		private void CheckMoonUnlockOnRoundStart(ToNRoundType roundType)
 		{
 			bool stateChanged = false;
-			
+
 			// 初回Moonフラグをリセット
 			isCurrentRoundFirstMoon = false;
 			InstanceState.IsCurrentRoundFirstMoon = false;
-			
-			// ラウンド開始時にJustUnlockedフラグをリセット（次のラウンド予測に影響しないように）
-			InstanceState.BloodMoonJustUnlocked = false;
-			InstanceState.TwilightJustUnlocked = false;
-			InstanceState.MysticMoonJustUnlocked = false;
+
+			// ※JustUnlockedフラグは初回判定に使用するため、チェック後にリセットする
 
 			// ※Midnightは開始時には解禁しない（ラウンド終了時に生存者がいる場合のみBlood Moon解禁）
 
 			if (roundType == ToNRoundType.Blood_Moon)
 			{
-				if (!InstanceState.BloodMoonUnlocked)
+				// BloodMoonJustUnlocked=true（ミッドナイト生存直後）の場合も初回扱い
+				if (!InstanceState.BloodMoonUnlocked || InstanceState.BloodMoonJustUnlocked)
 				{
 					isCurrentRoundFirstMoon = true; // 初回Blood Moon
 					InstanceState.IsCurrentRoundFirstMoon = true;
@@ -1298,6 +1313,12 @@ namespace ToNStatTool
 					System.Diagnostics.Debug.WriteLine("[InstanceState] Solstice解禁（初回、ラウンド開始時）");
 				}
 			}
+
+			// JustUnlockedフラグをリセット（次のラウンド予測に影響しないように）
+			// ※初回判定で使用した後にリセットする
+			InstanceState.BloodMoonJustUnlocked = false;
+			InstanceState.TwilightJustUnlocked = false;
+			InstanceState.MysticMoonJustUnlocked = false;
 
 			// 状態が変化した場合はイベントを発火（チェックボックス更新用）
 			if (stateChanged)
@@ -1742,7 +1763,13 @@ namespace ToNStatTool
 			{
 				// インスタンス情報の処理
 				string instanceUrl = jsonData["Value"]?.ToString() ?? "";
-				
+
+				// 空のURLが来た場合は警告ログを出力
+				if (string.IsNullOrEmpty(instanceUrl))
+				{
+					Logger.Warn("Instance", $"空のINSTANCEイベントを受信 (現在のInstanceUrl={InstanceState.InstanceUrl}, lastInstanceUrl={lastInstanceUrl}, バッファ処理中={isProcessingBufferedEvents})");
+				}
+
 				if (!string.IsNullOrEmpty(instanceUrl))
 				{
 					// インスタンスURLが変わった場合（インスタンス移動）
@@ -2706,11 +2733,23 @@ namespace ToNStatTool
 				return;
 			}
 
-			// インスタンスURLが空の場合はスキップ
-			if (string.IsNullOrEmpty(InstanceState.InstanceUrl))
+			// インスタンスURLを取得（InstanceState.InstanceUrlが空の場合はlastInstanceUrlをフォールバック）
+			string instanceUrl = InstanceState.InstanceUrl;
+			if (string.IsNullOrEmpty(instanceUrl))
 			{
-				Logger.Debug("Cloud", "インスタンスURLが空のためクラウド送信をスキップ");
-				return;
+				// lastInstanceUrlが有効ならそれを使用
+				if (!string.IsNullOrEmpty(lastInstanceUrl))
+				{
+					Logger.Warn("Cloud", $"InstanceState.InstanceUrlが空のためlastInstanceUrlを使用: {lastInstanceUrl}");
+					instanceUrl = lastInstanceUrl;
+					// InstanceState.InstanceUrlも復元
+					InstanceState.InstanceUrl = lastInstanceUrl;
+				}
+				else
+				{
+					Logger.Debug("Cloud", $"インスタンスURLが空のためクラウド送信をスキップ (lastInstanceUrl={lastInstanceUrl}, IsOptedIn={InstanceState.IsOptedIn})");
+					return;
+				}
 			}
 
 			try
@@ -2741,7 +2780,7 @@ namespace ToNStatTool
 
 				var roundEvent = new CloudRoundEndEvent
 				{
-					InstanceId = InstanceState.InstanceUrl,
+					InstanceId = instanceUrl,
 					Timestamp = DateTime.UtcNow,
 					Round = new CloudRoundInfo
 					{

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json.Linq;
 
 namespace ToNStatTool
@@ -101,8 +102,37 @@ namespace ToNStatTool
 		// マスター変更フラグ（次ラウンドが特殊確定）
 		public bool MasterChanged { get; set; } = false;
 		
-		// インスタンスURL
-		public string InstanceUrl { get; set; } = "";
+		// インスタンスURL（バッキングフィールド付きでロギング）
+		private string _instanceUrl = "";
+		public string InstanceUrl
+		{
+			get => _instanceUrl;
+			set
+			{
+				string oldValue = _instanceUrl;
+				_instanceUrl = value ?? "";
+
+				// 値が変更された場合にログを出力
+				if (oldValue != _instanceUrl)
+				{
+					string stackTrace = Environment.StackTrace;
+					// スタックトレースを取得（呼び出し元チェーンを確認するため複数行）
+					var lines = stackTrace.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+					// 最初の6行を取得（Environment.StackTrace, セッター, 呼び出し元...）
+					var callerChain = string.Join(" <- ", lines.Skip(2).Take(4).Select(l => l.Trim()));
+
+					// 空文字列が設定された場合は警告レベルで出力
+					if (string.IsNullOrEmpty(_instanceUrl) && !string.IsNullOrEmpty(oldValue))
+					{
+						Logger.Warn("InstanceUrl", $"InstanceUrl cleared: '{oldValue}' → '' (stack: {callerChain})");
+					}
+					else
+					{
+						Logger.Debug("InstanceUrl", $"InstanceUrl changed: '{oldValue}' → '{_instanceUrl}' (caller: {callerChain})");
+					}
+				}
+			}
+		}
 		
 		// ローカルプレイヤーのゲーム参加状態
 		public bool IsOptedIn { get; set; } = true;
@@ -156,6 +186,12 @@ namespace ToNStatTool
 		/// </summary>
 		public void Reset()
 		{
+			// リセット呼び出し元をログに記録
+			string stackTrace = Environment.StackTrace;
+			var lines = stackTrace.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+			var callerChain = string.Join(" <- ", lines.Skip(2).Take(4).Select(l => l.Trim()));
+			Logger.Info("InstanceState", $"Reset() called (stack: {callerChain})");
+
 			IsInstanceOwner = false;
 			SpecialUnlocked = true;
 			NormalRoundCount = 0;
