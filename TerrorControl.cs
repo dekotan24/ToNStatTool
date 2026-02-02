@@ -336,6 +336,7 @@ namespace ToNStatTool
 		private PictureBox iconBox;
 		private Label nameLabel;
 		private PictureBox stunIcon;
+		private PictureBox hfaIcon;
 		private ToolTip toolTip;
 		private FlowLayoutPanel iconPanel;
 
@@ -346,7 +347,10 @@ namespace ToNStatTool
 		// スタンアイコンキャッシュ（Compact用）
 		private static readonly Dictionary<TerrorStunType, Bitmap> compactStunIconCache = new Dictionary<TerrorStunType, Bitmap>();
 
-		public CompactTerrorControl(TerrorInfo terror)
+		// HFAアイコンキャッシュ
+		private static Bitmap hfaIconCache;
+
+		public CompactTerrorControl(TerrorInfo terror, string currentMapName = null)
 		{
 			this.Size = new Size(130, 110);
 			this.BorderStyle = BorderStyle.FixedSingle;
@@ -362,6 +366,19 @@ namespace ToNStatTool
 			stunIcon.SizeMode = PictureBoxSizeMode.CenterImage;
 			SetStunIcon(terror.StunType);
 			this.Controls.Add(stunIcon);
+
+			// HFAアイコン（スタンアイコンの下）
+			bool hasHfa = !string.IsNullOrEmpty(currentMapName) && HfaJsonLoader.HasHfa(terror.Name, currentMapName);
+			if (hasHfa)
+			{
+				hfaIcon = new PictureBox();
+				hfaIcon.Location = new Point(111, 21);
+				hfaIcon.Size = new Size(16, 16);
+				hfaIcon.SizeMode = PictureBoxSizeMode.CenterImage;
+				hfaIcon.Image = GetHfaIcon();
+				toolTip.SetToolTip(hfaIcon, "Homefield Advantage");
+				this.Controls.Add(hfaIcon);
+			}
 
 			// 特性アイコンパネル（左側、縦並び）
 			iconPanel = new FlowLayoutPanel();
@@ -481,6 +498,35 @@ namespace ToNStatTool
 				}
 			}
 			return icon;
+		}
+
+		/// <summary>
+		/// HFAアイコンを取得（キャッシュ付き）
+		/// </summary>
+		private static Bitmap GetHfaIcon()
+		{
+			if (hfaIconCache != null)
+				return hfaIconCache;
+
+			hfaIconCache = new Bitmap(16, 16);
+			using (Graphics g = Graphics.FromImage(hfaIconCache))
+			{
+				g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+				// 家のアイコン（ホームフィールド）- 青色
+				using (var brush = new SolidBrush(Color.FromArgb(30, 144, 255))) // DodgerBlue
+				{
+					// 屋根（三角形）
+					g.FillPolygon(brush, new Point[] { new Point(8, 1), new Point(15, 7), new Point(1, 7) });
+					// 本体（四角形）
+					g.FillRectangle(brush, 3, 7, 10, 8);
+				}
+				// ドア（白抜き）
+				using (var brush = new SolidBrush(ThemeManager.IsDark ? Color.FromArgb(40, 40, 40) : Color.White))
+				{
+					g.FillRectangle(brush, 6, 10, 4, 5);
+				}
+			}
+			return hfaIconCache;
 		}
 
 		private void SetTerrorIcon(string name)

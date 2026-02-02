@@ -141,8 +141,15 @@ namespace ToNStatTool
 
                 if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
                 {
-                    terrorDisplayForm.UpdateTerrors(currentTerrors, unboundAnnounceName);
-                    
+                    // マップ名を取得（HFA判定用）
+                    string mapName = null;
+                    if (webSocketClient?.GameData != null && webSocketClient.GameData.ContainsKey("location"))
+                    {
+                        mapName = webSocketClient.GameData["location"]?.ToString();
+                    }
+
+                    terrorDisplayForm.UpdateTerrors(currentTerrors, unboundAnnounceName, mapName);
+
                     // スレッドセーフにプレイヤーリストをコピー
                     List<PlayerInfo> playerList;
                     try

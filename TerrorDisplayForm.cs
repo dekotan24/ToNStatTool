@@ -355,7 +355,8 @@ namespace ToNStatTool
 		/// </summary>
 		/// <param name="terrors">テラー情報リスト</param>
 		/// <param name="unboundName">Unboundのアナウンス名（Unboundラウンド時のみ）</param>
-		public void UpdateTerrors(List<TerrorInfo> terrors, string unboundName = null)
+		/// <param name="mapName">現在のマップ名（HFA判定用）</param>
+		public void UpdateTerrors(List<TerrorInfo> terrors, string unboundName = null, string mapName = null)
 		{
 			// スレッドセーフにリストをコピー
 			List<TerrorInfo> terrorsCopy;
@@ -384,7 +385,7 @@ namespace ToNStatTool
 
 					foreach (var terror in terrorsCopy)
 					{
-						var control = new CompactTerrorControl(terror);
+						var control = new CompactTerrorControl(terror, mapName);
 						terrorControls.Add(control);
 						terrorPanel.Controls.Add(control);
 					}

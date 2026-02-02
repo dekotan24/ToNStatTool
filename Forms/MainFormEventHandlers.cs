@@ -577,8 +577,15 @@ namespace ToNStatTool
                         terrorsCopy = expandedTerrors;
                     }
 
-                    terrorDisplayForm.UpdateTerrors(terrorsCopy, unboundName);
-                    
+                    // マップ名を取得（HFA判定用）
+                    string mapName = null;
+                    if (webSocketClient?.GameData != null && webSocketClient.GameData.ContainsKey("location"))
+                    {
+                        mapName = webSocketClient.GameData["location"]?.ToString();
+                    }
+
+                    terrorDisplayForm.UpdateTerrors(terrorsCopy, unboundName, mapName);
+
                     int aliveCount = playerList.Count(p => p.IsAlive);
                     int totalCount = playerList.Count;
                     terrorDisplayForm.UpdatePlayerCount(aliveCount, totalCount);
