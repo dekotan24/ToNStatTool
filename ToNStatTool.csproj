@@ -113,6 +113,7 @@
     <Compile Include="TerrorImageManager.cs" />
     <Compile Include="TerrorJsonLoader.cs" />
     <Compile Include="TerrorJsonModels.cs" />
+    <Compile Include="UnboundJsonLoader.cs" />
     <Compile Include="TerrorStunType.cs" />
     <Compile Include="TerrorTraitIcons.cs" />
     <Compile Include="ThemeManager.cs" />
@@ -188,6 +189,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="terrorsInfo.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="unboundInfo.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

@@ -77,6 +77,35 @@ namespace ToNStatTool
                 return; // コレクションが変更中の場合はスキップ
             }
 
+            // Unboundラウンドの場合、内訳テラーに展開
+            string unboundAnnounceName = null;
+            var instanceState = webSocketClient?.InstanceState;
+            if (instanceState?.CurrentRoundType == ToNRoundType.Unbound && currentTerrors.Count > 0)
+            {
+                var expandedTerrors = new List<TerrorInfo>();
+                foreach (var terror in currentTerrors)
+                {
+                    var unboundTerrors = UnboundJsonLoader.GetUnboundTerrors(terror.Name);
+                    if (unboundTerrors.Count > 0)
+                    {
+                        // Unbound名を保持（ツールチップ表示用）
+                        unboundAnnounceName = terror.Name;
+                        // 内訳テラーに展開
+                        foreach (var innerTerrorName in unboundTerrors)
+                        {
+                            var terrorInfo = CreateTerrorInfoFromName(innerTerrorName);
+                            expandedTerrors.Add(terrorInfo);
+                        }
+                    }
+                    else
+                    {
+                        // Unbound情報がない場合はそのまま追加
+                        expandedTerrors.Add(terror);
+                    }
+                }
+                currentTerrors = expandedTerrors;
+            }
+
             // テラーの数が変わったか、または内容が変わったかをチェック
             bool needsUpdate = currentTerrors.Count != terrorControls.Count;
 
@@ -112,7 +141,7 @@ namespace ToNStatTool
 
                 if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
                 {
-                    terrorDisplayForm.UpdateTerrors(currentTerrors);
+                    terrorDisplayForm.UpdateTerrors(currentTerrors, unboundAnnounceName);
                     
                     // スレッドセーフにプレイヤーリストをコピー
                     List<PlayerInfo> playerList;
@@ -853,6 +882,29 @@ namespace ToNStatTool
             {
                 textBox.Text = value;
             }
+        }
+
+        /// <summary>
+        /// テラー名からTerrorInfoを生成（Unbound内訳テラー用）
+        /// </summary>
+        private TerrorInfo CreateTerrorInfoFromName(string terrorName)
+        {
+            var detail = TerrorJsonLoader.GetTerrorDetail(terrorName);
+            var stunType = detail?.StunType ?? TerrorStunType.Unknown;
+
+            // JSONから取得できなかった場合はTerrorConfigurationからスタンタイプを取得
+            if (stunType == TerrorStunType.Unknown)
+            {
+                stunType = TerrorConfiguration.GetTerrorStunType(terrorName);
+            }
+
+            return new TerrorInfo
+            {
+                Name = terrorName,
+                DisplayName = terrorName,
+                StunType = stunType,
+                DisplayColor = 0
+            };
         }
     }
 }

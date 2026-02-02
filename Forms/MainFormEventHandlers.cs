@@ -551,8 +551,33 @@ namespace ToNStatTool
                         terrorsCopy = new List<TerrorInfo>();
                         playerList = new List<PlayerInfo>();
                     }
-                    
-                    terrorDisplayForm.UpdateTerrors(terrorsCopy);
+
+                    // Unboundラウンドの場合、内訳テラーに展開
+                    string unboundName = null;
+                    var instanceState = webSocketClient?.InstanceState;
+                    if (instanceState?.CurrentRoundType == ToNRoundType.Unbound && terrorsCopy.Count > 0)
+                    {
+                        var expandedTerrors = new List<TerrorInfo>();
+                        foreach (var terror in terrorsCopy)
+                        {
+                            var unboundTerrors = UnboundJsonLoader.GetUnboundTerrors(terror.Name);
+                            if (unboundTerrors.Count > 0)
+                            {
+                                unboundName = terror.Name;
+                                foreach (var innerTerrorName in unboundTerrors)
+                                {
+                                    expandedTerrors.Add(CreateTerrorInfoFromName(innerTerrorName));
+                                }
+                            }
+                            else
+                            {
+                                expandedTerrors.Add(terror);
+                            }
+                        }
+                        terrorsCopy = expandedTerrors;
+                    }
+
+                    terrorDisplayForm.UpdateTerrors(terrorsCopy, unboundName);
                     
                     int aliveCount = playerList.Count(p => p.IsAlive);
                     int totalCount = playerList.Count;

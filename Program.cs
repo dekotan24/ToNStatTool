@@ -23,6 +23,7 @@ namespace ToNStatTool
 				Application.EnableVisualStyles();
 				Application.SetCompatibleTextRenderingDefault(false);
 				TerrorJsonLoader.LoadTerrorData();
+				UnboundJsonLoader.LoadUnboundData();
 				MediaFoundationApi.Startup();
 				Application.Run(new ToNStatTool());
 			}

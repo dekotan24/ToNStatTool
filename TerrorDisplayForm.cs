@@ -40,6 +40,10 @@ namespace ToNStatTool
 		private Color savedElapsedTimeColor;
 		private Color savedCurrentRoundColor;
 
+		// Unbound表示用
+		private ToolTip roundToolTip;
+		private string currentUnboundName;
+
 		private const int BOTTOM_PANEL_HEIGHT = 18;
 		private const int TERROR_PANEL_HEIGHT = 140;  // 元のサイズに戻す
 
@@ -82,7 +86,15 @@ namespace ToNStatTool
 			InitializeComponent();
 			InitializeElapsedTimer();
 			InitializeReminderTimer();
+			InitializeToolTip();
 			ApplyTheme(); // テーマを適用
+		}
+
+		private void InitializeToolTip()
+		{
+			roundToolTip = new ToolTip();
+			roundToolTip.InitialDelay = 200;
+			roundToolTip.ReshowDelay = 100;
 		}
 
 		private void InitializeComponent()
@@ -341,7 +353,9 @@ namespace ToNStatTool
 		/// <summary>
 		/// テラー情報を更新
 		/// </summary>
-		public void UpdateTerrors(List<TerrorInfo> terrors)
+		/// <param name="terrors">テラー情報リスト</param>
+		/// <param name="unboundName">Unboundのアナウンス名（Unboundラウンド時のみ）</param>
+		public void UpdateTerrors(List<TerrorInfo> terrors, string unboundName = null)
 		{
 			// スレッドセーフにリストをコピー
 			List<TerrorInfo> terrorsCopy;
@@ -353,6 +367,9 @@ namespace ToNStatTool
 			{
 				return; // コレクションが変更中の場合はスキップ
 			}
+
+			// Unbound名を保持
+			currentUnboundName = unboundName;
 
 			SafeInvoke(() =>
 			{
@@ -371,12 +388,33 @@ namespace ToNStatTool
 						terrorControls.Add(control);
 						terrorPanel.Controls.Add(control);
 					}
+
+					// Unbound名がある場合、ラウンド種別にツールチップを設定
+					UpdateRoundToolTip();
 				}
 				catch (Exception ex)
 				{
 					System.Diagnostics.Debug.WriteLine($"[TerrorDisplayForm] UpdateTerrors error: {ex.Message}");
 				}
 			});
+		}
+
+		/// <summary>
+		/// ラウンド種別ラベルのツールチップを更新
+		/// </summary>
+		private void UpdateRoundToolTip()
+		{
+			if (labelCurrentRound == null || labelCurrentRound.IsDisposed || roundToolTip == null)
+				return;
+
+			if (!string.IsNullOrEmpty(currentUnboundName))
+			{
+				roundToolTip.SetToolTip(labelCurrentRound, currentUnboundName);
+			}
+			else
+			{
+				roundToolTip.SetToolTip(labelCurrentRound, null);
+			}
 		}
 
 		/// <summary>
@@ -478,7 +516,11 @@ namespace ToNStatTool
 			{
 				isRoundActive = false;
 				elapsedTimer.Stop();
-				
+
+				// Unbound名をクリア
+				currentUnboundName = null;
+				UpdateRoundToolTip();
+
 				// 予測を再更新
 				UpdateNextRoundPrediction();
 			});
