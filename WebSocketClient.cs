@@ -72,7 +72,6 @@ namespace ToNStatTool
 		private bool wasSaboteurDuringRound = false; // ラウンド中にサボタージュキラー側になったかを追跡
 		private bool pendingSaboteurFlag = false; // ラウンド開始前のサボタージュ状態を保持
 		private bool isCurrentRoundFirstMoon = false; // 今回のラウンドが初回Moonかどうか
-		private bool wasSpecialConfirmedAtLastRoundEnd = false; // 前のラウンド終了時に特殊確定状態だったか
 		
 		// ダブルドラブル検出用
 		private bool isDoubleTroubleActive = false; // ダブルドラブルラウンド中かどうか
@@ -933,9 +932,8 @@ namespace ToNStatTool
 			
 			// 上書きフラグを設定（通常確定時にOverrideラウンドまたは特殊ラウンドが出た場合）
 			// ただしMasterChanged（MC）による特殊の場合は上書きではない
-			// また、前のラウンドが特殊確定状態だった場合は「特殊枠消費」であり上書きではない
 			InstanceState.IsCurrentRoundOverride = false;
-			if (InstanceState.NormalRoundCount == 0 && !InstanceState.MasterChanged && !wasSpecialConfirmedAtLastRoundEnd)
+			if (InstanceState.NormalRoundCount == 0 && !InstanceState.MasterChanged)
 			{
 				if (ToNRoundTypeHelper.IsOverrideRound(roundType) || ToNRoundTypeHelper.IsSpecialRound(roundType))
 				{
@@ -943,9 +941,6 @@ namespace ToNStatTool
 					Logger.Info("Round", $"通常確定時に{roundType}が上書き（NormalRoundCount={InstanceState.NormalRoundCount}）");
 				}
 			}
-			
-			// 特殊確定フラグをリセット（次のラウンド終了時に再設定される）
-			wasSpecialConfirmedAtLastRoundEnd = false;
 			
 			// アイテムリセット処理（ラウンドタイプによって異なる）
 			if (roundType == ToNRoundType.Eight_Pages)
@@ -1080,8 +1075,6 @@ namespace ToNStatTool
 				}
 
 				// InstanceState更新（ラウンド予測用）
-				// 更新前に特殊確定状態だったかを保存（上書きフラグ判定用）
-				wasSpecialConfirmedAtLastRoundEnd = InstanceState.NormalRoundCount >= 2;
 				UpdateInstanceState(currentRound.RoundType, survived, splitNames);
 
 				// ラウンドログを最大件数に制限
@@ -1220,14 +1213,11 @@ namespace ToNStatTool
 					}
 					
 					// InstanceState更新（Double_Troubleは特殊ラウンド扱い）
-					// 更新前に特殊確定状態だったかを保存（上書きフラグ判定用）
-					wasSpecialConfirmedAtLastRoundEnd = InstanceState.NormalRoundCount >= 2;
 					UpdateInstanceState(currentRound.RoundType, survived, splitNames);
 				}
 				else
 				{
 					// テラー名がUnknown (Double Trouble)の場合はテラーなしでInstanceState更新
-					wasSpecialConfirmedAtLastRoundEnd = InstanceState.NormalRoundCount >= 2;
 					UpdateInstanceState(currentRound.RoundType, survived, new string[0]);
 				}
 				
@@ -1592,9 +1582,6 @@ namespace ToNStatTool
 				isDoubleTroubleActive = false;
 				currentRound = null;
 			}
-			
-			// 特殊確定フラグもリセット
-			wasSpecialConfirmedAtLastRoundEnd = false;
 			
 			System.Diagnostics.Debug.WriteLine("[InstanceState] リセット");
 		}
