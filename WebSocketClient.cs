@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using NAudio.Wave;
 using Newtonsoft.Json;
+using ToNStatTool.Services;
 
 namespace ToNStatTool
 {
@@ -31,6 +32,13 @@ namespace ToNStatTool
 		public event Action<string> OnError;
 		public event Action OnTerrorUpdate;
 		public event Action OnRoundEnd;
+		public event Action<ToNRoundType> OnRoundStart;
+		public event Action OnInstanceStateChanged; // インスタンス状態変更イベント
+		public event Action OnPlayerCountChanged; // プレイヤー数変更イベント
+		public event Action OnItemReminderRoundEnd; // 8ページ/アンバウンド終了時のリマインダーイベント
+		public event Action OnMasterChanged; // マスター変更イベント
+		public event Action<SaveCodeInfo> OnSaveCodeReceived; // セーブコード受信イベント
+		public event Action<bool> OnOptedInChanged; // ゲーム参加状態変更イベント
 		private HashSet<string> warningUsers = new HashSet<string>();
 		private IWavePlayer waveOutDevice;
 		private AudioFileReader audioFileReader;
@@ -46,29 +54,56 @@ namespace ToNStatTool
 		public List<GameEvent> RecentEvents { get; private set; } = new List<GameEvent>();
 		public Dictionary<string, object> GameData { get; private set; } = new Dictionary<string, object>();
 		public List<RoundLog> RoundLogs { get; private set; } = new List<RoundLog>();
+		public List<SaveCodeInfo> SaveCodes { get; private set; } = new List<SaveCodeInfo>();
+		public SessionStats SessionStats { get; private set; } = new SessionStats();
+		public const int MaxSaveCodes = 5; // 保持するセーブコードの最大数
 		public RoundStats RoundStats { get; private set; } = new RoundStats();
 		public TerrorStats TerrorStats { get; private set; } = new TerrorStats();
+		public InstanceState InstanceState { get; private set; } = new InstanceState();
 
 		// Round tracking
 		private RoundLog currentRound = null;
+		private string lastFinishedRoundTerrorNames = ""; // セーブコード用に最後のラウンドのテラー名を保持
 		private readonly List<string> currentRoundItems = new List<string>();
 		public event Action<string> OnWarningUserJoined;
 		public event Action<string, bool> OnPlayerJoinLeave; // プレイヤー名, join=true/leave=false
 		private bool isRoundActive = false;
 		private bool wasDeadDuringRound = false; // ラウンド中に死亡したかを追跡
+		private bool wasSaboteurDuringRound = false; // ラウンド中にサボタージュキラー側になったかを追跡
+		private bool pendingSaboteurFlag = false; // ラウンド開始前のサボタージュ状態を保持
+		private bool isCurrentRoundFirstMoon = false; // 今回のラウンドが初回Moonかどうか
+		
+		// ダブルドラブル検出用
+		private bool isDoubleTroubleActive = false; // ダブルドラブルラウンド中かどうか
+		private DateTime doubleTroubleStartTime = DateTime.MinValue; // ダブルドラブル開始時刻
 
 		// Sound settings
 		public SoundSettings SoundSettings { get; private set; } = new SoundSettings();
 		private const string SOUND_SETTINGS_FILE = "sound_settings.json";
+
+		// Cloud service
+		private CloudService cloudService;
 		private const int MAX_ROUND_LOGS = 2000; // ラウンドログの最大保持数
 		private bool isProcessingBufferedEvents = false; // バッファイベント処理中フラグ
 		private readonly object audioLock = new object(); // 音声再生の排他制御用
+		
+		// インスタンス移動時のサウンドミュート用
+		private bool isInstanceTransitioning = false; // インスタンス移動中フラグ
+		private DateTime instanceTransitionStartTime = DateTime.MinValue; // 移動開始時刻
+		private const int INSTANCE_TRANSITION_MUTE_SECONDS = 10; // ミュートする秒数
+		private string lastInstanceUrl = ""; // 前回のインスタンスURL
+
+		// インスタンス参加時の初期プレイヤーリスト受信時のバースト検出用
+		private bool isReceivingInitialPlayerList = false; // 初期プレイヤーリスト受信中フラグ
+		private DateTime initialPlayerListStartTime = DateTime.MinValue; // 初期リスト受信開始時刻
+		private const int INITIAL_PLAYER_LIST_WINDOW_MS = 3000; // 初期リスト受信ウィンドウ（3秒）
 
 		public WebSocketClient()
 		{
 			LoadWarningUsers();
 			InitializeWarningSound();
 			LoadSoundSettings();
+			cloudService = new CloudService();
 		}
 
 		/// <summary>
@@ -135,34 +170,148 @@ namespace ToNStatTool
 		}
 
 		/// <summary>
-		/// 警告音を再生
+		/// 警告音を再生（キュー使用）
 		/// </summary>
 		private void PlayWarningSound()
 		{
-			Task.Run(() =>
+			// サウンドが無効の場合は何もしない
+			if (!SoundSettings.EnableWarningUserSound)
 			{
-				try
-				{
-					string soundFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "warning.mp3");
+				return;
+			}
 
-					if (File.Exists(soundFilePath))
-					{
-						PlayMp3File(soundFilePath);
-					}
-					else
-					{
-						// ファイルがない場合はシステム音を使用
-						System.Media.SystemSounds.Exclamation.Play();
-						System.Diagnostics.Debug.WriteLine("[WARNING] warning.mp3が見つからないためシステム音を使用");
-					}
-				}
-				catch (Exception ex)
+			try
+			{
+				// 設定からサウンドパスを取得
+				string soundFilePath = SoundSettings.WarningUserSoundPath;
+				
+				// 設定にパスがない場合はデフォルトのwarning.mp3を使用
+				if (string.IsNullOrEmpty(soundFilePath))
 				{
-					System.Diagnostics.Debug.WriteLine($"[WARNING] 警告音再生エラー: {ex.Message}");
-					// エラー時はシステム音にフォールバック
-					System.Media.SystemSounds.Exclamation.Play();
+					soundFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "warning.mp3");
 				}
-			});
+
+				if (File.Exists(soundFilePath))
+				{
+					QueueSound(soundFilePath);
+					System.Diagnostics.Debug.WriteLine($"[WARNING] 警告音をキュー: {soundFilePath}");
+				}
+				else
+				{
+					// ファイルがない場合はシステム音を使用
+					System.Media.SystemSounds.Exclamation.Play();
+					System.Diagnostics.Debug.WriteLine("[WARNING] サウンドファイルが見つからないためシステム音を使用");
+				}
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[WARNING] 警告音再生エラー: {ex.Message}");
+				// エラー時はシステム音にフォールバック
+				System.Media.SystemSounds.Exclamation.Play();
+			}
+		}
+
+		/// <summary>
+		/// カスタムサウンドを再生（パスが空の場合はデフォルトのwarning.mp3を使用、キュー使用）
+		/// </summary>
+		public void PlayCustomSound(string soundPath, string defaultFileName = "warning.mp3")
+		{
+			try
+			{
+				string soundFilePath = soundPath;
+				
+				// パスが空の場合はデフォルトのファイルを使用
+				if (string.IsNullOrEmpty(soundFilePath))
+				{
+					soundFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, defaultFileName);
+				}
+
+				if (File.Exists(soundFilePath))
+				{
+					QueueSound(soundFilePath);
+					System.Diagnostics.Debug.WriteLine($"[SOUND] カスタムサウンドをキュー: {soundFilePath}");
+				}
+				else
+				{
+					System.Media.SystemSounds.Exclamation.Play();
+					System.Diagnostics.Debug.WriteLine("[SOUND] サウンドファイルが見つからないためシステム音を使用");
+				}
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[SOUND] サウンド再生エラー: {ex.Message}");
+				System.Media.SystemSounds.Exclamation.Play();
+			}
+		}
+
+		/// <summary>
+		/// インスタンス移動中（サウンドミュート期間中）かどうかを判定
+		/// </summary>
+		private bool IsInInstanceTransition()
+		{
+			if (!isInstanceTransitioning)
+				return false;
+			
+			// 指定秒数経過していたらフラグを解除
+			if ((DateTime.Now - instanceTransitionStartTime).TotalSeconds > INSTANCE_TRANSITION_MUTE_SECONDS)
+			{
+				isInstanceTransitioning = false;
+				Logger.Info("Instance", $"インスタンス移動ミュート期間終了（{INSTANCE_TRANSITION_MUTE_SECONDS}秒経過）");
+				return false;
+			}
+			
+			return true;
+		}
+
+		/// <summary>
+		/// インスタンス参加直後の初期プレイヤーリスト受信中かどうかを判定
+		/// インスタンス移動後、最初のPLAYER_JOINから一定時間内はtrue
+		/// </summary>
+		private bool IsReceivingInitialPlayerList()
+		{
+			// インスタンス移動中でない場合は対象外
+			if (!isInstanceTransitioning && !isReceivingInitialPlayerList)
+				return false;
+
+			var now = DateTime.Now;
+
+			// インスタンス移動中に最初のPLAYER_JOINが来た場合、初期リスト受信を開始
+			if (isInstanceTransitioning && !isReceivingInitialPlayerList)
+			{
+				isReceivingInitialPlayerList = true;
+				initialPlayerListStartTime = now;
+				isInstanceTransitioning = false; // 移動中フラグはここで解除
+				Logger.Info("Instance", "初期プレイヤーリスト受信開始");
+				return false; // 最初の1件は通過させる
+			}
+
+			// 初期リスト受信中の場合、ウィンドウ時間内かチェック
+			if (isReceivingInitialPlayerList)
+			{
+				var elapsed = (now - initialPlayerListStartTime).TotalMilliseconds;
+				if (elapsed > INITIAL_PLAYER_LIST_WINDOW_MS)
+				{
+					// ウィンドウ時間を超えたので終了
+					isReceivingInitialPlayerList = false;
+					Logger.Info("Instance", $"初期プレイヤーリスト受信終了（{INITIAL_PLAYER_LIST_WINDOW_MS}ms経過）");
+					return false;
+				}
+
+				// ウィンドウ時間内なのでスキップ
+				System.Diagnostics.Debug.WriteLine($"[PLAYER_EVENT] 初期リスト受信中のためスキップ: {elapsed:F0}ms経過");
+				return true;
+			}
+
+			return false;
+		}
+
+		/// <summary>
+		/// 通知サウンドをミュートすべきかどうかを判定（パブリック）
+		/// バッファイベント処理中またはインスタンス移動中の場合はtrueを返す
+		/// </summary>
+		public bool ShouldMuteNotificationSounds()
+		{
+			return isProcessingBufferedEvents || IsInInstanceTransition();
 		}
 
 		/// <summary>
@@ -229,21 +378,50 @@ namespace ToNStatTool
 		/// </summary>
 		private void StopCurrentPlaybackInternal()
 		{
-			try
-			{
-				var device = waveOutDevice;
-				var reader = audioFileReader;
-				
-				waveOutDevice = null;
-				audioFileReader = null;
+			var device = waveOutDevice;
+			var reader = audioFileReader;
+			
+			waveOutDevice = null;
+			audioFileReader = null;
 
-				device?.Stop();
-				device?.Dispose();
-				reader?.Dispose();
-			}
-			catch (Exception ex)
+			// デバイスの停止
+			if (device != null)
 			{
-				System.Diagnostics.Debug.WriteLine($"[SOUND] 再生停止エラー: {ex.Message}");
+				try
+				{
+					device.Stop();
+				}
+				catch (Exception ex)
+				{
+					System.Diagnostics.Debug.WriteLine($"[SOUND] デバイス停止エラー: {ex.Message}");
+				}
+
+				// デバイスがreaderを解放する時間を確保
+				Thread.Sleep(50);
+
+				try
+				{
+					device.Dispose();
+				}
+				catch (Exception ex)
+				{
+					// RCW解放エラーは無視（別スレッドで使用中の可能性）
+					System.Diagnostics.Debug.WriteLine($"[SOUND] デバイス解放エラー（無視）: {ex.Message}");
+				}
+			}
+
+			// リーダーの解放
+			if (reader != null)
+			{
+				try
+				{
+					reader.Dispose();
+				}
+				catch (Exception ex)
+				{
+					// RCW解放エラーは無視（別スレッドで使用中の可能性）
+					System.Diagnostics.Debug.WriteLine($"[SOUND] リーダー解放エラー（無視）: {ex.Message}");
+				}
 			}
 		}
 
@@ -379,6 +557,9 @@ namespace ToNStatTool
 		{
 			try
 			{
+				// WebSocket生メッセージをログに記録
+				Logger.LogWebSocketMessage("RECV", message);
+
 				var jsonData = JObject.Parse(message);
 				lock (dataLock)
 				{
@@ -387,12 +568,12 @@ namespace ToNStatTool
 			}
 			catch (JsonReaderException jsonEx)
 			{
-				System.Diagnostics.Debug.WriteLine($"JSON解析エラー: {jsonEx.Message}");
-				System.Diagnostics.Debug.WriteLine($"エラーメッセージ: {message.Substring(0, Math.Min(200, message.Length))}...");
+				Logger.Error("WebSocket", $"JSON解析エラー: {jsonEx.Message}");
+				Logger.Error("WebSocket", $"エラーメッセージ: {message.Substring(0, Math.Min(200, message.Length))}...");
 			}
 			catch (Exception ex)
 			{
-				System.Diagnostics.Debug.WriteLine($"メッセージ処理エラー: {ex.Message}");
+				Logger.Error("WebSocket", $"メッセージ処理エラー: {ex.Message}");
 			}
 		}
 
@@ -401,6 +582,9 @@ namespace ToNStatTool
 			try
 			{
 				string eventType = jsonData["Type"]?.ToString() ?? jsonData["TYPE"]?.ToString() ?? "";
+
+				// イベントタイプをログに記録
+				Logger.Debug("GameData", $"イベント処理開始: {eventType}");
 
 				switch (eventType.ToUpper())
 				{
@@ -450,8 +634,17 @@ namespace ToNStatTool
 					case "TRACKER":
 						ProcessTrackerEvent(jsonData);
 						break;
+					case "MASTER_CHANGE":
+						ProcessMasterChangeEvent(jsonData);
+						break;
+					case "SAVED":
+						ProcessSavedEvent(jsonData);
+						break;
+					case "OPTED_IN":
+						ProcessOptedInEvent(jsonData);
+						break;
 					default:
-						System.Diagnostics.Debug.WriteLine($"未処理のイベント: {eventType}");
+						Logger.Warn("GameData", $"未処理のイベント: {eventType}");
 						break;
 				}
 
@@ -460,7 +653,7 @@ namespace ToNStatTool
 			}
 			catch (Exception ex)
 			{
-				System.Diagnostics.Debug.WriteLine($"ゲームデータ処理エラー: {ex.Message}");
+				Logger.Error("GameData", $"ゲームデータ処理エラー", ex);
 				AddGameEvent("ERROR", null, $"データ処理エラー: {ex.Message}");
 			}
 		}
@@ -480,6 +673,13 @@ namespace ToNStatTool
 
 				System.Diagnostics.Debug.WriteLine($"[CONNECTED] ローカルプレイヤー: '{LocalPlayerName}', ID: '{LocalPlayerUserId}'");
 
+				// ラウンド統計、ラウンドログをリセット（接続時にリプレイデータが送られてくるため）
+				ResetRoundStats();
+				
+				// 推定生存回数をリセット（他のインスタンス状態設定値はそのまま）
+				InstanceState.EstimatedSurvivalCount = 0;
+				System.Diagnostics.Debug.WriteLine("[CONNECTED] ラウンド統計、ラウンドログ、推定生存回数をリセットしました");
+
 				// 既存のプレイヤーデータをクリア（接続時にリセット）
 				Players.Clear();
 
@@ -497,7 +697,24 @@ namespace ToNStatTool
 				// バッファされたイベントを処理（サウンドを鳴らさない）
 				if (jsonData["Args"] is JArray args)
 				{
-					System.Diagnostics.Debug.WriteLine($"[CONNECTED] バッファされたイベント数: {args.Count}");
+					Logger.Info("Connected", $"バッファイベント数: {args.Count}");
+
+					// バッファ内のINSTANCEイベントを確認
+					var instanceEvents = args.OfType<JObject>()
+						.Where(a => (a["Type"]?.ToString() ?? a["TYPE"]?.ToString() ?? "").ToUpper() == "INSTANCE")
+						.ToList();
+					if (instanceEvents.Count > 0)
+					{
+						foreach (var ie in instanceEvents)
+						{
+							string instanceValue = ie["Value"]?.ToString() ?? "(null)";
+							Logger.Info("Connected", $"バッファ内INSTANCEイベント: Value='{instanceValue}'");
+						}
+					}
+					else
+					{
+						Logger.Warn("Connected", $"バッファ内にINSTANCEイベントがありません (現在のInstanceUrl={InstanceState.InstanceUrl})");
+					}
 
 					// バッファイベント処理中フラグを立てる（サウンドを鳴らさない）
 					isProcessingBufferedEvents = true;
@@ -532,6 +749,9 @@ namespace ToNStatTool
 					finally
 					{
 						isProcessingBufferedEvents = false;
+						
+						// リプレイ終了後、最終的なテラー情報を反映するために1回だけ更新イベントを発火
+						OnTerrorUpdate?.Invoke();
 					}
 				}
 			}
@@ -573,56 +793,210 @@ namespace ToNStatTool
 						AddTerrorFromName(displayName, jsonData);
 					}
 				}
+
+				// 鳥遭遇チェック（テラー表示時に即時チェック）
+				CheckBirdEncounters();
 			}
 
-			// テラー更新イベントを発火
-			OnTerrorUpdate?.Invoke();
+			// テラー更新イベントを発火（リプレイ中はスキップ）
+			if (!isProcessingBufferedEvents)
+			{
+				OnTerrorUpdate?.Invoke();
+			}
 		}
 
 		private void ProcessRoundTypeEvent(JObject jsonData)
 		{
 			int command = jsonData["Command"]?.ToObject<int>() ?? 0;
 			string roundName = jsonData["Name"]?.ToString() ?? jsonData["DisplayName"]?.ToString() ?? "Unknown";
+			int roundValue = jsonData["Value"]?.ToObject<int>() ?? -1;
+
+			// ラウンドタイプをEnumに変換（Valueがあればそれを優先、なければ名前から変換）
+			ToNRoundType roundType;
+			if (roundValue >= 0)
+			{
+				roundType = ToNRoundTypeHelper.FromInt(roundValue);
+			}
+			else
+			{
+				roundType = ToNRoundTypeHelper.Parse(roundName);
+			}
+
+			// ラウンドタイプイベントの詳細をログに記録
+			Logger.Info("RoundType", $"ROUND_TYPEイベント受信: Command={command}, Name='{roundName}', Value={roundValue}, Enum={roundType}");
+			Logger.Debug("RoundType", $"生データ: {jsonData.ToString(Newtonsoft.Json.Formatting.None)}");
 
 			if (command == 1) // Started
 			{
-				GameData["roundType"] = $"{roundName} (開始)";
-				StartNewRound(roundName);
+				Logger.Info("RoundType", $"ラウンド開始処理: {roundType} ({roundName})");
+				GameData["roundType"] = $"{ToNRoundTypeHelper.GetDisplayName(roundType)} (開始)";
+				
+				// ダブルドラブルがアクティブなら終了させる
+				if (isDoubleTroubleActive)
+				{
+					Logger.Info("RoundType", "ダブルドラブルがアクティブのため終了処理を実行");
+					FinishDoubleTroubleRound();
+				}
+				
+				// インスタンス移動ミュート期間を終了
+				if (isInstanceTransitioning)
+				{
+					isInstanceTransitioning = false;
+					Logger.Info("RoundType", "ラウンド開始によりインスタンス移動ミュート期間を終了");
+				}
+				
+				// 現在のラウンド種別を記録（次ラウンド予測用）
+				InstanceState.CurrentRoundType = roundType;
+				
+				// ラウンド開始時のNormalRoundCountを保存（予測計算用）
+				InstanceState.NormalRoundCountAtRoundStart = InstanceState.NormalRoundCount;
+				Logger.Debug("RoundType", $"ラウンド開始時のNormalRoundCount保存: {InstanceState.NormalRoundCountAtRoundStart}");
+				
+				// Moonラウンド開始時に即座に解禁フラグを立てる
+				CheckMoonUnlockOnRoundStart(roundType);
+				
+				StartNewRound(roundType);
+				Logger.Info("RoundType", $"ラウンド開始イベントを発火: {roundType}");
+				
+				// インスタンス状態変更を通知（次ラウンド予測更新用）
+				OnInstanceStateChanged?.Invoke();
 			}
 			else if (command == 0) // Ended
 			{
-				GameData["roundType"] = $"{roundName} (終了)";
+				Logger.Info("RoundType", $"ラウンド終了処理: {roundType} ({roundName})");
+				GameData["roundType"] = $"{ToNRoundTypeHelper.GetDisplayName(roundType)} (終了)";
+				
+				// アイテムリマインダーチェック用に終了前のラウンドタイプを保存
+				// (FinishCurrentRound等で値が変わる可能性があるため)
+				var finishedRoundType = InstanceState.CurrentRoundType;
+				
 				FinishCurrentRound();
 				ResetAllPlayersAlive();
 				GameData["saboteur"] = "いいえ";
+				
+				// 上書きフラグをリセット
+				InstanceState.IsCurrentRoundOverride = false;
 
 				// ラウンド終了イベントを発火
 				OnRoundEnd?.Invoke();
+				Logger.Info("RoundType", $"ラウンド終了イベントを発火: {roundType}");
+
+				// クラウドにラウンド情報を送信
+				SendRoundEndToCloud(finishedRoundType);
+
+				// アイテムリマインダー対象ラウンドかチェック（Punished/8Pages）
+				// 注意: 受信したroundType(Intermission)ではなく、終了前のラウンドタイプを使用
+				bool isItemReminderRound = ToNRoundTypeHelper.IsItemReminderRound(finishedRoundType);
+				
+				// サボタージュでキラー側になった場合もアイテムリマインダー対象
+				bool shouldRemindItem = isItemReminderRound || wasSaboteurDuringRound;
+				
+				Logger.Info("RoundType", $"アイテムリマインダーチェック: finishedRoundType={finishedRoundType}, IsItemReminderRound={isItemReminderRound}, wasSaboteur={wasSaboteurDuringRound}");
+				System.Diagnostics.Debug.WriteLine($"[ITEM_REMINDER] finishedRoundType={finishedRoundType}, IsItemReminderRound={isItemReminderRound}, wasSaboteur={wasSaboteurDuringRound}");
+				
+				if (shouldRemindItem)
+				{
+					string reason = wasSaboteurDuringRound ? "サボタージュキラー" : finishedRoundType.ToString();
+					Logger.Info("RoundType", $"アイテムリマインダーイベントを発火: {reason}");
+					System.Diagnostics.Debug.WriteLine($"[ITEM_REMINDER] イベント発火: {reason}");
+					OnItemReminderRoundEnd?.Invoke();
+				}
+			}
+			else
+			{
+				Logger.Warn("RoundType", $"不明なCommand値: {command}, Name='{roundName}'");
 			}
 		}
 
-		private void StartNewRound(string roundType)
+		private void StartNewRound(ToNRoundType roundType)
 		{
+			string displayName = ToNRoundTypeHelper.GetDisplayName(roundType);
+			Logger.Info("Round", $"StartNewRound呼び出し: roundType={roundType} ({displayName})");
+			
 			currentRoundItems.Clear();
 			wasDeadDuringRound = false; // ラウンド開始時に死亡フラグをリセット
+			
+			// サボタージュフラグの処理
+			// Sabotageラウンドの場合、ラウンド開始前にIS_SABOTEUR=Trueが来ている可能性があるので
+			// pendingSaboteurFlagを引き継ぐ
+			if (roundType == ToNRoundType.Sabotage && pendingSaboteurFlag)
+			{
+				wasSaboteurDuringRound = true;
+				Logger.Info("Round", "Sabotageラウンド開始: pendingSaboteurFlagからwasSaboteurDuringRoundをセット");
+			}
+			else
+			{
+				wasSaboteurDuringRound = false;
+			}
+			pendingSaboteurFlag = false; // pendingフラグは常にリセット
+			
+			// 上書きフラグを設定（通常確定時にOverrideラウンドまたは特殊ラウンドが出た場合）
+			// ただしMasterChanged（MC）による特殊の場合は上書きではない
+			InstanceState.IsCurrentRoundOverride = false;
+			if (InstanceState.NormalRoundCount == 0 && !InstanceState.MasterChanged)
+			{
+				if (ToNRoundTypeHelper.IsOverrideRound(roundType) || ToNRoundTypeHelper.IsSpecialRound(roundType))
+				{
+					InstanceState.IsCurrentRoundOverride = true;
+					Logger.Info("Round", $"通常確定時に{roundType}が上書き（NormalRoundCount={InstanceState.NormalRoundCount}）");
+				}
+			}
+			
+			// アイテムリセット処理（ラウンドタイプによって異なる）
+			if (roundType == ToNRoundType.Eight_Pages)
+			{
+				// 8ページ: Midn（ミッドレーダー）は持ち込み可能、それ以外はリセット
+				if (InstanceState.CurrentItem != "Midn")
+				{
+					InstanceState.CurrentItem = "";
+					Logger.Debug("Round", "8ページラウンドのためアイテムをリセット（Midn以外）");
+				}
+				else
+				{
+					Logger.Debug("Round", "8ページラウンドだがMidnを所持しているため保持");
+				}
+			}
+			else if (roundType == ToNRoundType.Punished)
+			{
+				// パニッシュド: アイテムが没収されるためリセット
+				InstanceState.CurrentItem = "";
+				Logger.Debug("Round", "パニッシュドラウンドのためアイテムをリセット");
+			}
+			
+			// マスター変更フラグをリセット（ラウンド開始で消費）
+			InstanceState.MasterChanged = false;
+			
+			string mapName = GetGameDataValue("location", "Unknown").Split('(')[0].Trim();
+			Logger.Debug("Round", $"マップ名: {mapName}");
+			
+			// ラウンド開始時の所持アイテムを取得
+			string startingItem = InstanceState.CurrentItem ?? "";
+			
 			currentRound = new RoundLog
 			{
 				Timestamp = DateTime.Now,
 				RoundType = roundType,
-				MapName = GetGameDataValue("location", "Unknown").Split('(')[0].Trim(),
+				MapName = mapName,
 				TerrorNames = "",
-				Items = "",
-				Survived = false
+				Items = string.IsNullOrEmpty(startingItem) ? "なし" : startingItem,
+				Survived = false,
+				WasOptedIn = InstanceState.IsOptedIn,  // ラウンド開始時の参加状態を記録
+				IsReplay = isProcessingBufferedEvents  // リプレイ（バッファ処理中）かどうか
 			};
 
-			System.Diagnostics.Debug.WriteLine($"新しいラウンド開始: {roundType}");
+			// ラウンド開始イベントを発火
+			OnRoundStart?.Invoke(roundType);
+
+			Logger.Info("Round", $"新しいラウンド開始: {displayName}, マップ: {mapName}, 参加状態: {InstanceState.IsOptedIn}");
 		}
 
 		private void FinishCurrentRound()
 		{
+			Logger.Info("Round", "FinishCurrentRound呼び出し");
+			
 			if (currentRound == null)
 			{
-				System.Diagnostics.Debug.WriteLine("警告: currentRoundがnullです。");
+				Logger.Warn("Round", "currentRoundがnullです。ラウンドが開始されていない可能性があります。");
 				return;
 			}
 
@@ -638,8 +1012,8 @@ namespace ToNStatTool
 					currentRound.TerrorNames = "Unknown";
 				}
 
-				// アイテムを設定
-				currentRound.Items = currentRoundItems.Count > 0 ? string.Join(", ", currentRoundItems) : "なし";
+				// アイテムはラウンド開始時に設定済み（InstanceState.CurrentItem）
+				// currentRoundItemsはラウンド中の取得アイテム追跡用なので、Itemsは上書きしない
 
 				// 生存状態を確認（ラウンド中に一度でも死亡していれば死亡として記録）
 				bool survived = !wasDeadDuringRound;
@@ -673,7 +1047,7 @@ namespace ToNStatTool
 
 				// ログに追加
 				RoundLogs.Add(currentRound);
-				System.Diagnostics.Debug.WriteLine($"ラウンドログに記録: {currentRound.RoundType} - {(survived ? "生存" : "死亡")} - テラー: {currentRound.TerrorNames}");
+				Logger.Info("Round", $"ラウンドログに記録: {currentRound.RoundTypeDisplayName} - {(survived ? "生存" : "死亡")} - テラー: {currentRound.TerrorNames}");
 
 				// 統計を更新
 				RoundStats.TotalRounds++;
@@ -682,16 +1056,8 @@ namespace ToNStatTool
 					RoundStats.SurvivedRounds++;
 				}
 
-				// ラウンド種別の統計も更新
-				string roundTypeKey = currentRound.RoundType;
-				if (RoundStats.RoundTypeCounts.ContainsKey(roundTypeKey))
-				{
-					RoundStats.RoundTypeCounts[roundTypeKey]++;
-				}
-				else
-				{
-					RoundStats.RoundTypeCounts[roundTypeKey] = 1;
-				}
+				// ラウンド種別の統計も更新（Enumベース）
+				RoundStats.IncrementCount(currentRound.RoundType);
 
 				// テラー統計更新
 				string roundTerrorKey = currentRound.TerrorNames;
@@ -708,20 +1074,516 @@ namespace ToNStatTool
 					}
 				}
 
+				// InstanceState更新（ラウンド予測用）
+				UpdateInstanceState(currentRound.RoundType, survived, splitNames);
+
 				// ラウンドログを最大件数に制限
 				while (RoundLogs.Count > MAX_ROUND_LOGS)
 				{
 					RoundLogs.RemoveAt(0);
 				}
+				
+				Logger.Info("Round", "FinishCurrentRound完了");
 			}
 			catch (Exception ex)
 			{
-				System.Diagnostics.Debug.WriteLine($"ラウンド記録エラー: {ex.Message}");
+				Logger.Error("Round", "ラウンド記録エラー", ex);
 			}
 			finally
 			{
+				// セーブコード用にテラー名を保存（currentRoundをnullにする前に）
+				if (currentRound != null)
+				{
+					lastFinishedRoundTerrorNames = currentRound.TerrorNames ?? "";
+				}
 				currentRound = null;
 			}
+		}
+
+		/// <summary>
+		/// ダブルドラブルラウンドを開始する（Intermission中にDEATHイベントが来た場合）
+		/// </summary>
+		private void StartDoubleTroubleRound()
+		{
+			Logger.Info("DoubleTrouble", "StartDoubleTroubleRound呼び出し");
+			
+			isDoubleTroubleActive = true;
+			doubleTroubleStartTime = DateTime.Now;
+			
+			// ダブルドラブル用のラウンドログを作成
+			string mapName = GetGameDataValue("location", "Unknown").Split('(')[0].Trim();
+			string startingItem = InstanceState.CurrentItem ?? "";
+			
+			currentRound = new RoundLog
+			{
+				Timestamp = DateTime.Now,
+				RoundType = ToNRoundType.Double_Trouble,
+				MapName = mapName,
+				TerrorNames = "???", // ダブルドラブルはテラー名がアナウンスされない
+				Items = string.IsNullOrEmpty(startingItem) ? "なし" : startingItem,
+				Survived = true, // 通常と同じく、初期値は生存
+				WasOptedIn = InstanceState.IsOptedIn,
+				IsReplay = isProcessingBufferedEvents  // リプレイ（バッファ処理中）かどうか
+			};
+			
+			// フラグ設定（通常のラウンドと同じ）
+			currentRoundItems.Clear();
+			CurrentTerrors.Clear(); // 前ラウンドのテラー情報をクリア
+			wasDeadDuringRound = false; // 通常と同じく、初期値は生存
+			wasSaboteurDuringRound = false;
+			pendingSaboteurFlag = false;
+			
+			// 現在のラウンド種別を記録
+			InstanceState.CurrentRoundType = ToNRoundType.Double_Trouble;
+			InstanceState.NormalRoundCountAtRoundStart = InstanceState.NormalRoundCount;
+			
+			// UI表示用のGameDataを更新（メインフォームに反映）
+			GameData["roundType"] = "Double Trouble";
+			GameData["roundActive"] = "アクティブ";
+			
+			// ラウンド開始イベントを発火
+			OnRoundStart?.Invoke(ToNRoundType.Double_Trouble);
+			
+			// インスタンス状態変更を通知（UI更新用）
+			OnInstanceStateChanged?.Invoke();
+			
+			Logger.Info("DoubleTrouble", $"ダブルドラブルラウンド開始: マップ={mapName}");
+		}
+		
+		/// <summary>
+		/// ダブルドラブルラウンドを終了する（次のラウンド開始時に呼び出される）
+		/// </summary>
+		private void FinishDoubleTroubleRound()
+		{
+			if (!isDoubleTroubleActive)
+			{
+				return;
+			}
+			
+			Logger.Info("DoubleTrouble", "FinishDoubleTroubleRound呼び出し");
+			
+			isDoubleTroubleActive = false;
+			
+			if (currentRound != null)
+			{
+				// テラー名を設定（利用可能な場合）
+				if (CurrentTerrors.Count > 0)
+				{
+					currentRound.TerrorNames = string.Join(", ", CurrentTerrors.Select(t => t.Name));
+				}
+				else
+				{
+					currentRound.TerrorNames = "Unknown (Double Trouble)";
+				}
+				
+				// 通常のラウンドと同じ生死判定
+				// wasDeadDuringRoundフラグで判定（ALIVE=falseが来たかどうか）
+				bool survived = !wasDeadDuringRound && !wasSaboteurDuringRound;
+				currentRound.Survived = survived;
+				
+				// ログに追加
+				RoundLogs.Add(currentRound);
+				Logger.Info("DoubleTrouble", $"ラウンドログに記録: {currentRound.RoundTypeDisplayName} - {(survived ? "生存" : "死亡")} - テラー: {currentRound.TerrorNames}");
+				
+				// 統計を更新
+				RoundStats.TotalRounds++;
+				if (survived)
+				{
+					RoundStats.SurvivedRounds++;
+				}
+				
+				// ラウンド種別の統計も更新
+				RoundStats.IncrementCount(currentRound.RoundType);
+				
+				// テラー統計更新（Unknown (Double Trouble)の場合はスキップ）
+				if (currentRound.TerrorNames != "Unknown (Double Trouble)")
+				{
+					string roundTerrorKey = currentRound.TerrorNames;
+					var splitNames = roundTerrorKey.Split(new[] { ", " }, StringSplitOptions.RemoveEmptyEntries);
+					foreach (string terror in splitNames)
+					{
+						if (TerrorStats.TerrorTypeCounts.ContainsKey(terror))
+						{
+							TerrorStats.TerrorTypeCounts[terror]++;
+						}
+						else
+						{
+							TerrorStats.TerrorTypeCounts[terror] = 1;
+						}
+					}
+					
+					// InstanceState更新（Double_Troubleは特殊ラウンド扱い）
+					UpdateInstanceState(currentRound.RoundType, survived, splitNames);
+				}
+				else
+				{
+					// テラー名がUnknown (Double Trouble)の場合はテラーなしでInstanceState更新
+					UpdateInstanceState(currentRound.RoundType, survived, new string[0]);
+				}
+				
+				// ラウンドログを最大件数に制限
+				while (RoundLogs.Count > MAX_ROUND_LOGS)
+				{
+					RoundLogs.RemoveAt(0);
+				}
+				
+				// セーブコード用にテラー名を保存
+				lastFinishedRoundTerrorNames = currentRound.TerrorNames ?? "";
+				
+				Logger.Info("DoubleTrouble", "FinishDoubleTroubleRound完了");
+			}
+			
+			// ラウンド終了イベントを発火
+			OnRoundEnd?.Invoke();
+			
+			// プレイヤーの生存状態をリセット
+			ResetAllPlayersAlive();
+			GameData["saboteur"] = "いいえ";
+			
+			currentRound = null;
+		}
+
+		/// <summary>
+		/// Moonラウンド開始時に解禁フラグを立てる
+		/// </summary>
+		private void CheckMoonUnlockOnRoundStart(ToNRoundType roundType)
+		{
+			bool stateChanged = false;
+
+			// 初回Moonフラグをリセット
+			isCurrentRoundFirstMoon = false;
+			InstanceState.IsCurrentRoundFirstMoon = false;
+
+			// ※JustUnlockedフラグは初回判定に使用するため、チェック後にリセットする
+
+			// ※Midnightは開始時には解禁しない（ラウンド終了時に生存者がいる場合のみBlood Moon解禁）
+
+			if (roundType == ToNRoundType.Blood_Moon)
+			{
+				// BloodMoonJustUnlocked=true（ミッドナイト生存直後）の場合も初回扱い
+				if (!InstanceState.BloodMoonUnlocked || InstanceState.BloodMoonJustUnlocked)
+				{
+					isCurrentRoundFirstMoon = true; // 初回Blood Moon
+					InstanceState.IsCurrentRoundFirstMoon = true;
+					InstanceState.BloodMoonUnlocked = true;
+					stateChanged = true;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Blood Moon解禁（初回、ラウンド開始時）");
+				}
+			}
+			if (roundType == ToNRoundType.Twilight)
+			{
+				if (!InstanceState.TwilightUnlocked)
+				{
+					isCurrentRoundFirstMoon = true; // 初回Twilight
+					InstanceState.IsCurrentRoundFirstMoon = true;
+					InstanceState.TwilightUnlocked = true;
+					stateChanged = true;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Twilight解禁（初回、ラウンド開始時）");
+				}
+			}
+			if (roundType == ToNRoundType.Mystic_Moon)
+			{
+				if (!InstanceState.MysticMoonUnlocked)
+				{
+					isCurrentRoundFirstMoon = true; // 初回Mystic Moon
+					InstanceState.IsCurrentRoundFirstMoon = true;
+					InstanceState.MysticMoonUnlocked = true;
+					stateChanged = true;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Mystic Moon解禁（初回、ラウンド開始時）");
+				}
+			}
+			if (roundType == ToNRoundType.Solstice)
+			{
+				if (!InstanceState.SolsticeUnlocked)
+				{
+					isCurrentRoundFirstMoon = true; // 初回Solstice
+					InstanceState.IsCurrentRoundFirstMoon = true;
+					InstanceState.SolsticeUnlocked = true;
+					stateChanged = true;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Solstice解禁（初回、ラウンド開始時）");
+				}
+			}
+
+			// JustUnlockedフラグをリセット（次のラウンド予測に影響しないように）
+			// ※初回判定で使用した後にリセットする
+			InstanceState.BloodMoonJustUnlocked = false;
+			InstanceState.TwilightJustUnlocked = false;
+			InstanceState.MysticMoonJustUnlocked = false;
+
+			// 状態が変化した場合はイベントを発火（チェックボックス更新用）
+			if (stateChanged)
+			{
+				OnInstanceStateChanged?.Invoke();
+			}
+		}
+
+		/// <summary>
+		/// 現在のテラーから鳥遭遇をチェック（即時更新）
+		/// </summary>
+		private void CheckBirdEncounters()
+		{
+			bool stateChanged = false;
+
+			foreach (var terror in CurrentTerrors)
+			{
+				string terrorLower = terror.Name.ToLower();
+				if (terrorLower.Contains("big bird") && !InstanceState.MetBigBird)
+				{
+					InstanceState.MetBigBird = true;
+					stateChanged = true;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Big Bird遭遇（即時）");
+				}
+				if (terrorLower.Contains("judgement bird") && !InstanceState.MetJudgementBird)
+				{
+					InstanceState.MetJudgementBird = true;
+					stateChanged = true;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Judgement Bird遭遇（即時）");
+				}
+				if (terrorLower.Contains("punishing bird") && !InstanceState.MetPunishingBird)
+				{
+					InstanceState.MetPunishingBird = true;
+					stateChanged = true;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Punishing Bird遭遇（即時）");
+				}
+			}
+
+			// 状態が変化した場合はイベントを発火
+			if (stateChanged)
+			{
+				OnInstanceStateChanged?.Invoke();
+			}
+		}
+
+		/// <summary>
+		/// インスタンス状態を更新（ラウンド予測用）
+		/// </summary>
+		private void UpdateInstanceState(ToNRoundType roundType, bool survived, string[] terrorNames)
+		{
+			// ラウンド終了時の状態をログ出力
+			Logger.Info("InstanceState", $"UpdateInstanceState呼び出し: roundType={roundType}, isCurrentRoundFirstMoon={isCurrentRoundFirstMoon}");
+			Logger.Info("InstanceState", $"更新前: NormalRoundCount={InstanceState.NormalRoundCount}, InstanceState.WasOverrideInUncertainState={InstanceState.WasOverrideInUncertainState}");
+			
+			// インスタンス内の誰かが生存しているかチェック（推定生存回数用）
+			int aliveCount = Players.Values.Count(p => p.IsAlive);
+			bool anyoneSurvived = aliveCount > 0;
+			System.Diagnostics.Debug.WriteLine($"[InstanceState] ラウンド終了時の生存状況: 自分={survived}, インスタンス内生存者={aliveCount}人, anyoneSurvived={anyoneSurvived}");
+
+			// インスタンス内で誰かが生存していればカウントアップ
+			if (anyoneSurvived)
+			{
+				InstanceState.EstimatedSurvivalCount++;
+
+				// 特殊解放チェック（3回生存）
+				if (InstanceState.EstimatedSurvivalCount >= 3 && !InstanceState.SpecialUnlocked)
+				{
+					InstanceState.SpecialUnlocked = true;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] 特殊ラウンド解放");
+				}
+
+				// Mystic Moon解禁チェック（15回生存）
+				if (InstanceState.EstimatedSurvivalCount >= 15 && !InstanceState.MysticMoonUnlocked)
+				{
+					// 次のラウンドでMystic Moonが来る可能性
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Mystic Moon解禁条件達成");
+				}
+			}
+
+			// Midnightラウンド終了時のチェック（誰かが生存していればBlood Moon解禁）
+			if (roundType == ToNRoundType.Midnight)
+			{
+				// インスタンス内の誰かが生存しているかチェック（aliveCountは既に上で計算済み）
+				int totalCount = Players.Count;
+				System.Diagnostics.Debug.WriteLine($"[InstanceState] Midnight終了時チェック: 生存{aliveCount}/{totalCount}人, BloodMoon解禁={InstanceState.BloodMoonUnlocked}");
+				
+				// 生存者が1人でもいればBlood Moon解禁
+				if (aliveCount > 0 && !InstanceState.BloodMoonUnlocked)
+				{
+					InstanceState.MidnightSurvived = true;
+					InstanceState.BloodMoonUnlocked = true;
+					InstanceState.BloodMoonJustUnlocked = true; // 解禁直後フラグをセット（次ラウンドがBlood Moonの可能性が高い）
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Midnight生存者あり → Blood Moon解禁 (JustUnlocked=true)");
+					OnInstanceStateChanged?.Invoke();
+				}
+			}
+
+			// 鳥遭遇チェック（生存に関係なく遭遇でカウント）
+			foreach (var terror in terrorNames)
+			{
+				string terrorLower = terror.ToLower();
+				if (terrorLower.Contains("big bird") && !InstanceState.MetBigBird)
+				{
+					InstanceState.MetBigBird = true;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Big Bird遭遇");
+				}
+				if (terrorLower.Contains("judgement bird") && !InstanceState.MetJudgementBird)
+				{
+					InstanceState.MetJudgementBird = true;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Judgement Bird遭遇");
+				}
+				if (terrorLower.Contains("punishing bird") && !InstanceState.MetPunishingBird)
+				{
+					InstanceState.MetPunishingBird = true;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Punishing Bird遭遇");
+				}
+			}
+
+			// Moonラウンド解禁チェック（ラウンド終了時）
+			if (roundType == ToNRoundType.Blood_Moon)
+			{
+				InstanceState.BloodMoonUnlocked = true;
+				System.Diagnostics.Debug.WriteLine("[InstanceState] Blood Moon解禁");
+			}
+			if (roundType == ToNRoundType.Twilight)
+			{
+				InstanceState.TwilightUnlocked = true;
+				System.Diagnostics.Debug.WriteLine("[InstanceState] Twilight解禁");
+			}
+			if (roundType == ToNRoundType.Mystic_Moon)
+			{
+				InstanceState.MysticMoonUnlocked = true;
+				System.Diagnostics.Debug.WriteLine("[InstanceState] Mystic Moon解禁");
+			}
+			if (roundType == ToNRoundType.Solstice)
+			{
+				InstanceState.SolsticeUnlocked = true;
+				System.Diagnostics.Debug.WriteLine("[InstanceState] Solstice解禁");
+			}
+
+			// ラウンド周期の更新
+			// N=0: 通常枠確定, N=1: 通常/特殊どちらか, N=2: 特殊枠確定
+			if (ToNRoundTypeHelper.IsNormalRound(roundType))
+			{
+				// Normal系: 純粋な通常ラウンド（Classic, RUN）
+				if (InstanceState.WasOverrideInUncertainState)
+				{
+					// N=1でOverride後にNormalが来た → 前のOverrideが特殊枠を食ったことが確定
+					// なのでNormalはN=0からの遷移として扱う → N=1
+					InstanceState.NormalRoundCount = 1;
+					InstanceState.WasOverrideInUncertainState = false;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Normal(前のOverrideが特殊枠消費確定): NormalRoundCount=1");
+				}
+				else if (InstanceState.NormalRoundCount >= 2)
+				{
+					// N=2（特殊枠確定）でNormalが出た → 特殊未解放時
+					// 特殊枠は消費されたが特殊が出せないのでNormalが代わりに出た
+					InstanceState.NormalRoundCount = 0;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Normal(特殊未解放時): 特殊枠消費 → NormalRoundCount=0");
+				}
+				else
+				{
+					// N=0 → N=1, N=1 → N=2
+					InstanceState.NormalRoundCount++;
+					System.Diagnostics.Debug.WriteLine($"[InstanceState] Normal: NormalRoundCount={InstanceState.NormalRoundCount}");
+				}
+				
+				// 通常が3回連続 → インスタンス作成者確定、特殊未解放
+				if (InstanceState.NormalRoundCount >= 3 && !InstanceState.IsInstanceOwner)
+				{
+					InstanceState.IsInstanceOwner = true;
+					InstanceState.SpecialUnlocked = false;
+					InstanceState.EstimatedSurvivalCount = RoundStats.SurvivedRounds;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] インスタンス作成者と判定");
+				}
+			}
+			else if (ToNRoundTypeHelper.IsMoonRound(roundType))
+			{
+				// Moonラウンド（Blood Moon/Twilight/Mystic Moon/Solstice）
+				// 初回: Classicを上書きして出現 → Override系と同じ挙動
+				// 2回目以降: 特殊ラウンドの1/20で選出 → 特殊枠を消費
+				InstanceState.WasOverrideInUncertainState = false; // Moonが出たらフラグリセット
+				
+				if (isCurrentRoundFirstMoon)
+				{
+					// 初回Moon → Override系と同じ挙動
+					if (InstanceState.NormalRoundCount == 0)
+					{
+						InstanceState.NormalRoundCount = 1;
+						System.Diagnostics.Debug.WriteLine("[InstanceState] 初回Moon(通常枠確定): NormalRoundCount=1");
+					}
+					else if (InstanceState.NormalRoundCount == 1)
+					{
+						// N=1で初回Moon → N=1維持（通常枠を上書きした可能性）
+						InstanceState.WasOverrideInUncertainState = true; // 初回MoonもOverride系と同様にフラグを立てる
+						System.Diagnostics.Debug.WriteLine("[InstanceState] 初回Moon(不明): NormalRoundCount=1維持");
+					}
+					else if (InstanceState.NormalRoundCount >= 2)
+					{
+						InstanceState.NormalRoundCount = 0;
+						System.Diagnostics.Debug.WriteLine("[InstanceState] 初回Moon(特殊枠消費): NormalRoundCount=0");
+					}
+				}
+				else
+				{
+					// 2回目以降Moon → 特殊ラウンドとして扱う（特殊枠を消費）
+					InstanceState.NormalRoundCount = 0;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] 2回目以降Moon(特殊枠消費): NormalRoundCount=0");
+				}
+			}
+			else if (ToNRoundTypeHelper.IsOverrideRound(roundType))
+			{
+				// Run/Ghost/Unbound/8Pages: 通常枠でも特殊枠でも出現可能
+				if (InstanceState.NormalRoundCount == 0)
+				{
+					// N=0（通常枠確定） → N=1
+					InstanceState.NormalRoundCount = 1;
+					InstanceState.WasOverrideInUncertainState = false;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Override系(通常枠確定): NormalRoundCount=1");
+				}
+				else if (InstanceState.NormalRoundCount == 1)
+				{
+					// N=1（通常/特殊どちらか） → N=1維持（どちらで出たか不明）
+					InstanceState.WasOverrideInUncertainState = true; // 不確定フラグを立てる
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Override系(不明): NormalRoundCount=1維持, 不確定フラグON");
+				}
+				else if (InstanceState.NormalRoundCount >= 2)
+				{
+					// N=2（特殊枠確定） → N=0（特殊枠消費）
+					InstanceState.NormalRoundCount = 0;
+					InstanceState.WasOverrideInUncertainState = false;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] Override系(特殊枠消費): NormalRoundCount=0");
+				}
+			}
+			else if (ToNRoundTypeHelper.IsSpecialRound(roundType))
+			{
+				// 特殊ラウンド
+				if (InstanceState.IsCurrentRoundOverride)
+				{
+					// 上書きで出た特殊（MCなしで通常確定時に出現）→ 通常枠を消費したのでN=1
+					InstanceState.NormalRoundCount = 1;
+					InstanceState.WasOverrideInUncertainState = false;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] 特殊ラウンド(上書き): NormalRoundCount=1");
+				}
+				else
+				{
+					// 通常の特殊ラウンド（MCまたは通常枠2消費後）→ 特殊枠消費でN=0
+					InstanceState.NormalRoundCount = 0;
+					InstanceState.WasOverrideInUncertainState = false;
+					System.Diagnostics.Debug.WriteLine("[InstanceState] 特殊ラウンド: NormalRoundCount=0");
+				}
+			}
+
+			InstanceState.LastRoundType = roundType;
+
+			// 状態が変化したのでUIに通知（推定生存回数等の更新用）
+			OnInstanceStateChanged?.Invoke();
+		}
+
+		/// <summary>
+		/// インスタンス状態をリセット
+		/// </summary>
+		public void ResetInstanceState()
+		{
+			InstanceState.Reset();
+			
+			// ダブルドラブルフラグもリセット
+			if (isDoubleTroubleActive)
+			{
+				Logger.Info("DoubleTrouble", "インスタンスリセットによりダブルドラブルを終了");
+				isDoubleTroubleActive = false;
+				currentRound = null;
+			}
+			
+			System.Diagnostics.Debug.WriteLine("[InstanceState] リセット");
 		}
 
 		private void ResetAllPlayersAlive()
@@ -737,6 +1599,9 @@ namespace ToNStatTool
 				player.IsAlive = true;
 				player.LastSeen = DateTime.Now;
 			}
+
+			// プレイヤー数変更イベントを発火
+			OnPlayerCountChanged?.Invoke();
 		}
 
 		private void ProcessLocationEvent(JObject jsonData)
@@ -755,6 +1620,15 @@ namespace ToNStatTool
 					locationInfo += $" [{origin}]";
 
 				GameData["location"] = locationInfo;
+				
+				// ラウンド中でcurrentRoundのマップ名が空または"-"の場合は更新
+				// （サボタージュキラー側ではROUND_TYPEがLOCATIONより先に来る場合がある）
+				if (isRoundActive && currentRound != null && 
+				    (string.IsNullOrEmpty(currentRound.MapName) || currentRound.MapName == "-"))
+				{
+					currentRound.MapName = mapName;
+					Logger.Info("Location", $"currentRoundのマップ名を後から更新: {mapName}");
+				}
 			}
 			else if (command == 0) // Reset
 			{
@@ -765,8 +1639,22 @@ namespace ToNStatTool
 		private void ProcessRoundActiveEvent(JObject jsonData)
 		{
 			bool isActive = jsonData["Value"]?.ToObject<bool>() ?? false;
+			
+			Logger.Info("RoundActive", $"ROUND_ACTIVEイベント受信: Value={isActive}, 前の状態={isRoundActive}");
+			Logger.Debug("RoundActive", $"生データ: {jsonData.ToString(Newtonsoft.Json.Formatting.None)}");
+			
 			GameData["roundActive"] = isActive ? "アクティブ" : "非アクティブ";
 			isRoundActive = isActive;
+			
+			Logger.Info("RoundActive", $"ラウンドアクティブ状態を更新: {(isActive ? "アクティブ" : "非アクティブ")}");
+			
+			// ROUND_ACTIVE=Falseが来た時、ダブルドラブルがアクティブなら終了する
+			// （ダブルドラブルはROUND_TYPE Intermissionが来ないため、ここで終了処理を行う）
+			if (!isActive && isDoubleTroubleActive)
+			{
+				Logger.Info("RoundActive", "ROUND_ACTIVE=Falseによりダブルドラブル終了処理を実行");
+				FinishDoubleTroubleRound();
+			}
 		}
 
 		private void ProcessAliveEvent(JObject jsonData)
@@ -785,18 +1673,61 @@ namespace ToNStatTool
 			{
 				Players[LocalPlayerUserId].IsAlive = isAlive;
 				Players[LocalPlayerUserId].LastSeen = DateTime.Now;
+				
+				// プレイヤー数変更イベントを発火
+				OnPlayerCountChanged?.Invoke();
 			}
 		}
 
 		private void ProcessSaboteurEvent(JObject jsonData)
 		{
 			bool isSaboteur = jsonData["Value"]?.ToObject<bool>() ?? false;
-			string roundActive = GetGameDataValue("roundActive", "");
-			if (roundActive == "非アクティブ" && isSaboteur)
-			{
-				return;
-			}
+			
+			Logger.Info("Saboteur", $"IS_SABOTEURイベント受信: Value={isSaboteur}");
+			
+			// サボタージュ状態を常に更新
 			GameData["saboteur"] = isSaboteur ? "はい" : "いいえ";
+			
+			// サボタージュでキラー側になった場合
+			if (isSaboteur)
+			{
+				// バッファイベント処理中でなければフラグをセット
+				if (!isProcessingBufferedEvents)
+				{
+					// ラウンド開始前のイベントはpendingSaboteurFlagに保持
+					// ラウンド開始後のイベントはwasSaboteurDuringRoundに直接セット
+					if (isRoundActive)
+					{
+						Logger.Info("Saboteur", "サボタージュでキラー側になりました（ラウンド中）");
+						wasSaboteurDuringRound = true;
+					}
+					else
+					{
+						Logger.Info("Saboteur", "サボタージュでキラー側になりました（ラウンド開始前、pending）");
+						pendingSaboteurFlag = true;
+					}
+				}
+			}
+			else
+			{
+				// サボタージュ解除時
+				pendingSaboteurFlag = false;
+				// ラウンドがアクティブ中は wasSaboteurDuringRound を保持
+				// （ラウンド終了後のアイテムリマインダーで必要なため）
+				// ラウンド終了後は StartNewRound でリセットされる
+				if (!isRoundActive)
+				{
+					wasSaboteurDuringRound = false;
+					Logger.Info("Saboteur", "サボタージュ解除（サバイバー側）: フラグをクリア");
+				}
+				else
+				{
+					Logger.Info("Saboteur", "サボタージュ解除（サバイバー側）: ラウンドアクティブ中のためフラグを保持");
+				}
+			}
+			
+			// UI更新のためにイベントを発火
+			OnInstanceStateChanged?.Invoke();
 		}
 
 		private void ProcessPageCountEvent(JObject jsonData)
@@ -818,7 +1749,63 @@ namespace ToNStatTool
 			try
 			{
 				// インスタンス情報の処理
-				System.Diagnostics.Debug.WriteLine($"[INSTANCE] インスタンス情報を受信");
+				string instanceUrl = jsonData["Value"]?.ToString() ?? "";
+
+				// 空のURLが来た場合は警告ログを出力
+				if (string.IsNullOrEmpty(instanceUrl))
+				{
+					Logger.Warn("Instance", $"空のINSTANCEイベントを受信 (現在のInstanceUrl={InstanceState.InstanceUrl}, lastInstanceUrl={lastInstanceUrl}, バッファ処理中={isProcessingBufferedEvents})");
+				}
+
+				if (!string.IsNullOrEmpty(instanceUrl))
+				{
+					// インスタンスURLが変わった場合（インスタンス移動）
+					if (!string.IsNullOrEmpty(lastInstanceUrl) && lastInstanceUrl != instanceUrl)
+					{
+						// インスタンス移動を検知 - サウンドミュート期間開始
+						isInstanceTransitioning = true;
+						instanceTransitionStartTime = DateTime.Now;
+						Logger.Info("Instance", $"インスタンス移動を検知 - サウンドミュート開始（{INSTANCE_TRANSITION_MUTE_SECONDS}秒間）");
+						System.Diagnostics.Debug.WriteLine($"[INSTANCE] インスタンス移動検知: {lastInstanceUrl} → {instanceUrl}");
+						
+						// ダブルドラブルがアクティブなら終了（ログに残さず破棄）
+						if (isDoubleTroubleActive)
+						{
+							Logger.Info("DoubleTrouble", "インスタンス移動によりダブルドラブルを破棄");
+							isDoubleTroubleActive = false;
+							currentRound = null;
+						}
+						
+						// プレイヤーリストをクリア（新しいインスタンスのプレイヤーリストを受け取るため）
+						// ローカルプレイヤーは保持
+						var localPlayer = Players.Values.FirstOrDefault(p => p.IsLocal);
+						Players.Clear();
+						if (localPlayer != null)
+						{
+							Players[localPlayer.UserId] = localPlayer;
+						}
+						Logger.Debug("Instance", "インスタンス移動のためプレイヤーリストをクリア（ローカルプレイヤーは保持）");
+					}
+					
+					lastInstanceUrl = instanceUrl;
+					InstanceState.InstanceUrl = instanceUrl;
+					Logger.Info("Instance", $"インスタンスURL更新: {instanceUrl}");
+
+					// インスタンス変更時は状態をリセット
+					InstanceState.MasterChanged = false;
+
+					// リスポーン追跡用フラグをリセット（新しいインスタンスでは初めからやり直し）
+					InstanceState.WasOptedInThisInstance = false;
+					InstanceState.HadRespawnedInRound = false;
+					InstanceState.IsRespawnSaveCode = false;
+
+					// クラウドからインスタンス状態を取得（非同期）
+					_ = FetchInstanceStateFromCloudAsync(instanceUrl);
+
+					OnInstanceStateChanged?.Invoke();
+				}
+				
+				System.Diagnostics.Debug.WriteLine($"[INSTANCE] インスタンス情報を受信: {instanceUrl}");
 			}
 			catch (Exception ex)
 			{
@@ -830,11 +1817,60 @@ namespace ToNStatTool
 		{
 			try
 			{
-				// 統計情報の処理
-				System.Diagnostics.Debug.WriteLine($"[STATS] 統計情報を受信");
+				string statName = jsonData["Name"]?.ToString() ?? "";
+				
+				// 値の取得（型に応じて処理）
+				var valueToken = jsonData["Value"];
+				if (valueToken == null) return;
+				
+				switch (statName)
+				{
+					case "Survivals":
+						SessionStats.Survivals = valueToken.ToObject<int>();
+						break;
+					case "Deaths":
+						SessionStats.Deaths = valueToken.ToObject<int>();
+						break;
+					case "Stuns":
+						SessionStats.Stuns = valueToken.ToObject<int>();
+						break;
+					case "StunsAll":
+						SessionStats.StunsAll = valueToken.ToObject<int>();
+						break;
+					case "TopStuns":
+						SessionStats.TopStuns = valueToken.ToObject<int>();
+						break;
+					case "TopStunsAll":
+						SessionStats.TopStunsAll = valueToken.ToObject<int>();
+						break;
+					case "DamageTaken":
+						SessionStats.DamageTaken = valueToken.ToObject<int>();
+						break;
+					case "LobbySurvivals":
+						// ロビー生存数が15以上ならMystic Moon解禁
+						int lobbySurvivals = valueToken.ToObject<int?>() ?? 0;
+						if (lobbySurvivals >= 15 && !InstanceState.MysticMoonUnlocked)
+						{
+							InstanceState.MysticMoonUnlocked = true;
+							Logger.Info("Stats", $"LobbySurvivalsが15以上({lobbySurvivals})のためMystic Moon解禁");
+							System.Diagnostics.Debug.WriteLine($"[InstanceState] LobbySurvivals={lobbySurvivals} → Mystic Moon解禁");
+							OnInstanceStateChanged?.Invoke();
+						}
+						// EstimatedSurvivalCountも更新（接続時の初期値として）
+						if (lobbySurvivals > InstanceState.EstimatedSurvivalCount)
+						{
+							InstanceState.EstimatedSurvivalCount = lobbySurvivals;
+							Logger.Debug("Stats", $"EstimatedSurvivalCountを{lobbySurvivals}に更新");
+						}
+						break;
+				}
+				
+				Logger.Debug("Stats", $"統計更新: {statName} = {valueToken}");
+				System.Diagnostics.Debug.WriteLine($"[STATS] 統計情報を受信: {statName} = {valueToken}");
 			}
 			catch (Exception ex)
 			{
+				Logger.Error("Stats", "統計情報処理エラー", ex);
 				System.Diagnostics.Debug.WriteLine($"[STATS] エラー: {ex.Message}");
 			}
 		}
@@ -843,6 +1879,24 @@ namespace ToNStatTool
 		{
 			try
 			{
+				// eventプロパティをチェック（item_pickup等）
+				string trackerEvent = jsonData["event"]?.ToString() ?? "";
+				
+				if (!string.IsNullOrEmpty(trackerEvent))
+				{
+					Logger.Debug("Tracker", $"TRACKERイベント受信: event='{trackerEvent}'");
+					
+					switch (trackerEvent.ToLower())
+					{
+						case "item_pickup":
+							ProcessItemPickupEvent(jsonData);
+							return;
+						case "enemy_enraged":
+							ProcessEnemyEnragedEvent(jsonData);
+							return;
+					}
+				}
+				
 				// プレイヤートラッキング情報の処理（これが重要！）
 				var playersData = jsonData["Value"] as JArray;
 				if (playersData != null)
@@ -889,6 +1943,9 @@ namespace ToNStatTool
 							System.Diagnostics.Debug.WriteLine($"[TRACKER] プレイヤー処理エラー: {playerEx.Message}");
 						}
 					}
+
+					// プレイヤー数変更イベントを発火
+					OnPlayerCountChanged?.Invoke();
 				}
 			}
 			catch (Exception ex)
@@ -897,10 +1954,271 @@ namespace ToNStatTool
 			}
 		}
 
+		/// <summary>
+		/// TRACKERイベントのitem_pickupを処理
+		/// </summary>
+		private void ProcessItemPickupEvent(JObject jsonData)
+		{
+			try
+			{
+				var args = jsonData["args"] as JArray;
+				if (args != null && args.Count > 0)
+				{
+					string itemName = args[0]?.ToString() ?? "";
+					
+					if (!string.IsNullOrEmpty(itemName))
+					{
+						// ラウンド中の取得アイテムに追加
+						if (!currentRoundItems.Contains(itemName))
+						{
+							currentRoundItems.Add(itemName);
+						}
+						
+						// 現在所持アイテムを更新
+						string previousItem = InstanceState.CurrentItem;
+						InstanceState.CurrentItem = itemName;
+						
+						Logger.Info("ItemPickup", $"アイテム取得(TRACKER): '{previousItem}' → '{itemName}'");
+						System.Diagnostics.Debug.WriteLine($"[ITEM_PICKUP] アイテム取得: '{previousItem}' → '{itemName}'");
+						
+						// UI更新のためにイベントを発火
+						OnInstanceStateChanged?.Invoke();
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				Logger.Error("ItemPickup", "アイテム取得処理エラー", ex);
+				System.Diagnostics.Debug.WriteLine($"[ITEM_PICKUP] エラー: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// TRACKERイベントのenemy_enragedを処理（ダブルドラブル時のテラー名取得用）
+		/// </summary>
+		private void ProcessEnemyEnragedEvent(JObject jsonData)
+		{
+			try
+			{
+				var args = jsonData["args"] as JArray;
+				if (args != null && args.Count > 0)
+				{
+					string terrorName = args[0]?.ToString() ?? "";
+					
+					if (!string.IsNullOrEmpty(terrorName))
+					{
+						Logger.Debug("EnemyEnraged", $"enemy_enraged受信: テラー名='{terrorName}'");
+						
+						// ダブルドラブル中の場合、テラー名を収集
+						if (isDoubleTroubleActive && currentRound != null)
+						{
+							// 既存のテラー名リストに追加（重複チェック）
+							if (string.IsNullOrEmpty(currentRound.TerrorNames))
+							{
+								currentRound.TerrorNames = terrorName;
+							}
+							else if (!currentRound.TerrorNames.Contains(terrorName))
+							{
+								currentRound.TerrorNames += ", " + terrorName;
+							}
+							
+							// CurrentTerrorsリストにも追加
+							if (!CurrentTerrors.Any(t => t.Name == terrorName))
+							{
+								CurrentTerrors.Add(new TerrorInfo
+								{
+									Name = terrorName,
+									DisplayName = terrorName,
+									DisplayColor = 0,
+									StunType = TerrorConfiguration.GetTerrorStunType(terrorName)
+								});
+							}
+							
+							Logger.Info("DoubleTrouble", $"テラー名を追加: '{terrorName}' → 現在のテラー: '{currentRound.TerrorNames}'");
+							
+							// テラー更新イベントを発火（リプレイ中はスキップ）
+							if (!isProcessingBufferedEvents)
+							{
+								OnTerrorUpdate?.Invoke();
+							}
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				Logger.Error("EnemyEnraged", "enemy_enraged処理エラー", ex);
+			}
+		}
+
+		private void ProcessMasterChangeEvent(JObject jsonData)
+		{
+			try
+			{
+				Logger.Info("MasterChange", "マスター変更を検出");
+				
+				// マスター変更フラグを立てる（次ラウンドが特殊確定）
+				InstanceState.MasterChanged = true;
+				
+				// イベント発火
+				OnMasterChanged?.Invoke();
+				OnInstanceStateChanged?.Invoke();
+				
+				System.Diagnostics.Debug.WriteLine($"[MASTER_CHANGE] マスター変更を検出 - 次ラウンド特殊確定");
+			}
+			catch (Exception ex)
+			{
+				Logger.Error("MasterChange", "マスター変更処理エラー", ex);
+				System.Diagnostics.Debug.WriteLine($"[MASTER_CHANGE] エラー: {ex.Message}");
+			}
+		}
+
+		private void ProcessSavedEvent(JObject jsonData)
+		{
+			try
+			{
+				string saveCode = jsonData["Value"]?.ToString() ?? "";
+				
+				if (!string.IsNullOrEmpty(saveCode))
+				{
+					string roundTypeName;
+					string terrorNames;
+					
+					// リスポーン時のセーブコードかどうかをチェック
+					if (InstanceState.IsRespawnSaveCode)
+					{
+						// リスポーン時のセーブコード
+						roundTypeName = "リスポーン";
+						terrorNames = "";  // テラー名は空
+						InstanceState.IsRespawnSaveCode = false;  // フラグをリセット
+						Logger.Info("SaveCode", "リスポーン用セーブコードとして処理");
+					}
+					else
+					{
+						// 通常のセーブコード: 直前のラウンドタイプを取得
+						roundTypeName = ToNRoundTypeHelper.GetDisplayName(InstanceState.LastRoundType);
+						if (InstanceState.LastRoundType == ToNRoundType.Intermission)
+						{
+							roundTypeName = ToNRoundTypeHelper.GetDisplayName(InstanceState.CurrentRoundType);
+						}
+						
+						// テラー名を取得（優先順位: currentRound > lastFinishedRoundTerrorNames > CurrentTerrors）
+						terrorNames = "";
+						if (currentRound != null && !string.IsNullOrEmpty(currentRound.TerrorNames))
+						{
+							terrorNames = currentRound.TerrorNames;
+						}
+						else if (!string.IsNullOrEmpty(lastFinishedRoundTerrorNames))
+						{
+							terrorNames = lastFinishedRoundTerrorNames;
+						}
+						else if (CurrentTerrors.Count > 0)
+						{
+							terrorNames = string.Join(", ", CurrentTerrors.Select(t => t.Name));
+						}
+					}
+					
+					var saveCodeInfo = new SaveCodeInfo
+					{
+						Code = saveCode,
+						RoundTypeName = roundTypeName,
+						TerrorNames = terrorNames,
+						Timestamp = DateTime.Now
+					};
+					
+					// リストの先頭に追加
+					SaveCodes.Insert(0, saveCodeInfo);
+					
+					// 最大数を超えたら古いものを削除
+					while (SaveCodes.Count > MaxSaveCodes)
+					{
+						SaveCodes.RemoveAt(SaveCodes.Count - 1);
+					}
+					
+					Logger.Info("SaveCode", $"セーブコード受信: {saveCode} ({roundTypeName}) - テラー: {terrorNames}");
+					
+					// イベント発火
+					OnSaveCodeReceived?.Invoke(saveCodeInfo);
+				}
+				
+				System.Diagnostics.Debug.WriteLine($"[SAVED] セーブコード受信: {saveCode}");
+			}
+			catch (Exception ex)
+			{
+				Logger.Error("SaveCode", "セーブコード処理エラー", ex);
+				System.Diagnostics.Debug.WriteLine($"[SAVED] エラー: {ex.Message}");
+			}
+		}
+
+		private void ProcessOptedInEvent(JObject jsonData)
+		{
+			try
+			{
+				bool isOptedIn = jsonData["Value"]?.ToObject<bool>() ?? true;
+				
+				// リスポーン検出: 一度opted_inしていた状態からopted_outになった場合
+				if (!isOptedIn && InstanceState.WasOptedInThisInstance)
+				{
+					// これはリスポーン（死亡してリスポーン地点へ）
+					InstanceState.HadRespawnedInRound = true;
+					InstanceState.IsRespawnSaveCode = true;
+					Logger.Info("OptedIn", "リスポーン検出: opted_out");
+				}
+				else if (isOptedIn)
+				{
+					// opted_inになった
+					if (InstanceState.HadRespawnedInRound)
+					{
+						// リスポーン後の再参加 → 設定が有効ならアイテムリマインダーを発行
+						if (SoundSettings.EnableRespawnReminder)
+						{
+							Logger.Info("OptedIn", "リスポーン後の再参加検出: アイテムリマインダーを発行");
+							System.Diagnostics.Debug.WriteLine("[OPTED_IN] リスポーン後の再参加 → アイテムリマインダー発行");
+							
+							// ミュート期間中でなければリマインダーを発行
+							if (!ShouldMuteNotificationSounds())
+							{
+								OnItemReminderRoundEnd?.Invoke();
+							}
+						}
+						else
+						{
+							Logger.Info("OptedIn", "リスポーン後の再参加検出: リマインダー設定が無効のためスキップ");
+						}
+						
+						InstanceState.HadRespawnedInRound = false;
+					}
+					
+					// このインスタンスでopted_inしたことを記録
+					InstanceState.WasOptedInThisInstance = true;
+				}
+				
+				InstanceState.IsOptedIn = isOptedIn;
+				
+				Logger.Info("OptedIn", $"ゲーム参加状態変更: {(isOptedIn ? "参加中" : "未参加")}");
+				
+				// イベント発火
+				OnOptedInChanged?.Invoke(isOptedIn);
+				OnInstanceStateChanged?.Invoke();
+				
+				System.Diagnostics.Debug.WriteLine($"[OPTED_IN] ゲーム参加状態: {isOptedIn}");
+			}
+			catch (Exception ex)
+			{
+				Logger.Error("OptedIn", "ゲーム参加状態処理エラー", ex);
+				System.Diagnostics.Debug.WriteLine($"[OPTED_IN] エラー: {ex.Message}");
+			}
+		}
+
 		private void ProcessItemEvent(JObject jsonData)
 		{
 			int command = jsonData["Command"]?.ToObject<int>() ?? 0;
 			string itemName = jsonData["Name"]?.ToString() ?? "Unknown Item";
+			int itemId = jsonData["ID"]?.ToObject<int>() ?? -1;
+
+			// ITEMイベント受信を必ずログ出力（デバッグ用）
+			Logger.Info("Item", $"ITEMイベント受信: Command={command}, Name='{itemName}', ID={itemId}");
+			System.Diagnostics.Debug.WriteLine($"[ITEM] Command={command}, Name='{itemName}', ID={itemId}");
 
 			if (command == 1) // Grab
 			{
@@ -908,6 +2226,28 @@ namespace ToNStatTool
 				{
 					currentRoundItems.Add(itemName);
 				}
+				// 現在所持アイテムを更新
+				string previousItem = InstanceState.CurrentItem;
+				InstanceState.CurrentItem = itemName;
+				Logger.Info("Item", $"アイテム取得: '{previousItem}' → '{itemName}' (ID: {itemId})");
+				System.Diagnostics.Debug.WriteLine($"[ITEM] アイテム取得: '{previousItem}' → '{itemName}'");
+				
+				// UI更新のためにイベントを発火
+				OnInstanceStateChanged?.Invoke();
+			}
+			else if (command == 0) // Drop
+			{
+				// ドロップ時は現在アイテムをクリア
+				string previousItem = InstanceState.CurrentItem;
+				if (InstanceState.CurrentItem == itemName)
+				{
+					InstanceState.CurrentItem = "";
+				}
+				Logger.Info("Item", $"アイテムドロップ: '{previousItem}' → '' (ドロップ: {itemName})");
+				System.Diagnostics.Debug.WriteLine($"[ITEM] アイテムドロップ: '{previousItem}' → ''");
+				
+				// UI更新のためにイベントを発火
+				OnInstanceStateChanged?.Invoke();
 			}
 		}
 
@@ -929,8 +2269,16 @@ namespace ToNStatTool
 
 				System.Diagnostics.Debug.WriteLine($"[PLAYER_JOIN] 名前: '{playerName}', ID: '{playerId}'");
 
-				// 警告ユーザーチェック（バッファイベント処理中でない場合のみ）
-				if (IsWarningUser(playerName) && !isProcessingBufferedEvents)
+				// サウンドをスキップするかどうかの判定（初期プレイヤーリスト受信中を含む）
+				bool isReceivingInitialList = IsReceivingInitialPlayerList();
+				bool shouldSkipSound = isProcessingBufferedEvents || isReceivingInitialList;
+				if (shouldSkipSound)
+				{
+					System.Diagnostics.Debug.WriteLine($"[PLAYER_JOIN] サウンドスキップ: バッファ処理中={isProcessingBufferedEvents}, 初期リスト受信中={isReceivingInitialList}");
+				}
+
+				// 警告ユーザーチェック（サウンドスキップ条件でない場合のみ）
+				if (IsWarningUser(playerName) && !shouldSkipSound)
 				{
 					System.Diagnostics.Debug.WriteLine($"[WARNING] 警告対象ユーザーが参加: {playerName}");
 					PlayWarningSound();
@@ -961,13 +2309,16 @@ namespace ToNStatTool
 					JoinedAt = DateTime.Now
 				};
 
-				// バッファイベント処理中でない場合のみJoinサウンドを再生
-				if (!isProcessingBufferedEvents)
+				// サウンドスキップ条件でない場合のみJoinサウンドを再生
+				if (!shouldSkipSound)
 				{
 					PlayJoinLeaveSound(true);
 					// イベントを発火
 					OnPlayerJoinLeave?.Invoke(playerName, true);
 				}
+				
+				// プレイヤー数変更イベントは常に発火（UIは更新する）
+				OnPlayerCountChanged?.Invoke();
 
 				System.Diagnostics.Debug.WriteLine($"プレイヤー参加: {playerName} - ラウンド中: {isRoundActive} - 初期状態: {(initialAliveState ? "生存" : "死亡")}");
 			}
@@ -987,6 +2338,15 @@ namespace ToNStatTool
 
 				System.Diagnostics.Debug.WriteLine($"[PLAYER_LEAVE] 名前: '{playerName}'");
 
+				// サウンドをスキップするかどうかの判定
+				// LEAVEについてはインスタンス移動中（プレイヤーリストクリア済み）または初期リスト受信中はスキップ
+				bool isReceivingInitialList = isReceivingInitialPlayerList;
+				bool shouldSkipSound = isProcessingBufferedEvents || isInstanceTransitioning || isReceivingInitialList;
+				if (shouldSkipSound)
+				{
+					System.Diagnostics.Debug.WriteLine($"[PLAYER_LEAVE] サウンドスキップ: バッファ処理中={isProcessingBufferedEvents}, インスタンス移動中={isInstanceTransitioning}, 初期リスト受信中={isReceivingInitialList}");
+				}
+
 				// 名前またはIDで検索
 				var playerToRemove = Players.FirstOrDefault(p =>
 					p.Value.Name == playerName ||
@@ -1000,13 +2360,16 @@ namespace ToNStatTool
 					System.Diagnostics.Debug.WriteLine($"プレイヤー退出: {removedPlayerName}");
 					Players.Remove(playerToRemove.Key);
 
-					// バッファイベント処理中でない場合のみLeaveサウンドを再生
-					if (!isProcessingBufferedEvents)
+					// サウンドスキップ条件でない場合のみLeaveサウンドを再生
+					if (!shouldSkipSound)
 					{
 						PlayJoinLeaveSound(false);
 						// イベントを発火
 						OnPlayerJoinLeave?.Invoke(removedPlayerName, false);
 					}
+					
+					// プレイヤー数変更イベントは常に発火（UIは更新する）
+					OnPlayerCountChanged?.Invoke();
 				}
 				else
 				{
@@ -1030,6 +2393,15 @@ namespace ToNStatTool
 				playerName = SanitizePlayerName(playerName);
 
 				System.Diagnostics.Debug.WriteLine($"[DEATH] 名前: '{playerName}', メッセージ: '{message}'");
+				
+				// ダブルドラブル検出: currentRoundがnullなのにDEATHイベントが来た場合
+				// （ROUND_TYPEが来ていないのにラウンドが進行している = ダブルドラブル）
+				// かつゲーム参加中（IsOptedIn=true）の場合
+				if (currentRound == null && InstanceState.IsOptedIn && !isDoubleTroubleActive && !isProcessingBufferedEvents)
+				{
+					Logger.Info("DoubleTrouble", "currentRoundがnullの状態でDEATHイベント検出 - ダブルドラブル開始");
+					StartDoubleTroubleRound();
+				}
 
 				// より柔軟な検索
 				var player = Players.Values.FirstOrDefault(p =>
@@ -1043,15 +2415,40 @@ namespace ToNStatTool
 					player.IsAlive = false;
 					player.LastSeen = DateTime.Now;
 					System.Diagnostics.Debug.WriteLine($"[DEATH] プレイヤー死亡: {player.Name} - メッセージ: {message}");
+					
+					// プレイヤー数変更イベントを発火
+					OnPlayerCountChanged?.Invoke();
 				}
 				else
 				{
-					System.Diagnostics.Debug.WriteLine($"[DEATH] 警告: プレイヤー '{playerName}' が見つかりません");
-					System.Diagnostics.Debug.WriteLine($"[DEATH] 現在のプレイヤー一覧:");
-					foreach (var p in Players.Values)
+					// プレイヤーが見つからない場合、自動追加する（TSMからのPLAYER_JOIN漏れ対策）
+					System.Diagnostics.Debug.WriteLine($"[DEATH] 警告: プレイヤー '{playerName}' が見つかりません - 自動追加します");
+					Logger.Info("Death", $"プレイヤー '{playerName}' がPLAYER_JOINなしでDEATH受信 - 自動追加");
+					
+					// 仮のIDを生成（実際のUserIDが不明なため）
+					string tempId = $"temp_{playerName}_{DateTime.Now.Ticks}";
+					
+					Players[tempId] = new PlayerInfo
 					{
-						System.Diagnostics.Debug.WriteLine($"  - '{p.Name}' (ID: {p.UserId})");
+						Name = playerName,
+						UserId = tempId,
+						IsLocal = false,
+						IsAlive = false, // 死亡状態で追加
+						LastSeen = DateTime.Now,
+						JoinedAt = DateTime.Now
+					};
+					
+					System.Diagnostics.Debug.WriteLine($"[DEATH] プレイヤー自動追加完了: {playerName} (ID: {tempId})");
+					
+					// 警告ユーザーチェック
+					if (IsWarningUser(playerName))
+					{
+						System.Diagnostics.Debug.WriteLine($"[WARNING] 警告対象ユーザーが自動追加されました: {playerName}");
+						OnWarningUserJoined?.Invoke(playerName);
 					}
+					
+					// プレイヤー数変更イベントを発火
+					OnPlayerCountChanged?.Invoke();
 				}
 			}
 			catch (Exception ex)
@@ -1237,12 +2634,12 @@ namespace ToNStatTool
 		}
 
 		/// <summary>
-		/// テラー名からTerrorInfoを追加する（Mona & The Mountain例外処理付き）
+		/// テラー名からTerrorInfoを追加する
 		/// </summary>
 		private void AddTerrorFromName(string terrorName, JObject jsonData)
 		{
-			// Mona & The Mountainは分割しない
-			if (terrorName == "Mona & The Mountain")
+			// Mona & The Mountain、Luigi & Luigi Dollsは分割しない
+			if (terrorName == "Mona & The Mountain" || terrorName == "Luigi & Luigi Dolls")
 			{
 				var terrorInfo = new TerrorInfo
 				{
@@ -1309,6 +2706,168 @@ namespace ToNStatTool
 		}
 
 		/// <summary>
+		/// クラウドにラウンド終了情報を送信する
+		/// </summary>
+		private void SendRoundEndToCloud(ToNRoundType roundType)
+		{
+			if (cloudService == null)
+				return;
+
+			// TSMからの履歴データ（バッファイベント）処理中はスキップ
+			if (isProcessingBufferedEvents)
+			{
+				Logger.Debug("Cloud", "バッファイベント処理中のためクラウド送信をスキップ");
+				return;
+			}
+
+			// インスタンスURLを取得（InstanceState.InstanceUrlが空の場合はlastInstanceUrlをフォールバック）
+			string instanceUrl = InstanceState.InstanceUrl;
+			if (string.IsNullOrEmpty(instanceUrl))
+			{
+				// lastInstanceUrlが有効ならそれを使用
+				if (!string.IsNullOrEmpty(lastInstanceUrl))
+				{
+					Logger.Warn("Cloud", $"InstanceState.InstanceUrlが空のためlastInstanceUrlを使用: {lastInstanceUrl}");
+					instanceUrl = lastInstanceUrl;
+					// InstanceState.InstanceUrlも復元
+					InstanceState.InstanceUrl = lastInstanceUrl;
+				}
+				else
+				{
+					Logger.Debug("Cloud", $"インスタンスURLが空のためクラウド送信をスキップ (lastInstanceUrl={lastInstanceUrl}, IsOptedIn={InstanceState.IsOptedIn})");
+					return;
+				}
+			}
+
+			try
+			{
+				// 現在のラウンド情報を取得
+				string mapName = GetGameDataValue("location", "Unknown").Split('(')[0].Trim();
+				var terrors = CurrentTerrors.Select(t => t.Name).ToArray();
+
+				// 生存プレイヤー数をカウント
+				int aliveCount = 0;
+				int totalPlayerCount = 0;
+				lock (dataLock)
+				{
+					aliveCount = Players.Values.Count(p => p.IsAlive);
+					totalPlayerCount = Players.Count;
+				}
+
+				// プレイヤーのアイテムリストを作成（開始時アイテム + ラウンド中取得アイテム）
+				var playerItems = new List<string>();
+				if (!string.IsNullOrEmpty(InstanceState.CurrentItem) && InstanceState.CurrentItem != "なし")
+				{
+					playerItems.Add(InstanceState.CurrentItem);
+				}
+				playerItems.AddRange(currentRoundItems.Where(i => !playerItems.Contains(i)));
+
+				// プレイヤーの生存状態を判定
+				bool playerSurvived = !wasDeadDuringRound && !wasSaboteurDuringRound;
+
+				var roundEvent = new CloudRoundEndEvent
+				{
+					InstanceId = instanceUrl,
+					Timestamp = DateTime.UtcNow,
+					Round = new CloudRoundInfo
+					{
+						Type = ToNRoundTypeHelper.GetDisplayName(roundType),
+						MapName = mapName,
+						Terrors = terrors
+					},
+					Instance = new CloudInstanceInfo
+					{
+						PlayerCount = totalPlayerCount,
+						SurvivorCount = aliveCount
+					},
+					Player = new CloudPlayerInfo
+					{
+						VRChatName = LocalPlayerName,
+						VRChatId = LocalPlayerUserId,
+						Survived = playerSurvived,
+						Items = playerItems.ToArray()
+					}
+				};
+
+				// 非同期で送信（結果を待たない）
+				_ = cloudService.SendRoundEndAsync(roundEvent);
+				Logger.Debug("Cloud", $"ラウンド情報をクラウドに送信: {roundType}, Players={totalPlayerCount}, Survivors={aliveCount}, PlayerSurvived={playerSurvived}, Items={string.Join(",", playerItems)}");
+			}
+			catch (Exception ex)
+			{
+				Logger.Warn("Cloud", $"クラウド送信エラー: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// クラウド設定を更新する
+		/// </summary>
+		public void UpdateCloudSettings(bool enabled, string serverUrl, string apiKey = null)
+		{
+			if (cloudService != null)
+			{
+				cloudService.SetEnabled(enabled);
+				cloudService.SetServerUrl(serverUrl);
+				if (apiKey != null)
+				{
+					cloudService.SetApiKey(apiKey);
+				}
+				Logger.Info("Cloud", $"クラウド設定を更新: Enabled={enabled}, URL={serverUrl}");
+			}
+		}
+
+		/// <summary>
+		/// クラウドからインスタンス状態を取得してInstanceStateに反映する
+		/// </summary>
+		private async Task FetchInstanceStateFromCloudAsync(string instanceUrl)
+		{
+			if (cloudService == null)
+				return;
+
+			try
+			{
+				var moonState = await cloudService.FetchInstanceStateAsync(instanceUrl);
+				if (moonState != null)
+				{
+					// 取得した状態をInstanceStateに反映（既存の状態とORで結合）
+					if (moonState.BloodMoonUnlocked)
+						InstanceState.BloodMoonUnlocked = true;
+					if (moonState.TwilightUnlocked)
+						InstanceState.TwilightUnlocked = true;
+					if (moonState.MysticMoonUnlocked)
+						InstanceState.MysticMoonUnlocked = true;
+					if (moonState.SolsticeUnlocked)
+						InstanceState.SolsticeUnlocked = true;
+
+					// 鳥遭遇状態
+					if (moonState.BigBirdEncountered)
+						InstanceState.MetBigBird = true;
+					if (moonState.JudgementBirdEncountered)
+						InstanceState.MetJudgementBird = true;
+					if (moonState.PunishingBirdEncountered)
+						InstanceState.MetPunishingBird = true;
+
+					// Twilight/Solstice解禁なら全鳥遭遇済み
+					if (InstanceState.TwilightUnlocked || InstanceState.SolsticeUnlocked)
+					{
+						InstanceState.MetBigBird = true;
+						InstanceState.MetJudgementBird = true;
+						InstanceState.MetPunishingBird = true;
+					}
+
+					Logger.Info("Cloud", $"インスタンス状態をクラウドから復元: Moon(B={InstanceState.BloodMoonUnlocked},T={InstanceState.TwilightUnlocked},M={InstanceState.MysticMoonUnlocked},S={InstanceState.SolsticeUnlocked}) Birds({InstanceState.MetBigBird},{InstanceState.MetJudgementBird},{InstanceState.MetPunishingBird})");
+
+					// UIを更新
+					OnInstanceStateChanged?.Invoke();
+				}
+			}
+			catch (Exception ex)
+			{
+				Logger.Warn("Cloud", $"クラウドからインスタンス状態取得エラー: {ex.Message}");
+			}
+		}
+
+		/// <summary>
 		/// サウンド設定を読み込む
 		/// </summary>
 		private void LoadSoundSettings()
@@ -1357,29 +2916,161 @@ namespace ToNStatTool
 			SaveSoundSettings();
 		}
 
+		// 音声再生用のキュー（競合回避）
+		private readonly Queue<string> soundQueue = new Queue<string>();
+		private bool isSoundPlaying = false;
+		private readonly object soundQueueLock = new object();
+
 		/// <summary>
-		/// Join/Leaveサウンドを再生
+		/// サウンドをキューに追加して順番に再生
 		/// </summary>
-		private void PlayJoinLeaveSound(bool isJoin)
+		private void QueueSound(string soundPath)
 		{
-			Task.Run(() =>
+			if (string.IsNullOrEmpty(soundPath) || !File.Exists(soundPath))
+				return;
+
+			lock (soundQueueLock)
 			{
+				soundQueue.Enqueue(soundPath);
+				if (!isSoundPlaying)
+				{
+					isSoundPlaying = true;
+					Task.Run(() => ProcessSoundQueue());
+				}
+			}
+		}
+
+		/// <summary>
+		/// サウンドキューを処理
+		/// </summary>
+		private void ProcessSoundQueue()
+		{
+			while (true)
+			{
+				string nextSound;
+				lock (soundQueueLock)
+				{
+					if (soundQueue.Count == 0)
+					{
+						isSoundPlaying = false;
+						return;
+					}
+					nextSound = soundQueue.Dequeue();
+				}
+
 				try
 				{
-					string soundPath = isJoin ? SoundSettings.JoinSoundPath : SoundSettings.LeaveSoundPath;
-					bool isEnabled = isJoin ? SoundSettings.EnableJoinSound : SoundSettings.EnableLeaveSound;
-
-					if (!isEnabled || string.IsNullOrEmpty(soundPath) || !File.Exists(soundPath))
-						return;
-
-					PlayMp3File(soundPath);
-					System.Diagnostics.Debug.WriteLine($"[SOUND] {(isJoin ? "Join" : "Leave")}サウンドを再生: {soundPath}");
+					PlayMp3FileSync(nextSound);
+					// 次の音まで少し間隔を空ける
+					Thread.Sleep(100);
 				}
 				catch (Exception ex)
 				{
-					System.Diagnostics.Debug.WriteLine($"[SOUND] サウンド再生エラー: {ex.Message}");
+					System.Diagnostics.Debug.WriteLine($"[SOUND_QUEUE] 再生エラー: {ex.Message}");
 				}
-			});
+			}
+		}
+
+		/// <summary>
+		/// MP3ファイルを同期的に再生（完了まで待機）
+		/// </summary>
+		private void PlayMp3FileSync(string filePath)
+		{
+			try
+			{
+				using (var audioReader = new AudioFileReader(filePath))
+				using (var waveOut = new WaveOutEvent())
+				{
+					waveOut.Init(audioReader);
+					waveOut.Play();
+					
+					// 再生完了まで待機
+					while (waveOut.PlaybackState == PlaybackState.Playing)
+					{
+						Thread.Sleep(50);
+					}
+					
+					Thread.Sleep(50); // デバイス解放前に少し待機
+				}
+				System.Diagnostics.Debug.WriteLine($"[SOUND_SYNC] 再生完了: {filePath}");
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[SOUND_SYNC] 再生エラー: {ex.Message}");
+				try { System.Media.SystemSounds.Exclamation.Play(); } catch { }
+			}
+		}
+
+		/// <summary>
+		/// Join/Leaveサウンドを再生（キュー使用）
+		/// </summary>
+		private void PlayJoinLeaveSound(bool isJoin)
+		{
+			try
+			{
+				bool isEnabled = isJoin ? SoundSettings.EnableJoinSound : SoundSettings.EnableLeaveSound;
+				if (!isEnabled)
+					return;
+
+				string soundPath = isJoin ? SoundSettings.JoinSoundPath : SoundSettings.LeaveSoundPath;
+				string defaultFileName = isJoin ? "player_join.mp3" : "player_leave.mp3";
+
+				// カスタムパスが空または存在しない場合はデフォルトファイルを使用
+				if (string.IsNullOrEmpty(soundPath) || !File.Exists(soundPath))
+				{
+					soundPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, defaultFileName);
+				}
+
+				if (!File.Exists(soundPath))
+					return;
+
+				QueueSound(soundPath);
+				System.Diagnostics.Debug.WriteLine($"[SOUND] {(isJoin ? "Join" : "Leave")}サウンドをキュー: {soundPath}");
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[SOUND] サウンド再生エラー: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// プレイヤーを一覧から手動で削除する（leave通知漏れ対策）
+		/// </summary>
+		public bool RemovePlayerManually(string playerName)
+		{
+			try
+			{
+				if (string.IsNullOrWhiteSpace(playerName))
+					return false;
+
+				// プレイヤーを検索
+				var playerEntry = Players.FirstOrDefault(p =>
+					p.Value.Name == playerName ||
+					p.Value.Name.Contains(playerName) ||
+					playerName.Contains(p.Value.Name) ||
+					NormalizePlayerName(p.Value.Name) == NormalizePlayerName(playerName));
+
+				if (playerEntry.Key != null)
+				{
+					Players.Remove(playerEntry.Key);
+					System.Diagnostics.Debug.WriteLine($"[PLAYER] プレイヤーを手動削除: {playerName} (ID: {playerEntry.Key})");
+					Logger.Info("Player", $"プレイヤーを手動削除: {playerName}");
+					
+					// プレイヤー数変更イベントを発火
+					OnPlayerCountChanged?.Invoke();
+					return true;
+				}
+				else
+				{
+					System.Diagnostics.Debug.WriteLine($"[PLAYER] 削除対象プレイヤーが見つかりません: {playerName}");
+					return false;
+				}
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"[PLAYER] プレイヤー削除エラー: {ex.Message}");
+				return false;
+			}
 		}
 
 		/// <summary>

@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // アセンブリに関する一般的な情報は、次の方法で制御されます
 // 制御されます。アセンブリに関連付けられている情報を変更するには、
 // これらの属性値を変更します。
-[assembly: AssemblyTitle("Terror of Nowhere Statics Tool")]
+[assembly: AssemblyTitle("Terror of Nowhere Statistics Tool")]
 [assembly: AssemblyDescription("Terror of Nowhereのトラッカーツール")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("fanet.work")]
-[assembly: AssemblyProduct("Terror of Nowhere Statics Tool")]
-[assembly: AssemblyCopyright("Copyright © 2025 dekotan24")]
+[assembly: AssemblyCompany("github.com/dekotan24")]
+[assembly: AssemblyProduct("Terror of Nowhere Statistics Tool")]
+[assembly: AssemblyCopyright("Copyright © 2026 dekotan24")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -29,5 +29,5 @@ using System.Runtime.InteropServices;
 //      ビルド番号
 //      リビジョン
 //
-[assembly: AssemblyVersion("0.0.0.7")]
-[assembly: AssemblyFileVersion("0.0.0.7")]
+[assembly: AssemblyVersion("0.0.0.8")]
+[assembly: AssemblyFileVersion("0.0.0.8")]

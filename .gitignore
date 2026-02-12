@@ -1,6 +1,11 @@
 /.claudiaideconfig
 /Resources
+/images/*
+!/images/.gitkeep
 *.user
 /.vs
 /obj
 /bin
+*.pdb
+/.claude/settings.local.json
+/_ClaudeCodeHere.bat

@@ -17,6 +17,16 @@ namespace ToNStatTool
 		private ToolTip toolTip;
 		private FlowLayoutPanel traitsPanel;
 		private List<PictureBox> traitIcons = new List<PictureBox>();
+		private List<(Label label, TerrorTraitCategory category)> traitLabels = new List<(Label, TerrorTraitCategory)>();
+
+		// スタンアイコンキャッシュ（static で共有）
+		private static readonly Dictionary<TerrorStunType, Bitmap> stunIconCache = new Dictionary<TerrorStunType, Bitmap>();
+
+		// フォントキャッシュ（static で共有）
+		private static readonly Font NameFont = new Font("Meiryo UI", 9, FontStyle.Bold);
+		private static readonly Font TraitFont = new Font("Meiryo UI", 8);
+		private static readonly Font TraitMoreFont = new Font("Meiryo UI", 7, FontStyle.Italic);
+		private static readonly Font StunIconFont = new Font("Arial", 8, FontStyle.Bold);
 
 
 		public TerrorInfo TerrorData { get; private set; }
@@ -32,7 +42,9 @@ namespace ToNStatTool
 		{
 			this.Size = new Size(180, 200);
 			this.BorderStyle = BorderStyle.FixedSingle;
-			this.BackColor = Color.White;
+			this.BackColor = ThemeManager.IsDark 
+				? ThemeManager.Dark.TerrorPanelBackground 
+				: Color.White;
 
 			toolTip = new ToolTip();
 
@@ -42,7 +54,9 @@ namespace ToNStatTool
 			iconPictureBox.Size = new Size(100, 100);
 			iconPictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
 			iconPictureBox.BorderStyle = BorderStyle.FixedSingle;
-			iconPictureBox.BackColor = Color.LightGray;
+			iconPictureBox.BackColor = ThemeManager.IsDark 
+				? Color.FromArgb(60, 60, 60) 
+				: Color.LightGray;
 			this.Controls.Add(iconPictureBox);
 
 			// テラー名
@@ -50,7 +64,9 @@ namespace ToNStatTool
 			nameLabel.Location = new Point(5, 115);
 			nameLabel.Size = new Size(170, 20);
 			nameLabel.TextAlign = ContentAlignment.MiddleCenter;
-			nameLabel.Font = new Font("Meiryo UI", 9, FontStyle.Bold);
+			nameLabel.Font = NameFont;
+			nameLabel.ForeColor = ThemeManager.IsDark ? Color.White : Color.Black;
+			nameLabel.UseMnemonic = false; // &がアクセスキーとして扱われないようにする
 			this.Controls.Add(nameLabel);
 
 			// スタン状態アイコン
@@ -84,11 +100,11 @@ namespace ToNStatTool
 				nameLabel.Text = displayName;
 			}
 
-			// 背景色の設定
+			// 背景色の設定（テーマに応じた透明度）
 			if (TerrorData.DisplayColor != 0)
 			{
 				var color = ColorFromUInt(TerrorData.DisplayColor);
-				this.BackColor = Color.FromArgb(50, color.R, color.G, color.B);
+				this.BackColor = Color.FromArgb(ThemeManager.IsDark ? 60 : 50, color.R, color.G, color.B);
 			}
 
 			// スタン状態アイコンの設定
@@ -103,38 +119,68 @@ namespace ToNStatTool
 
 		private void UpdateStunStatusIcon()
 		{
+			// キャッシュからアイコンを取得（なければ作成）
+			if (!stunIconCache.TryGetValue(TerrorData.StunType, out Bitmap icon))
+			{
+				icon = CreateStunIcon(TerrorData.StunType);
+				stunIconCache[TerrorData.StunType] = icon;
+			}
+
+			stunStatusIcon.Image = icon;
+
+			// ツールチップを設定
+			switch (TerrorData.StunType)
+			{
+				case TerrorStunType.Safe:
+					toolTip.SetToolTip(stunStatusIcon, "スタン可能");
+					break;
+				case TerrorStunType.Caution:
+					toolTip.SetToolTip(stunStatusIcon, "注意が必要");
+					break;
+				case TerrorStunType.Forbidden:
+					toolTip.SetToolTip(stunStatusIcon, "スタン厳禁");
+					break;
+				case TerrorStunType.Ineffective:
+					toolTip.SetToolTip(stunStatusIcon, "スタン効果なし");
+					break;
+				case TerrorStunType.Unknown:
+					toolTip.SetToolTip(stunStatusIcon, "スタン可否不明");
+					break;
+			}
+		}
+
+		/// <summary>
+		/// スタンアイコンを作成（キャッシュ用）
+		/// </summary>
+		private static Bitmap CreateStunIcon(TerrorStunType stunType)
+		{
 			Bitmap icon = new Bitmap(16, 16);
 			using (Graphics g = Graphics.FromImage(icon))
 			{
-				switch (TerrorData.StunType)
+				switch (stunType)
 				{
 					case TerrorStunType.Safe:
 						g.FillEllipse(Brushes.Green, 2, 2, 12, 12);
-						g.DrawString("✓", new Font("Arial", 8, FontStyle.Bold), Brushes.White, 3, 1);
-						toolTip.SetToolTip(stunStatusIcon, "スタン可能");
+						g.DrawString("✓", StunIconFont, Brushes.White, 3, 1);
 						break;
 					case TerrorStunType.Caution:
 						g.FillPolygon(Brushes.Orange, new Point[] { new Point(8, 2), new Point(14, 14), new Point(2, 14) });
-						g.DrawString("!", new Font("Arial", 8, FontStyle.Bold), Brushes.White, 6, 4);
-						toolTip.SetToolTip(stunStatusIcon, "注意が必要");
+						g.DrawString("!", StunIconFont, Brushes.White, 6, 4);
 						break;
 					case TerrorStunType.Forbidden:
 						g.FillEllipse(Brushes.Red, 2, 2, 12, 12);
-						g.DrawString("×", new Font("Arial", 8, FontStyle.Bold), Brushes.White, 4, 2);
-						toolTip.SetToolTip(stunStatusIcon, "スタン厳禁");
+						g.DrawString("×", StunIconFont, Brushes.White, 4, 2);
 						break;
 					case TerrorStunType.Ineffective:
 						g.FillRectangle(Brushes.Gray, 2, 7, 12, 2);
-						toolTip.SetToolTip(stunStatusIcon, "スタン効果なし");
 						break;
 					case TerrorStunType.Unknown:
 						g.FillEllipse(Brushes.Purple, 2, 2, 12, 12);
-						g.DrawString("?", new Font("Arial", 8, FontStyle.Bold), Brushes.White, 5, 2);
-						toolTip.SetToolTip(stunStatusIcon, "スタン可否不明");
+						g.DrawString("?", StunIconFont, Brushes.White, 5, 2);
 						break;
 				}
 			}
-			stunStatusIcon.Image = icon;
+			return icon;
 		}
 
 		private void SetTerrorIcon()
@@ -178,6 +224,7 @@ namespace ToNStatTool
 		private void UpdateTraitsDisplay()
 		{
 			traitsPanel.Controls.Clear();
+			traitLabels.Clear();
 
 			// JSONから特性情報を取得
 			var terrorDetail = TerrorJsonLoader.GetTerrorDetail(TerrorData.Name);
@@ -193,11 +240,13 @@ namespace ToNStatTool
 					var traitLabel = new Label();
 					traitLabel.Text = $"• {trait.TraitType}";
 					traitLabel.Size = new Size(75, 18);
-					traitLabel.Font = new Font("Meiryo UI", 8);
-					traitLabel.ForeColor = GetTraitColor(trait.Category);
+					traitLabel.Font = TraitFont;
+					traitLabel.ForeColor = ThemeManager.GetTraitColor(trait.Category);
 					toolTip.SetToolTip(traitLabel, trait.Description);
 
 					traitsPanel.Controls.Add(traitLabel);
+					// テーマ変更時の更新用に保持
+					traitLabels.Add((traitLabel, trait.Category));
 				}
 
 				if (terrorDetail.Traits.Count > 5)
@@ -205,7 +254,7 @@ namespace ToNStatTool
 					var moreLabel = new Label();
 					moreLabel.Text = $"他 {terrorDetail.Traits.Count - 5} 個の特性";
 					moreLabel.Size = new Size(75, 18);
-					moreLabel.Font = new Font("Meiryo UI", 7, FontStyle.Italic);
+					moreLabel.Font = TraitMoreFont;
 					moreLabel.ForeColor = Color.Gray;
 
 					// ツールチップに全特性を表示
@@ -217,22 +266,42 @@ namespace ToNStatTool
 			}
 		}
 
-		private Color GetTraitColor(TerrorTraitCategory category)
+		/// <summary>
+		/// テーマを適用する
+		/// </summary>
+		public void ApplyTheme()
 		{
-			switch (category)
+			// 背景色（テラーの色がある場合は半透明で適用）
+			if (TerrorData.DisplayColor != 0)
 			{
-				case TerrorTraitCategory.Movement:
-					return Color.Blue;
-				case TerrorTraitCategory.Attack:
-					return Color.Red;
-				case TerrorTraitCategory.Special:
-					return Color.Purple;
-				case TerrorTraitCategory.Speed:
-					return Color.Orange;
-				case TerrorTraitCategory.Counter:
-					return Color.DarkRed;
-				default:
-					return Color.Black;
+				var color = ColorFromUInt(TerrorData.DisplayColor);
+				this.BackColor = Color.FromArgb(ThemeManager.IsDark ? 60 : 50, color.R, color.G, color.B);
+			}
+			else
+			{
+				this.BackColor = ThemeManager.IsDark 
+					? ThemeManager.Dark.TerrorPanelBackground 
+					: Color.White;
+			}
+
+			// 名前ラベルの色
+			if (nameLabel != null)
+			{
+				nameLabel.ForeColor = ThemeManager.IsDark ? Color.White : Color.Black;
+			}
+
+			// アイコン背景
+			if (iconPictureBox != null)
+			{
+				iconPictureBox.BackColor = ThemeManager.IsDark 
+					? Color.FromArgb(60, 60, 60) 
+					: Color.LightGray;
+			}
+
+			// 特性ラベルの色を更新
+			foreach (var (label, category) in traitLabels)
+			{
+				label.ForeColor = ThemeManager.GetTraitColor(category);
 			}
 		}
 
@@ -248,9 +317,10 @@ namespace ToNStatTool
 					iconPictureBox.Image = null;
 				}
 
-				if (stunStatusIcon?.Image != null)
+				// stunStatusIcon.Image はキャッシュで共有されているため破棄しない
+				// 参照をnullにするだけ
+				if (stunStatusIcon != null)
 				{
-					stunStatusIcon.Image.Dispose();
 					stunStatusIcon.Image = null;
 				}
 			}
@@ -266,14 +336,25 @@ namespace ToNStatTool
 		private PictureBox iconBox;
 		private Label nameLabel;
 		private PictureBox stunIcon;
+		private PictureBox hfaIcon;
 		private ToolTip toolTip;
 		private FlowLayoutPanel iconPanel;
 
-		public CompactTerrorControl(TerrorInfo terror)
+		// フォントキャッシュ（static で共有）
+		private static readonly Font CompactNameFont = new Font("Meiryo UI", 8, FontStyle.Bold);
+		private static readonly Font CompactStunFont = new Font("Arial", 8, FontStyle.Bold);
+
+		// スタンアイコンキャッシュ（Compact用）
+		private static readonly Dictionary<TerrorStunType, Bitmap> compactStunIconCache = new Dictionary<TerrorStunType, Bitmap>();
+
+		// HFAアイコンキャッシュ
+		private static Bitmap hfaIconCache;
+
+		public CompactTerrorControl(TerrorInfo terror, string currentMapName = null)
 		{
 			this.Size = new Size(130, 110);
 			this.BorderStyle = BorderStyle.FixedSingle;
-			this.BackColor = Color.White;
+			this.BackColor = ThemeManager.IsDark ? ThemeManager.Dark.TerrorPanelBackground : Color.White;
 			this.Margin = new Padding(5);
 
 			toolTip = new ToolTip();
@@ -285,6 +366,19 @@ namespace ToNStatTool
 			stunIcon.SizeMode = PictureBoxSizeMode.CenterImage;
 			SetStunIcon(terror.StunType);
 			this.Controls.Add(stunIcon);
+
+			// HFAアイコン（スタンアイコンの下）
+			bool hasHfa = !string.IsNullOrEmpty(currentMapName) && HfaJsonLoader.HasHfa(terror.Name, currentMapName);
+			if (hasHfa)
+			{
+				hfaIcon = new PictureBox();
+				hfaIcon.Location = new Point(111, 21);
+				hfaIcon.Size = new Size(16, 16);
+				hfaIcon.SizeMode = PictureBoxSizeMode.CenterImage;
+				hfaIcon.Image = GetHfaIcon();
+				toolTip.SetToolTip(hfaIcon, "Homefield Advantage");
+				this.Controls.Add(hfaIcon);
+			}
 
 			// 特性アイコンパネル（左側、縦並び）
 			iconPanel = new FlowLayoutPanel();
@@ -302,7 +396,7 @@ namespace ToNStatTool
 			iconBox.Size = new Size(70, 70);
 			iconBox.SizeMode = PictureBoxSizeMode.StretchImage;
 			iconBox.BorderStyle = BorderStyle.FixedSingle;
-			iconBox.BackColor = Color.LightGray;
+			iconBox.BackColor = ThemeManager.IsDark ? Color.FromArgb(60, 60, 60) : Color.LightGray;
 			SetTerrorIcon(terror.Name);
 			this.Controls.Add(iconBox);
 
@@ -311,7 +405,9 @@ namespace ToNStatTool
 			nameLabel.Location = new Point(3, 82);
 			nameLabel.Size = new Size(124, 45);
 			nameLabel.TextAlign = ContentAlignment.TopCenter;
-			nameLabel.Font = new Font("Meiryo UI", 8, FontStyle.Bold);
+			nameLabel.Font = CompactNameFont;
+			nameLabel.ForeColor = ThemeManager.IsDark ? Color.White : Color.Black;
+			nameLabel.UseMnemonic = false; // &がアクセスキーとして扱われないようにする
 			string displayName = terror.DisplayName ?? terror.Name;
 			if (displayName.Length > 15)
 			{
@@ -327,11 +423,11 @@ namespace ToNStatTool
 			}
 			this.Controls.Add(nameLabel);
 
-			// 背景色設定
+			// 背景色設定（テラーの色がある場合は半透明で適用）
 			if (terror.DisplayColor != 0)
 			{
 				var color = ColorFromUInt(terror.DisplayColor);
-				this.BackColor = Color.FromArgb(30, color.R, color.G, color.B);
+				this.BackColor = Color.FromArgb(ThemeManager.IsDark ? 60 : 30, color.R, color.G, color.B);
 			}
 
 			// 特性アイコンを追加
@@ -340,6 +436,41 @@ namespace ToNStatTool
 
 		private void SetStunIcon(TerrorStunType stunType)
 		{
+			// キャッシュからアイコンを取得（なければ作成）
+			if (!compactStunIconCache.TryGetValue(stunType, out Bitmap icon))
+			{
+				icon = CreateCompactStunIcon(stunType);
+				compactStunIconCache[stunType] = icon;
+			}
+
+			stunIcon.Image = icon;
+
+			// ツールチップを設定
+			switch (stunType)
+			{
+				case TerrorStunType.Safe:
+					toolTip.SetToolTip(stunIcon, "スタン可能");
+					break;
+				case TerrorStunType.Caution:
+					toolTip.SetToolTip(stunIcon, "注意が必要");
+					break;
+				case TerrorStunType.Forbidden:
+					toolTip.SetToolTip(stunIcon, "スタン厳禁");
+					break;
+				case TerrorStunType.Ineffective:
+					toolTip.SetToolTip(stunIcon, "スタン効果なし");
+					break;
+				case TerrorStunType.Unknown:
+					toolTip.SetToolTip(stunIcon, "スタン可否不明");
+					break;
+			}
+		}
+
+		/// <summary>
+		/// コンパクト用スタンアイコンを作成（キャッシュ用）
+		/// </summary>
+		private static Bitmap CreateCompactStunIcon(TerrorStunType stunType)
+		{
 			Bitmap icon = new Bitmap(16, 16);
 			using (Graphics g = Graphics.FromImage(icon))
 			{
@@ -347,31 +478,55 @@ namespace ToNStatTool
 				{
 					case TerrorStunType.Safe:
 						g.FillEllipse(Brushes.Green, 1, 1, 14, 14);
-						g.DrawString("✓", new Font("Arial", 8, FontStyle.Bold), Brushes.White, 3, 2);
-						toolTip.SetToolTip(stunIcon, "スタン可能");
+						g.DrawString("✓", CompactStunFont, Brushes.White, 3, 2);
 						break;
 					case TerrorStunType.Caution:
 						g.FillPolygon(Brushes.Orange, new Point[] { new Point(8, 1), new Point(15, 15), new Point(1, 15) });
-						g.DrawString("!", new Font("Arial", 8, FontStyle.Bold), Brushes.White, 6, 3);
-						toolTip.SetToolTip(stunIcon, "注意が必要");
+						g.DrawString("!", CompactStunFont, Brushes.White, 6, 3);
 						break;
 					case TerrorStunType.Forbidden:
 						g.FillEllipse(Brushes.Red, 1, 1, 14, 14);
-						g.DrawString("×", new Font("Arial", 8, FontStyle.Bold), Brushes.White, 3, 2);
-						toolTip.SetToolTip(stunIcon, "スタン厳禁");
+						g.DrawString("×", CompactStunFont, Brushes.White, 3, 2);
 						break;
 					case TerrorStunType.Ineffective:
 						g.FillRectangle(Brushes.Gray, 1, 7, 14, 2);
-						toolTip.SetToolTip(stunIcon, "スタン効果なし");
 						break;
 					case TerrorStunType.Unknown:
 						g.FillEllipse(Brushes.Purple, 1, 1, 14, 14);
-						g.DrawString("?", new Font("Arial", 8, FontStyle.Bold), Brushes.White, 5, 2);
-						toolTip.SetToolTip(stunIcon, "スタン可否不明");
+						g.DrawString("?", CompactStunFont, Brushes.White, 5, 2);
 						break;
 				}
 			}
-			stunIcon.Image = icon;
+			return icon;
+		}
+
+		/// <summary>
+		/// HFAアイコンを取得（キャッシュ付き）
+		/// </summary>
+		private static Bitmap GetHfaIcon()
+		{
+			if (hfaIconCache != null)
+				return hfaIconCache;
+
+			hfaIconCache = new Bitmap(16, 16);
+			using (Graphics g = Graphics.FromImage(hfaIconCache))
+			{
+				g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+				// 家のアイコン（ホームフィールド）- 青色
+				using (var brush = new SolidBrush(Color.FromArgb(30, 144, 255))) // DodgerBlue
+				{
+					// 屋根（三角形）
+					g.FillPolygon(brush, new Point[] { new Point(8, 1), new Point(15, 7), new Point(1, 7) });
+					// 本体（四角形）
+					g.FillRectangle(brush, 3, 7, 10, 8);
+				}
+				// ドア（白抜き）
+				using (var brush = new SolidBrush(ThemeManager.IsDark ? Color.FromArgb(40, 40, 40) : Color.White))
+				{
+					g.FillRectangle(brush, 6, 10, 4, 5);
+				}
+			}
+			return hfaIconCache;
 		}
 
 		private void SetTerrorIcon(string name)
@@ -409,6 +564,31 @@ namespace ToNStatTool
 			return Color.FromArgb((int)(color >> 16) & 0xFF, (int)(color >> 8) & 0xFF, (int)color & 0xFF);
 		}
 
+		/// <summary>
+		/// テーマを適用する
+		/// </summary>
+		public void ApplyTheme()
+		{
+			// コントロール背景
+			this.BackColor = ThemeManager.IsDark 
+				? ThemeManager.Dark.TerrorPanelBackground 
+				: Color.FromArgb(246, 246, 246);
+
+			// 名前ラベル（テーマに応じた文字色）
+			if (nameLabel != null)
+			{
+				nameLabel.ForeColor = ThemeManager.IsDark ? Color.White : Color.Black;
+			}
+
+			// アイコン背景
+			if (iconBox != null)
+			{
+				iconBox.BackColor = ThemeManager.IsDark 
+					? Color.FromArgb(60, 60, 60) 
+					: Color.LightGray;
+			}
+		}
+
 		protected override void Dispose(bool disposing)
 		{
 			if (disposing)
@@ -421,9 +601,10 @@ namespace ToNStatTool
 					iconBox.Image = null;
 				}
 
-				if (stunIcon?.Image != null)
+				// stunIcon.Image はキャッシュで共有されているため破棄しない
+				// 参照をnullにするだけ
+				if (stunIcon != null)
 				{
-					stunIcon.Image.Dispose();
 					stunIcon.Image = null;
 				}
 			}
