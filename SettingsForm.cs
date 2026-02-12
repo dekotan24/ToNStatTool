@@ -40,6 +40,11 @@ namespace ToNStatTool
 		private CheckBox checkMasterChangeEnabled;
 		private TextBox textMasterChangePath;
 
+		// クラウド設定コントロール
+		private CheckBox checkCloudSyncEnabled;
+		private TextBox textCloudServerUrl;
+		private TextBox textCloudApiKey;
+
 		// 音声再生用
 		private IWavePlayer currentPlayer;
 		private AudioFileReader currentAudioFile;
@@ -504,6 +509,54 @@ namespace ToNStatTool
 			buttonOpenLogFolder.Size = new Size(130, 28);
 			buttonOpenLogFolder.Click += (s, e) => Logger.OpenLogFolder();
 			groupLog.Controls.Add(buttonOpenLogFolder);
+
+			// クラウド同期設定グループ
+			var groupCloud = new GroupBox();
+			groupCloud.Text = "クラウド同期";
+			groupCloud.Location = new Point(10, 110);
+			groupCloud.Size = new Size(415, 180);
+			tab.Controls.Add(groupCloud);
+
+			// クラウド同期有効/無効
+			checkCloudSyncEnabled = new CheckBox();
+			checkCloudSyncEnabled.Text = "ラウンド情報をクラウドに送信する";
+			checkCloudSyncEnabled.Location = new Point(15, 25);
+			checkCloudSyncEnabled.Size = new Size(250, 20);
+			checkCloudSyncEnabled.CheckedChanged += (s, e) => UpdateCloudControlsState();
+			groupCloud.Controls.Add(checkCloudSyncEnabled);
+
+			// 説明ラベル
+			var labelCloudDescription = new Label();
+			labelCloudDescription.Text = "ラウンド終了時にテラー・マップ・生存人数などの情報を\nクラウドサーバーに送信します。\n使用にはAPIキーを発行する必要があります。";
+			labelCloudDescription.Location = new Point(15, 50);
+			labelCloudDescription.Size = new Size(380, 50);
+			labelCloudDescription.ForeColor = Color.Gray;
+			groupCloud.Controls.Add(labelCloudDescription);
+
+			// サーバーURL
+			var labelServerUrl = new Label();
+			labelServerUrl.Text = "サーバーURL:";
+			labelServerUrl.Location = new Point(15, 108);
+			labelServerUrl.Size = new Size(80, 20);
+			groupCloud.Controls.Add(labelServerUrl);
+
+			textCloudServerUrl = new TextBox();
+			textCloudServerUrl.Location = new Point(100, 105);
+			textCloudServerUrl.Size = new Size(295, 23);
+			groupCloud.Controls.Add(textCloudServerUrl);
+
+			// APIキー
+			var labelApiKey = new Label();
+			labelApiKey.Text = "APIキー:";
+			labelApiKey.Location = new Point(15, 138);
+			labelApiKey.Size = new Size(80, 20);
+			groupCloud.Controls.Add(labelApiKey);
+
+			textCloudApiKey = new TextBox();
+			textCloudApiKey.Location = new Point(100, 135);
+			textCloudApiKey.Size = new Size(295, 23);
+			textCloudApiKey.UseSystemPasswordChar = true;  // APIキーを隠す
+			groupCloud.Controls.Add(textCloudApiKey);
 		}
 
 		private void BrowseSoundFile(TextBox targetTextBox)
@@ -617,7 +670,13 @@ namespace ToNStatTool
 			// 詳細ログ設定（AppSettingsから読み込み）
 			checkVerboseLog.Checked = appSettings.EnableVerboseLog;
 
+			// クラウド設定（AppSettingsから読み込み）
+			checkCloudSyncEnabled.Checked = appSettings.EnableCloudSync;
+			textCloudServerUrl.Text = appSettings.CloudServerUrl;
+			textCloudApiKey.Text = appSettings.CloudApiKey;
+
 			UpdateReminderControlsState();
+			UpdateCloudControlsState();
 		}
 
 		private void UpdateReminderControlsState()
@@ -626,6 +685,13 @@ namespace ToNStatTool
 			checkReminderSoundEnabled.Enabled = enabled;
 			textReminderSoundPath.Enabled = enabled;
 			numReminderDuration.Enabled = enabled;
+		}
+
+		private void UpdateCloudControlsState()
+		{
+			bool enabled = checkCloudSyncEnabled.Checked;
+			textCloudServerUrl.Enabled = enabled;
+			textCloudApiKey.Enabled = enabled;
 		}
 
 		private void ButtonSave_Click(object sender, EventArgs e)
@@ -658,8 +724,17 @@ namespace ToNStatTool
 
 			// 詳細ログ設定を更新（AppSettingsに保存）
 			appSettings.EnableVerboseLog = checkVerboseLog.Checked;
+
+			// クラウド設定を更新（AppSettingsに保存）
+			appSettings.EnableCloudSync = checkCloudSyncEnabled.Checked;
+			appSettings.CloudServerUrl = textCloudServerUrl.Text;
+			appSettings.CloudApiKey = textCloudApiKey.Text;
+
 			appSettings.Save();
 			VerboseLogEnabled = checkVerboseLog.Checked;
+			CloudSyncEnabled = checkCloudSyncEnabled.Checked;
+			CloudServerUrl = textCloudServerUrl.Text;
+			CloudApiKey = textCloudApiKey.Text;
 
 			// 再生中のサウンドを停止
 			StopCurrentPlayback();
@@ -681,6 +756,21 @@ namespace ToNStatTool
 		/// 詳細ログが有効かどうか
 		/// </summary>
 		public bool VerboseLogEnabled { get; private set; } = false;
+
+		/// <summary>
+		/// クラウド同期が有効かどうか
+		/// </summary>
+		public bool CloudSyncEnabled { get; private set; } = false;
+
+		/// <summary>
+		/// クラウドサーバーのURL
+		/// </summary>
+		public string CloudServerUrl { get; private set; } = "";
+
+		/// <summary>
+		/// クラウドAPIキー
+		/// </summary>
+		public string CloudApiKey { get; private set; } = "";
 
 		/// <summary>
 		/// フォームを閉じる際に再生を停止

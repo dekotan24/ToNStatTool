@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using NAudio.Wave;
 using Newtonsoft.Json;
+using ToNStatTool.Services;
 
 namespace ToNStatTool
 {
@@ -71,7 +72,6 @@ namespace ToNStatTool
 		private bool wasSaboteurDuringRound = false; // ラウンド中にサボタージュキラー側になったかを追跡
 		private bool pendingSaboteurFlag = false; // ラウンド開始前のサボタージュ状態を保持
 		private bool isCurrentRoundFirstMoon = false; // 今回のラウンドが初回Moonかどうか
-		private bool wasSpecialConfirmedAtLastRoundEnd = false; // 前のラウンド終了時に特殊確定状態だったか
 		
 		// ダブルドラブル検出用
 		private bool isDoubleTroubleActive = false; // ダブルドラブルラウンド中かどうか
@@ -80,6 +80,9 @@ namespace ToNStatTool
 		// Sound settings
 		public SoundSettings SoundSettings { get; private set; } = new SoundSettings();
 		private const string SOUND_SETTINGS_FILE = "sound_settings.json";
+
+		// Cloud service
+		private CloudService cloudService;
 		private const int MAX_ROUND_LOGS = 2000; // ラウンドログの最大保持数
 		private bool isProcessingBufferedEvents = false; // バッファイベント処理中フラグ
 		private readonly object audioLock = new object(); // 音声再生の排他制御用
@@ -100,6 +103,7 @@ namespace ToNStatTool
 			LoadWarningUsers();
 			InitializeWarningSound();
 			LoadSoundSettings();
+			cloudService = new CloudService();
 		}
 
 		/// <summary>
@@ -693,7 +697,24 @@ namespace ToNStatTool
 				// バッファされたイベントを処理（サウンドを鳴らさない）
 				if (jsonData["Args"] is JArray args)
 				{
-					System.Diagnostics.Debug.WriteLine($"[CONNECTED] バッファされたイベント数: {args.Count}");
+					Logger.Info("Connected", $"バッファイベント数: {args.Count}");
+
+					// バッファ内のINSTANCEイベントを確認
+					var instanceEvents = args.OfType<JObject>()
+						.Where(a => (a["Type"]?.ToString() ?? a["TYPE"]?.ToString() ?? "").ToUpper() == "INSTANCE")
+						.ToList();
+					if (instanceEvents.Count > 0)
+					{
+						foreach (var ie in instanceEvents)
+						{
+							string instanceValue = ie["Value"]?.ToString() ?? "(null)";
+							Logger.Info("Connected", $"バッファ内INSTANCEイベント: Value='{instanceValue}'");
+						}
+					}
+					else
+					{
+						Logger.Warn("Connected", $"バッファ内にINSTANCEイベントがありません (現在のInstanceUrl={InstanceState.InstanceUrl})");
+					}
 
 					// バッファイベント処理中フラグを立てる（サウンドを鳴らさない）
 					isProcessingBufferedEvents = true;
@@ -860,6 +881,9 @@ namespace ToNStatTool
 				OnRoundEnd?.Invoke();
 				Logger.Info("RoundType", $"ラウンド終了イベントを発火: {roundType}");
 
+				// クラウドにラウンド情報を送信
+				SendRoundEndToCloud(finishedRoundType);
+
 				// アイテムリマインダー対象ラウンドかチェック（Punished/8Pages）
 				// 注意: 受信したroundType(Intermission)ではなく、終了前のラウンドタイプを使用
 				bool isItemReminderRound = ToNRoundTypeHelper.IsItemReminderRound(finishedRoundType);
@@ -908,9 +932,8 @@ namespace ToNStatTool
 			
 			// 上書きフラグを設定（通常確定時にOverrideラウンドまたは特殊ラウンドが出た場合）
 			// ただしMasterChanged（MC）による特殊の場合は上書きではない
-			// また、前のラウンドが特殊確定状態だった場合は「特殊枠消費」であり上書きではない
 			InstanceState.IsCurrentRoundOverride = false;
-			if (InstanceState.NormalRoundCount == 0 && !InstanceState.MasterChanged && !wasSpecialConfirmedAtLastRoundEnd)
+			if (InstanceState.NormalRoundCount == 0 && !InstanceState.MasterChanged)
 			{
 				if (ToNRoundTypeHelper.IsOverrideRound(roundType) || ToNRoundTypeHelper.IsSpecialRound(roundType))
 				{
@@ -918,9 +941,6 @@ namespace ToNStatTool
 					Logger.Info("Round", $"通常確定時に{roundType}が上書き（NormalRoundCount={InstanceState.NormalRoundCount}）");
 				}
 			}
-			
-			// 特殊確定フラグをリセット（次のラウンド終了時に再設定される）
-			wasSpecialConfirmedAtLastRoundEnd = false;
 			
 			// アイテムリセット処理（ラウンドタイプによって異なる）
 			if (roundType == ToNRoundType.Eight_Pages)
@@ -1055,8 +1075,6 @@ namespace ToNStatTool
 				}
 
 				// InstanceState更新（ラウンド予測用）
-				// 更新前に特殊確定状態だったかを保存（上書きフラグ判定用）
-				wasSpecialConfirmedAtLastRoundEnd = InstanceState.NormalRoundCount >= 2;
 				UpdateInstanceState(currentRound.RoundType, survived, splitNames);
 
 				// ラウンドログを最大件数に制限
@@ -1195,14 +1213,11 @@ namespace ToNStatTool
 					}
 					
 					// InstanceState更新（Double_Troubleは特殊ラウンド扱い）
-					// 更新前に特殊確定状態だったかを保存（上書きフラグ判定用）
-					wasSpecialConfirmedAtLastRoundEnd = InstanceState.NormalRoundCount >= 2;
 					UpdateInstanceState(currentRound.RoundType, survived, splitNames);
 				}
 				else
 				{
 					// テラー名がUnknown (Double Trouble)の場合はテラーなしでInstanceState更新
-					wasSpecialConfirmedAtLastRoundEnd = InstanceState.NormalRoundCount >= 2;
 					UpdateInstanceState(currentRound.RoundType, survived, new string[0]);
 				}
 				
@@ -1234,21 +1249,19 @@ namespace ToNStatTool
 		private void CheckMoonUnlockOnRoundStart(ToNRoundType roundType)
 		{
 			bool stateChanged = false;
-			
+
 			// 初回Moonフラグをリセット
 			isCurrentRoundFirstMoon = false;
 			InstanceState.IsCurrentRoundFirstMoon = false;
-			
-			// ラウンド開始時にJustUnlockedフラグをリセット（次のラウンド予測に影響しないように）
-			InstanceState.BloodMoonJustUnlocked = false;
-			InstanceState.TwilightJustUnlocked = false;
-			InstanceState.MysticMoonJustUnlocked = false;
+
+			// ※JustUnlockedフラグは初回判定に使用するため、チェック後にリセットする
 
 			// ※Midnightは開始時には解禁しない（ラウンド終了時に生存者がいる場合のみBlood Moon解禁）
 
 			if (roundType == ToNRoundType.Blood_Moon)
 			{
-				if (!InstanceState.BloodMoonUnlocked)
+				// BloodMoonJustUnlocked=true（ミッドナイト生存直後）の場合も初回扱い
+				if (!InstanceState.BloodMoonUnlocked || InstanceState.BloodMoonJustUnlocked)
 				{
 					isCurrentRoundFirstMoon = true; // 初回Blood Moon
 					InstanceState.IsCurrentRoundFirstMoon = true;
@@ -1290,6 +1303,12 @@ namespace ToNStatTool
 					System.Diagnostics.Debug.WriteLine("[InstanceState] Solstice解禁（初回、ラウンド開始時）");
 				}
 			}
+
+			// JustUnlockedフラグをリセット（次のラウンド予測に影響しないように）
+			// ※初回判定で使用した後にリセットする
+			InstanceState.BloodMoonJustUnlocked = false;
+			InstanceState.TwilightJustUnlocked = false;
+			InstanceState.MysticMoonJustUnlocked = false;
 
 			// 状態が変化した場合はイベントを発火（チェックボックス更新用）
 			if (stateChanged)
@@ -1564,9 +1583,6 @@ namespace ToNStatTool
 				currentRound = null;
 			}
 			
-			// 特殊確定フラグもリセット
-			wasSpecialConfirmedAtLastRoundEnd = false;
-			
 			System.Diagnostics.Debug.WriteLine("[InstanceState] リセット");
 		}
 
@@ -1734,7 +1750,13 @@ namespace ToNStatTool
 			{
 				// インスタンス情報の処理
 				string instanceUrl = jsonData["Value"]?.ToString() ?? "";
-				
+
+				// 空のURLが来た場合は警告ログを出力
+				if (string.IsNullOrEmpty(instanceUrl))
+				{
+					Logger.Warn("Instance", $"空のINSTANCEイベントを受信 (現在のInstanceUrl={InstanceState.InstanceUrl}, lastInstanceUrl={lastInstanceUrl}, バッファ処理中={isProcessingBufferedEvents})");
+				}
+
 				if (!string.IsNullOrEmpty(instanceUrl))
 				{
 					// インスタンスURLが変わった場合（インスタンス移動）
@@ -1768,15 +1790,18 @@ namespace ToNStatTool
 					lastInstanceUrl = instanceUrl;
 					InstanceState.InstanceUrl = instanceUrl;
 					Logger.Info("Instance", $"インスタンスURL更新: {instanceUrl}");
-					
+
 					// インスタンス変更時は状態をリセット
 					InstanceState.MasterChanged = false;
-					
+
 					// リスポーン追跡用フラグをリセット（新しいインスタンスでは初めからやり直し）
 					InstanceState.WasOptedInThisInstance = false;
 					InstanceState.HadRespawnedInRound = false;
 					InstanceState.IsRespawnSaveCode = false;
-					
+
+					// クラウドからインスタンス状態を取得（非同期）
+					_ = FetchInstanceStateFromCloudAsync(instanceUrl);
+
 					OnInstanceStateChanged?.Invoke();
 				}
 				
@@ -2677,6 +2702,168 @@ namespace ToNStatTool
 				RoundLogs.Clear();
 
 				System.Diagnostics.Debug.WriteLine("[リセット] ラウンド統計、テラー統計、ラウンドログをリセットしました");
+			}
+		}
+
+		/// <summary>
+		/// クラウドにラウンド終了情報を送信する
+		/// </summary>
+		private void SendRoundEndToCloud(ToNRoundType roundType)
+		{
+			if (cloudService == null)
+				return;
+
+			// TSMからの履歴データ（バッファイベント）処理中はスキップ
+			if (isProcessingBufferedEvents)
+			{
+				Logger.Debug("Cloud", "バッファイベント処理中のためクラウド送信をスキップ");
+				return;
+			}
+
+			// インスタンスURLを取得（InstanceState.InstanceUrlが空の場合はlastInstanceUrlをフォールバック）
+			string instanceUrl = InstanceState.InstanceUrl;
+			if (string.IsNullOrEmpty(instanceUrl))
+			{
+				// lastInstanceUrlが有効ならそれを使用
+				if (!string.IsNullOrEmpty(lastInstanceUrl))
+				{
+					Logger.Warn("Cloud", $"InstanceState.InstanceUrlが空のためlastInstanceUrlを使用: {lastInstanceUrl}");
+					instanceUrl = lastInstanceUrl;
+					// InstanceState.InstanceUrlも復元
+					InstanceState.InstanceUrl = lastInstanceUrl;
+				}
+				else
+				{
+					Logger.Debug("Cloud", $"インスタンスURLが空のためクラウド送信をスキップ (lastInstanceUrl={lastInstanceUrl}, IsOptedIn={InstanceState.IsOptedIn})");
+					return;
+				}
+			}
+
+			try
+			{
+				// 現在のラウンド情報を取得
+				string mapName = GetGameDataValue("location", "Unknown").Split('(')[0].Trim();
+				var terrors = CurrentTerrors.Select(t => t.Name).ToArray();
+
+				// 生存プレイヤー数をカウント
+				int aliveCount = 0;
+				int totalPlayerCount = 0;
+				lock (dataLock)
+				{
+					aliveCount = Players.Values.Count(p => p.IsAlive);
+					totalPlayerCount = Players.Count;
+				}
+
+				// プレイヤーのアイテムリストを作成（開始時アイテム + ラウンド中取得アイテム）
+				var playerItems = new List<string>();
+				if (!string.IsNullOrEmpty(InstanceState.CurrentItem) && InstanceState.CurrentItem != "なし")
+				{
+					playerItems.Add(InstanceState.CurrentItem);
+				}
+				playerItems.AddRange(currentRoundItems.Where(i => !playerItems.Contains(i)));
+
+				// プレイヤーの生存状態を判定
+				bool playerSurvived = !wasDeadDuringRound && !wasSaboteurDuringRound;
+
+				var roundEvent = new CloudRoundEndEvent
+				{
+					InstanceId = instanceUrl,
+					Timestamp = DateTime.UtcNow,
+					Round = new CloudRoundInfo
+					{
+						Type = ToNRoundTypeHelper.GetDisplayName(roundType),
+						MapName = mapName,
+						Terrors = terrors
+					},
+					Instance = new CloudInstanceInfo
+					{
+						PlayerCount = totalPlayerCount,
+						SurvivorCount = aliveCount
+					},
+					Player = new CloudPlayerInfo
+					{
+						VRChatName = LocalPlayerName,
+						VRChatId = LocalPlayerUserId,
+						Survived = playerSurvived,
+						Items = playerItems.ToArray()
+					}
+				};
+
+				// 非同期で送信（結果を待たない）
+				_ = cloudService.SendRoundEndAsync(roundEvent);
+				Logger.Debug("Cloud", $"ラウンド情報をクラウドに送信: {roundType}, Players={totalPlayerCount}, Survivors={aliveCount}, PlayerSurvived={playerSurvived}, Items={string.Join(",", playerItems)}");
+			}
+			catch (Exception ex)
+			{
+				Logger.Warn("Cloud", $"クラウド送信エラー: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// クラウド設定を更新する
+		/// </summary>
+		public void UpdateCloudSettings(bool enabled, string serverUrl, string apiKey = null)
+		{
+			if (cloudService != null)
+			{
+				cloudService.SetEnabled(enabled);
+				cloudService.SetServerUrl(serverUrl);
+				if (apiKey != null)
+				{
+					cloudService.SetApiKey(apiKey);
+				}
+				Logger.Info("Cloud", $"クラウド設定を更新: Enabled={enabled}, URL={serverUrl}");
+			}
+		}
+
+		/// <summary>
+		/// クラウドからインスタンス状態を取得してInstanceStateに反映する
+		/// </summary>
+		private async Task FetchInstanceStateFromCloudAsync(string instanceUrl)
+		{
+			if (cloudService == null)
+				return;
+
+			try
+			{
+				var moonState = await cloudService.FetchInstanceStateAsync(instanceUrl);
+				if (moonState != null)
+				{
+					// 取得した状態をInstanceStateに反映（既存の状態とORで結合）
+					if (moonState.BloodMoonUnlocked)
+						InstanceState.BloodMoonUnlocked = true;
+					if (moonState.TwilightUnlocked)
+						InstanceState.TwilightUnlocked = true;
+					if (moonState.MysticMoonUnlocked)
+						InstanceState.MysticMoonUnlocked = true;
+					if (moonState.SolsticeUnlocked)
+						InstanceState.SolsticeUnlocked = true;
+
+					// 鳥遭遇状態
+					if (moonState.BigBirdEncountered)
+						InstanceState.MetBigBird = true;
+					if (moonState.JudgementBirdEncountered)
+						InstanceState.MetJudgementBird = true;
+					if (moonState.PunishingBirdEncountered)
+						InstanceState.MetPunishingBird = true;
+
+					// Twilight/Solstice解禁なら全鳥遭遇済み
+					if (InstanceState.TwilightUnlocked || InstanceState.SolsticeUnlocked)
+					{
+						InstanceState.MetBigBird = true;
+						InstanceState.MetJudgementBird = true;
+						InstanceState.MetPunishingBird = true;
+					}
+
+					Logger.Info("Cloud", $"インスタンス状態をクラウドから復元: Moon(B={InstanceState.BloodMoonUnlocked},T={InstanceState.TwilightUnlocked},M={InstanceState.MysticMoonUnlocked},S={InstanceState.SolsticeUnlocked}) Birds({InstanceState.MetBigBird},{InstanceState.MetJudgementBird},{InstanceState.MetPunishingBird})");
+
+					// UIを更新
+					OnInstanceStateChanged?.Invoke();
+				}
+			}
+			catch (Exception ex)
+			{
+				Logger.Warn("Cloud", $"クラウドからインスタンス状態取得エラー: {ex.Message}");
 			}
 		}
 
