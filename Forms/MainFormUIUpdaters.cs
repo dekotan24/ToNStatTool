@@ -54,7 +54,9 @@ namespace ToNStatTool
 
         private void UpdateGameInfo()
         {
-            var gameData = webSocketClient.GameData;
+            Dictionary<string, object> gameData;
+            try { gameData = webSocketClient.GameData.ToDictionary(kvp => kvp.Key, kvp => kvp.Value); }
+            catch { return; }
 
             UpdateTextBoxWithColor("roundType", GetGameDataValue(gameData, "roundType", "-"));
             UpdateTextBox("location", GetGameDataValue(gameData, "location", "-"));
@@ -372,12 +374,14 @@ namespace ToNStatTool
 
             try
             {
-                var recentEvents = webSocketClient.RecentEvents;
+                List<GameEvent> recentEvents;
+                try { recentEvents = webSocketClient.RecentEvents.ToList(); }
+                catch { return; }
 
                 // 変更検出：イベント数とタイムスタンプで判定
                 int currentEventCount = recentEvents.Count;
-                DateTime currentLastTimestamp = recentEvents.Count > 0 
-                    ? recentEvents.Max(e => e.Timestamp) 
+                DateTime currentLastTimestamp = recentEvents.Count > 0
+                    ? recentEvents.Max(e => e.Timestamp)
                     : DateTime.MinValue;
 
                 if (currentEventCount == lastEventCount && currentLastTimestamp == lastEventTimestamp)

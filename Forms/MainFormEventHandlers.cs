@@ -496,8 +496,10 @@ namespace ToNStatTool
         {
             try
             {
-                var saveCodes = webSocketClient.SaveCodes;
-                
+                List<SaveCodeInfo> saveCodes;
+                try { saveCodes = webSocketClient.SaveCodes.ToList(); }
+                catch { return; }
+
                 if (saveCodes.Count == 0)
                 {
                     MessageBox.Show("セーブコードがまだありません。\nラウンドをクリアするとセーブコードが生成されます。", 
