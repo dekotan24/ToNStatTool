@@ -92,6 +92,9 @@ namespace ToNStatTool
             
             // フォームクローズ時に設定を保存
             this.FormClosing += ToNStatTool_FormClosing;
+
+            // フォーム表示後に自動接続を試行
+            this.Shown += async (s, e) => await TryAutoConnectAsync();
         }
 
         private void InitializeComponent()
@@ -132,6 +135,7 @@ namespace ToNStatTool
             webSocketClient.OnItemReminderRoundEnd += OnItemReminderRoundEnd;
             webSocketClient.OnMasterChanged += OnMasterChanged;
             webSocketClient.OnSaveCodeReceived += OnSaveCodeReceived;
+            webSocketClient.OnCloudSyncStateChanged += OnCloudSyncStateChanged;
         }
 
         private void InitializeTimer()
@@ -414,6 +418,29 @@ namespace ToNStatTool
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"設定保存エラー: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// アプリ起動時にWebSocketサーバーへの自動接続を試行
+        /// </summary>
+        private async Task TryAutoConnectAsync()
+        {
+            string serverUrl = textBoxUrl.Text.Trim();
+            if (string.IsNullOrEmpty(serverUrl) || webSocketClient.IsConnected)
+                return;
+
+            Logger.Info("AutoConnect", "自動接続を試行");
+            labelStatus.Text = "自動接続中...";
+            labelStatus.ForeColor = Color.Orange;
+            buttonConnect.Enabled = false;
+
+            await webSocketClient.ConnectAsync(serverUrl);
+
+            // 接続失敗時はボタンを再有効化（OnError/OnDisconnectedで処理されるが念のため）
+            if (!webSocketClient.IsConnected)
+            {
+                buttonConnect.Enabled = true;
             }
         }
 

@@ -39,6 +39,7 @@ namespace ToNStatTool
 		public event Action OnMasterChanged; // マスター変更イベント
 		public event Action<SaveCodeInfo> OnSaveCodeReceived; // セーブコード受信イベント
 		public event Action<bool> OnOptedInChanged; // ゲーム参加状態変更イベント
+		public event Action<bool> OnCloudSyncStateChanged; // クラウド同期状態変更イベント（true=同期中, false=完了）
 		private HashSet<string> warningUsers = new HashSet<string>();
 		private IWavePlayer waveOutDevice;
 		private AudioFileReader audioFileReader;
@@ -2082,12 +2083,18 @@ namespace ToNStatTool
 					
 					if (!string.IsNullOrEmpty(itemName))
 					{
-						// ラウンド中の取得アイテムに追加
-						if (!currentRoundItems.Contains(itemName))
+						// ラウンド中の取得アイテムに追加（死亡後は記録しない）
+						if (!wasDeadDuringRound && !currentRoundItems.Contains(itemName))
 						{
 							currentRoundItems.Add(itemName);
+
+							// ラウンドログのアイテムが未設定なら、最初に持ったアイテムを記録
+							if (currentRound != null && (string.IsNullOrEmpty(currentRound.Items) || currentRound.Items == "なし"))
+							{
+								currentRound.Items = itemName;
+							}
 						}
-						
+
 						// 現在所持アイテムを更新
 						string previousItem = InstanceState.CurrentItem;
 						InstanceState.CurrentItem = itemName;
@@ -2969,6 +2976,7 @@ namespace ToNStatTool
 			}
 
 			isFetchingCloudData = true;
+			OnCloudSyncStateChanged?.Invoke(true);
 			try
 			{
 				var instanceDetail = await cloudService.FetchInstanceDetailAsync(instanceUrl);
@@ -3043,6 +3051,7 @@ namespace ToNStatTool
 			finally
 			{
 				isFetchingCloudData = false;
+				OnCloudSyncStateChanged?.Invoke(false);
 			}
 		}
 

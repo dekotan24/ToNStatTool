@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using ToNStatTool.Controls;
 
@@ -25,14 +27,14 @@ namespace ToNStatTool
 
             textBoxUrl = new TextBox();
             textBoxUrl.Location = new Point(120, 12);
-            textBoxUrl.Size = new Size(300, 23);
+            textBoxUrl.Size = new Size(210, 23);
             textBoxUrl.Text = "ws://localhost:11398";
             this.Controls.Add(textBoxUrl);
 
             // 接続ボタン
             buttonConnect = new Button();
-            buttonConnect.Location = new Point(430, 11);
-            buttonConnect.Size = new Size(100, 25);
+            buttonConnect.Location = new Point(340, 11);
+            buttonConnect.Size = new Size(70, 25);
             buttonConnect.Text = "接続";
             buttonConnect.Click += ButtonConnect_Click;
             mainToolTip.SetToolTip(buttonConnect, "ToNSaveManagerに接続/切断");
@@ -40,8 +42,8 @@ namespace ToNStatTool
 
             // ステータス表示
             labelStatus = new Label();
-            labelStatus.Location = new Point(540, 15);
-            labelStatus.Size = new Size(200, 23);
+            labelStatus.Location = new Point(420, 15);
+            labelStatus.Size = new Size(350, 23);
             labelStatus.Text = "未接続";
             labelStatus.ForeColor = Color.Red;
             this.Controls.Add(labelStatus);
@@ -640,6 +642,15 @@ namespace ToNStatTool
             labelFilterCount.TextAlign = ContentAlignment.MiddleRight;
             filterPanel.Controls.Add(labelFilterCount);
 
+            // CSV出力ボタン
+            var buttonExportCsv = new Button();
+            buttonExportCsv.Name = "buttonExportCsv";
+            buttonExportCsv.Text = "CSV";
+            buttonExportCsv.Location = new Point(435, 1);
+            buttonExportCsv.Size = new Size(40, 25);
+            buttonExportCsv.Click += ButtonExportCsv_Click;
+            filterPanel.Controls.Add(buttonExportCsv);
+
             var listViewRoundLog = new DoubleBufferedListView();
             listViewRoundLog.Name = "listViewRoundLog";
             listViewRoundLog.Location = new Point(10, 55);
@@ -679,6 +690,60 @@ namespace ToNStatTool
 
             if (comboRoundFilter != null) comboRoundFilter.SelectedIndex = 0;
             if (textTerrorFilter != null) textTerrorFilter.Text = "";
+        }
+
+        private void ButtonExportCsv_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                List<RoundLog> roundLogs;
+                try { roundLogs = webSocketClient.RoundLogs.ToList(); }
+                catch { return; }
+
+                if (roundLogs.Count == 0)
+                {
+                    MessageBox.Show("エクスポートするラウンドログがありません。", "CSV出力", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                using (var dialog = new SaveFileDialog())
+                {
+                    dialog.Filter = "CSV files (*.csv)|*.csv";
+                    dialog.FileName = $"RoundLog_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+                    if (dialog.ShowDialog() != DialogResult.OK) return;
+
+                    using (var writer = new System.IO.StreamWriter(dialog.FileName, false, System.Text.Encoding.UTF8))
+                    {
+                        writer.WriteLine("時刻,ラウンド,マップ,テラー,アイテム,生存,生存数,総人数");
+                        foreach (var log in roundLogs.OrderByDescending(l => l.Timestamp))
+                        {
+                            string time = log.IsReplay ? "RP" : log.Timestamp.ToString("yyyy/MM/dd HH:mm:ss");
+                            string round = CsvEscape(log.RoundTypeDisplayName);
+                            string map = CsvEscape(log.MapName);
+                            string terrors = CsvEscape(log.TerrorNames);
+                            string items = CsvEscape(string.IsNullOrEmpty(log.Items) || log.Items == "なし" ? "" : log.Items);
+                            string survived = log.WasOptedIn ? (log.Survived ? "生存" : "死亡") : "不参加";
+                            string alive = log.IsReplay ? "-" : log.AliveCount.ToString();
+                            string total = log.IsReplay ? "-" : log.TotalPlayerCount.ToString();
+                            writer.WriteLine($"{time},{round},{map},{terrors},{items},{survived},{alive},{total}");
+                        }
+                    }
+
+                    MessageBox.Show($"CSVを出力しました。\n{dialog.FileName}", "CSV出力", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"CSV出力エラー: {ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private static string CsvEscape(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+            if (value.Contains(",") || value.Contains("\"") || value.Contains("\n"))
+                return "\"" + value.Replace("\"", "\"\"") + "\"";
+            return value;
         }
 
         private void CreateEventControls()

@@ -430,10 +430,12 @@ namespace ToNStatTool
                 listView.BeginUpdate();
                 listView.Items.Clear();
 
-                var roundTypeCounts = roundStats.RoundTypeCounts.ToList();
+                List<KeyValuePair<ToNRoundType, int>> roundTypeCounts;
+                try { roundTypeCounts = roundStats.RoundTypeCounts.ToList(); }
+                catch { listView.EndUpdate(); return; }
                 if (roundTypeCounts.Count > 0)
                 {
-                    foreach (var kvp in roundTypeCounts.OrderByDescending(x => x.Value))
+                    foreach (var kvp in roundTypeCounts.OrderByDescending(x => x.Value).ThenBy(x => ToNRoundTypeHelper.GetDisplayName(x.Key)))
                     {
                         double percentage = roundStats.TotalRounds > 0 ? (double)kvp.Value / roundStats.TotalRounds * 100 : 0;
                         var item = new ListViewItem(ToNRoundTypeHelper.GetDisplayName(kvp.Key));
@@ -454,10 +456,12 @@ namespace ToNStatTool
                 listView2.BeginUpdate();
                 listView2.Items.Clear();
 
-                var terrorTypeCounts = terrorStats.TerrorTypeCounts.ToList();
+                List<KeyValuePair<string, int>> terrorTypeCounts;
+                try { terrorTypeCounts = terrorStats.TerrorTypeCounts.ToList(); }
+                catch { listView2.EndUpdate(); return; }
                 if (terrorTypeCounts.Count > 0)
                 {
-                    foreach (var kvp in terrorTypeCounts.OrderByDescending(x => x.Value))
+                    foreach (var kvp in terrorTypeCounts.OrderByDescending(x => x.Value).ThenBy(x => x.Key))
                     {
                         var item = new ListViewItem(kvp.Key);
                         item.SubItems.Add(kvp.Value.ToString());
@@ -474,7 +478,16 @@ namespace ToNStatTool
             var listView = FindControl("listViewRoundLog") as ListView;
             if (listView == null) return;
 
-            var roundLogs = webSocketClient.RoundLogs;
+            // スナップショットを取得（クラウドマージ中のコレクション変更によるクラッシュ防止）
+            List<RoundLog> roundLogs;
+            try
+            {
+                roundLogs = webSocketClient.RoundLogs.ToList();
+            }
+            catch
+            {
+                return; // コレクション変更中の場合はスキップ（次回更新で再描画される）
+            }
 
             // フィルター条件を取得
             var comboRoundFilter = FindControl("comboRoundFilter") as ComboBox;

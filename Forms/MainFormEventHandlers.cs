@@ -51,11 +51,30 @@ namespace ToNStatTool
                 labelStatus.ForeColor = Color.Green;
                 buttonConnect.Text = "切断";
                 buttonConnect.Enabled = true;
-                
+                textBoxUrl.ReadOnly = true;
+
                 // 接続時にUIをリセット（ラウンド統計、ラウンドログ、推定生存回数がWebSocket側でリセットされているのでUIに反映）
                 UpdateBirdCheckboxes();
                 UpdateStatsDisplay();
                 UpdateRoundLogDisplay();
+            });
+        }
+
+        private void OnCloudSyncStateChanged(bool isSyncing)
+        {
+            SafeInvoke(() =>
+            {
+                string playerName = webSocketClient.LocalPlayerName;
+                if (isSyncing)
+                {
+                    labelStatus.Text = $"接続済み（クラウド同期中） - プレイヤー: {playerName}";
+                    labelStatus.ForeColor = Color.FromArgb(0, 180, 220); // 水色
+                }
+                else
+                {
+                    labelStatus.Text = $"接続済み - プレイヤー: {playerName}";
+                    labelStatus.ForeColor = Color.Green;
+                }
             });
         }
 
@@ -67,6 +86,7 @@ namespace ToNStatTool
                 labelStatus.ForeColor = Color.Red;
                 buttonConnect.Text = "接続";
                 buttonConnect.Enabled = true;
+                textBoxUrl.ReadOnly = false;
             });
         }
 
@@ -92,6 +112,7 @@ namespace ToNStatTool
                 labelStatus.ForeColor = Color.Red;
                 buttonConnect.Text = "接続";
                 buttonConnect.Enabled = true;
+                textBoxUrl.ReadOnly = false;
             });
         }
 
