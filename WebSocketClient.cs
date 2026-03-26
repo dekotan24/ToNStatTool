@@ -1043,7 +1043,19 @@ namespace ToNStatTool
 					System.Diagnostics.Debug.WriteLine("ラウンド中に死亡したため、死亡として記録します");
 				}
 
+				// 全員死亡チェック: 全プレイヤーが死亡している場合は生存をfalseに修正
+				// （TPKシナリオでALIVE=falseがROUND_TYPE終了より後に届く場合の安全弁）
+				int roundAliveCount = Players.Values.Count(p => p.IsAlive);
+				int roundTotalCount = Players.Count;
+				if (survived && roundAliveCount == 0 && roundTotalCount > 0)
+				{
+					survived = false;
+					System.Diagnostics.Debug.WriteLine($"全プレイヤーが死亡しているため、生存をfalseに修正 (aliveCount=0/{roundTotalCount})");
+				}
+
 				currentRound.Survived = survived;
+				currentRound.AliveCount = roundAliveCount;
+				currentRound.TotalPlayerCount = roundTotalCount;
 
 				// ログに追加
 				RoundLogs.Add(currentRound);
@@ -1058,6 +1070,19 @@ namespace ToNStatTool
 
 				// ラウンド種別の統計も更新（Enumベース）
 				RoundStats.IncrementCount(currentRound.RoundType);
+
+				// プレイヤーごとの経過ラウンド数・生存数を更新（RP時はスキップ）
+				if (!isProcessingBufferedEvents)
+				{
+					foreach (var player in Players.Values)
+					{
+						player.RoundCount++;
+						if (player.IsAlive)
+						{
+							player.SurvivalCount++;
+						}
+					}
+				}
 
 				// テラー統計更新
 				string roundTerrorKey = currentRound.TerrorNames;
@@ -1179,17 +1204,42 @@ namespace ToNStatTool
 				// 通常のラウンドと同じ生死判定
 				// wasDeadDuringRoundフラグで判定（ALIVE=falseが来たかどうか）
 				bool survived = !wasDeadDuringRound && !wasSaboteurDuringRound;
+
+				// 全員死亡チェック
+				int dtAliveCount = Players.Values.Count(p => p.IsAlive);
+				int dtTotalCount = Players.Count;
+				if (survived && dtAliveCount == 0 && dtTotalCount > 0)
+				{
+					survived = false;
+					System.Diagnostics.Debug.WriteLine($"[DoubleTrouble] 全プレイヤーが死亡しているため、生存をfalseに修正");
+				}
+
 				currentRound.Survived = survived;
-				
+				currentRound.AliveCount = dtAliveCount;
+				currentRound.TotalPlayerCount = dtTotalCount;
+
 				// ログに追加
 				RoundLogs.Add(currentRound);
 				Logger.Info("DoubleTrouble", $"ラウンドログに記録: {currentRound.RoundTypeDisplayName} - {(survived ? "生存" : "死亡")} - テラー: {currentRound.TerrorNames}");
-				
+
 				// 統計を更新
 				RoundStats.TotalRounds++;
 				if (survived)
 				{
 					RoundStats.SurvivedRounds++;
+				}
+
+				// プレイヤーごとの経過ラウンド数・生存数を更新（RP時はスキップ）
+				if (!isProcessingBufferedEvents)
+				{
+					foreach (var player in Players.Values)
+					{
+						player.RoundCount++;
+						if (player.IsAlive)
+						{
+							player.SurvivalCount++;
+						}
+					}
 				}
 				
 				// ラウンド種別の統計も更新
@@ -1903,7 +1953,8 @@ namespace ToNStatTool
 				{
 					System.Diagnostics.Debug.WriteLine($"[TRACKER] プレイヤー追跡情報を受信: {playersData.Count}人");
 
-					// 既存のプレイヤー情報をクリア
+					// 既存プレイヤーのSurvivalCount/JoinedAtを保持するためにバックアップ
+					var existingPlayers = new Dictionary<string, PlayerInfo>(Players);
 					Players.Clear();
 
 					foreach (var playerData in playersData)
@@ -1916,13 +1967,27 @@ namespace ToNStatTool
 
 							playerName = SanitizePlayerName(playerName);
 
+							// 既存プレイヤーの値を引き継ぐ
+							int prevRoundCount = 0;
+							int prevSurvivalCount = 0;
+							DateTime prevJoinedAt = DateTime.Now;
+							if (existingPlayers.TryGetValue(userId, out var existing))
+							{
+								prevRoundCount = existing.RoundCount;
+								prevSurvivalCount = existing.SurvivalCount;
+								prevJoinedAt = existing.JoinedAt;
+							}
+
 							var player = new PlayerInfo
 							{
 								Name = playerName,
 								UserId = userId,
 								IsLocal = userId == LocalPlayerUserId,
 								IsAlive = isAlive,
-								LastSeen = DateTime.Now
+								LastSeen = DateTime.Now,
+								JoinedAt = prevJoinedAt,
+								RoundCount = prevRoundCount,
+								SurvivalCount = prevSurvivalCount
 							};
 
 							Players[userId] = player;
@@ -2294,7 +2359,28 @@ namespace ToNStatTool
 					Players[playerId].LastSeen = DateTime.Now;
 					Players[playerId].Name = playerName; // 名前も更新
 					System.Diagnostics.Debug.WriteLine($"プレイヤー更新: {playerName}");
+					// temp_エントリが残っていたら掃除（DEATH自動追加で作られた仮エントリ）
+					var tempEntries = Players
+						.Where(p => p.Key != playerId && p.Key.StartsWith("temp_") && p.Value.Name == playerName)
+						.Select(p => p.Key)
+						.ToList();
+					foreach (var tempKey in tempEntries)
+					{
+						Players.Remove(tempKey);
+						System.Diagnostics.Debug.WriteLine($"[PLAYER_JOIN] temp重複エントリを削除: {tempKey}");
+					}
 					return;
+				}
+
+				// 新規追加前にtemp_エントリを掃除（同名プレイヤーの仮エントリ）
+				var existingTempEntries = Players
+					.Where(p => p.Key.StartsWith("temp_") && p.Value.Name == playerName)
+					.Select(p => p.Key)
+					.ToList();
+				foreach (var tempKey in existingTempEntries)
+				{
+					Players.Remove(tempKey);
+					System.Diagnostics.Debug.WriteLine($"[PLAYER_JOIN] temp重複エントリを削除（新規追加前）: {tempKey}");
 				}
 
 				bool initialAliveState = !isRoundActive;
@@ -2638,8 +2724,8 @@ namespace ToNStatTool
 		/// </summary>
 		private void AddTerrorFromName(string terrorName, JObject jsonData)
 		{
-			// Mona & The Mountain、Luigi & Luigi Dollsは分割しない
-			if (terrorName == "Mona & The Mountain" || terrorName == "Luigi & Luigi Dolls")
+			// 除外リストに含まれるテラーは分割しない
+			if (TerrorConfiguration.AmpersandSplitExclusions.Contains(terrorName))
 			{
 				var terrorInfo = new TerrorInfo
 				{
@@ -2826,7 +2912,12 @@ namespace ToNStatTool
 
 			try
 			{
-				var moonState = await cloudService.FetchInstanceStateAsync(instanceUrl);
+				var instanceDetail = await cloudService.FetchInstanceDetailAsync(instanceUrl);
+				if (instanceDetail == null)
+					return;
+
+				// Moon/鳥状態の反映
+				var moonState = instanceDetail.MoonState;
 				if (moonState != null)
 				{
 					// 取得した状態をInstanceStateに反映（既存の状態とORで結合）
@@ -2856,14 +2947,100 @@ namespace ToNStatTool
 					}
 
 					Logger.Info("Cloud", $"インスタンス状態をクラウドから復元: Moon(B={InstanceState.BloodMoonUnlocked},T={InstanceState.TwilightUnlocked},M={InstanceState.MysticMoonUnlocked},S={InstanceState.SolsticeUnlocked}) Birds({InstanceState.MetBigBird},{InstanceState.MetJudgementBird},{InstanceState.MetPunishingBird})");
-
-					// UIを更新
-					OnInstanceStateChanged?.Invoke();
 				}
+
+				// クラウドのラウンドログをローカルにマージ
+				if (instanceDetail.Rounds != null && instanceDetail.Rounds.Length > 0)
+				{
+					MergeCloudRoundLogs(instanceDetail.Rounds);
+				}
+
+				// UIを更新
+				OnInstanceStateChanged?.Invoke();
+				OnRoundEnd?.Invoke(); // ラウンドログ表示を更新
 			}
 			catch (Exception ex)
 			{
 				Logger.Warn("Cloud", $"クラウドからインスタンス状態取得エラー: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// クラウドから取得したラウンドログをローカルのRoundLogsにマージする
+		/// ローカルに既にあるラウンド（タイムスタンプ+ラウンドタイプ+テラーで重複判定）はスキップ
+		/// </summary>
+		private void MergeCloudRoundLogs(CloudRoundDetail[] cloudRounds)
+		{
+			int addedCount = 0;
+
+			// ローカルの既存ラウンドをハッシュセットで管理（高速重複チェック用）
+			var existingKeys = new System.Collections.Generic.HashSet<string>();
+			foreach (var log in RoundLogs)
+			{
+				// タイムスタンプ（分単位）+ ラウンドタイプ + テラー名で重複判定
+				string key = $"{log.Timestamp:yyyyMMddHHmm}|{log.RoundTypeDisplayName}|{log.TerrorNames}";
+				existingKeys.Add(key);
+			}
+
+			// クラウドのラウンドを古い順に処理（時系列順にリストに追加するため）
+			var sortedRounds = cloudRounds.OrderBy(r => r.StartedAt).ToArray();
+
+			foreach (var cloudRound in sortedRounds)
+			{
+				string terrorNames = cloudRound.Terrors != null ? string.Join(", ", cloudRound.Terrors) : "";
+
+				// 重複チェック
+				// クラウドのタイムスタンプはUTCなのでローカル時間に変換
+				var localTime = cloudRound.StartedAt.ToLocalTime();
+				string key = $"{localTime:yyyyMMddHHmm}|{cloudRound.RoundType}|{terrorNames}";
+				if (existingKeys.Contains(key))
+					continue;
+
+				// RoundLogに変換してマージ
+				var roundType = ToNRoundTypeHelper.Parse(cloudRound.RoundType);
+				var roundLog = new RoundLog
+				{
+					Timestamp = localTime,
+					RoundType = roundType,
+					MapName = cloudRound.MapName ?? "",
+					TerrorNames = terrorNames,
+					AliveCount = cloudRound.SurvivorCount,
+					TotalPlayerCount = cloudRound.PlayerCount,
+					IsReplay = false, // クラウドからの取得
+				};
+
+				// 自分の参加情報があれば反映
+				if (cloudRound.MySurvived.HasValue)
+				{
+					roundLog.Survived = cloudRound.MySurvived.Value;
+					roundLog.Items = cloudRound.MyItems != null ? string.Join(", ", cloudRound.MyItems) : "";
+					roundLog.WasOptedIn = true;
+				}
+				else
+				{
+					// 自分は不参加だったラウンド
+					roundLog.Survived = false;
+					roundLog.Items = "";
+					roundLog.WasOptedIn = false;
+				}
+
+				RoundLogs.Add(roundLog);
+				existingKeys.Add(key);
+				addedCount++;
+			}
+
+			// タイムスタンプ順にソート
+			if (addedCount > 0)
+			{
+				RoundLogs.Sort((a, b) => a.Timestamp.CompareTo(b.Timestamp));
+
+				// 最大件数を超えたら古いものを削除
+				while (RoundLogs.Count > MAX_ROUND_LOGS)
+				{
+					RoundLogs.RemoveAt(0);
+				}
+
+				Logger.Info("Cloud", $"クラウドからラウンドログ {addedCount} 件をマージしました（合計 {RoundLogs.Count} 件）");
 			}
 		}
 

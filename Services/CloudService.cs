@@ -146,8 +146,8 @@ namespace ToNStatTool.Services
 		/// インスタンスの状態をWebから取得
 		/// </summary>
 		/// <param name="instanceId">インスタンスID（例: wrld_xxx:12345~region(...)）</param>
-		/// <returns>インスタンス状態、取得できなければnull</returns>
-		public async Task<CloudInstanceMoonState> FetchInstanceStateAsync(string instanceId)
+		/// <returns>インスタンス詳細（Moon状態＋ラウンドログ）、取得できなければnull</returns>
+		public async Task<CloudInstanceDetailResponse> FetchInstanceDetailAsync(string instanceId)
 		{
 			// クラウド同期が有効、サーバーURL設定済み、APIキー設定済み、インスタンスIDありの場合のみ取得
 			if (!isEnabled || string.IsNullOrEmpty(serverUrl) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(instanceId))
@@ -204,11 +204,16 @@ namespace ToNStatTool.Services
 					Logger.Info("CloudService", $"Birds: BigBird={instanceDetail.MoonState.BigBirdEncountered}, Judgement={instanceDetail.MoonState.JudgementBirdEncountered}, Punishing={instanceDetail.MoonState.PunishingBirdEncountered}");
 				}
 
-				return instanceDetail?.MoonState;
+				if (instanceDetail?.Rounds != null)
+				{
+					Logger.Info("CloudService", $"Fetched {instanceDetail.Rounds.Length} round logs from cloud");
+				}
+
+				return instanceDetail;
 			}
 			catch (Exception ex)
 			{
-				Logger.Error("CloudService", $"Error fetching instance state: {ex.Message}");
+				Logger.Error("CloudService", $"Error fetching instance detail: {ex.Message}");
 				return null;
 			}
 		}
@@ -468,6 +473,42 @@ namespace ToNStatTool.Services
 
 		[JsonProperty("moon_state")]
 		public CloudInstanceMoonState MoonState { get; set; }
+
+		[JsonProperty("rounds")]
+		public CloudRoundDetail[] Rounds { get; set; }
+	}
+
+	/// <summary>
+	/// インスタンスのラウンド詳細（クラウド取得用）
+	/// </summary>
+	public class CloudRoundDetail
+	{
+		[JsonProperty("id")]
+		public int Id { get; set; }
+
+		[JsonProperty("round_type")]
+		public string RoundType { get; set; }
+
+		[JsonProperty("map_name")]
+		public string MapName { get; set; }
+
+		[JsonProperty("terrors")]
+		public string[] Terrors { get; set; }
+
+		[JsonProperty("player_count")]
+		public int PlayerCount { get; set; }
+
+		[JsonProperty("survivor_count")]
+		public int SurvivorCount { get; set; }
+
+		[JsonProperty("started_at")]
+		public DateTime StartedAt { get; set; }
+
+		[JsonProperty("my_survived")]
+		public bool? MySurvived { get; set; }
+
+		[JsonProperty("my_items")]
+		public string[] MyItems { get; set; }
 	}
 
 	/// <summary>
