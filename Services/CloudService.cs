@@ -166,18 +166,17 @@ namespace ToNStatTool.Services
 				// API URLを構築
 				string apiUrl = $"{serverUrl.TrimEnd('/')}/api/v1/stats/instance/{shortId}";
 
-				if (IsPublicInstance(instanceId))
+				if (instanceAccessKeys.TryGetValue(instanceId, out string cachedAccessKey))
 				{
-					// パブリックインスタンスの場合、regionパラメータを付与（デフォルト: jp）
-					string region = ExtractRegion(instanceId) ?? "jp";
-					apiUrl += $"?region={Uri.EscapeDataString(region)}";
-					Logger.Debug("CloudService", $"Using region={region} for public instance");
+					// キャッシュ済みaccess_keyがあれば最優先で使用（最も確実）
+					apiUrl += $"?key={Uri.EscapeDataString(cachedAccessKey)}";
+					Logger.Debug("CloudService", "Using cached access_key");
 				}
-				else if (instanceAccessKeys.TryGetValue(instanceId, out string accessKey))
+				else
 				{
-					// 非パブリックインスタンスの場合、保存されたaccess_keyを使用
-					apiUrl += $"?key={Uri.EscapeDataString(accessKey)}";
-					Logger.Debug("CloudService", "Using stored access_key for non-public instance");
+					// access_keyがない場合、full_idを送って一意特定 + access_key取得
+					apiUrl += $"?full_id={Uri.EscapeDataString(instanceId)}";
+					Logger.Debug("CloudService", "Using full_id for instance lookup");
 				}
 
 				var response = await httpClient.GetAsync(apiUrl);
@@ -198,6 +197,13 @@ namespace ToNStatTool.Services
 				var responseBody = await response.Content.ReadAsStringAsync();
 				var instanceDetail = JsonConvert.DeserializeObject<CloudInstanceDetailResponse>(responseBody);
 
+				// レスポンスのaccess_keyをキャッシュ（次回以降の確実な特定用）
+				if (!string.IsNullOrEmpty(instanceDetail?.AccessKey) && !string.IsNullOrEmpty(instanceId))
+				{
+					instanceAccessKeys[instanceId] = instanceDetail.AccessKey;
+					Logger.Debug("CloudService", "Cached access_key from instance detail response");
+				}
+
 				if (instanceDetail?.MoonState != null)
 				{
 					Logger.Info("CloudService", $"Fetched instance state: BloodMoon={instanceDetail.MoonState.BloodMoonUnlocked}, Twilight={instanceDetail.MoonState.TwilightUnlocked}, MysticMoon={instanceDetail.MoonState.MysticMoonUnlocked}, Solstice={instanceDetail.MoonState.SolsticeUnlocked}");
@@ -214,6 +220,50 @@ namespace ToNStatTool.Services
 			catch (Exception ex)
 			{
 				Logger.Error("CloudService", $"Error fetching instance detail: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// インスタンスの全ラウンドログを取得（access_key使用）
+		/// </summary>
+		public async Task<CloudRoundDetail[]> FetchAllRoundLogsAsync(string instanceId)
+		{
+			if (!isEnabled || string.IsNullOrEmpty(serverUrl) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(instanceId))
+				return null;
+
+			// access_keyが必要
+			if (!instanceAccessKeys.TryGetValue(instanceId, out string accessKey))
+			{
+				Logger.Debug("CloudService", "No access_key available for fetching all round logs");
+				return null;
+			}
+
+			try
+			{
+				string shortId = ExtractShortInstanceId(instanceId);
+				if (string.IsNullOrEmpty(shortId))
+					return null;
+
+				string apiUrl = $"{serverUrl.TrimEnd('/')}/api/v1/stats/instance/{shortId}/rounds?key={Uri.EscapeDataString(accessKey)}";
+
+				var response = await httpClient.GetAsync(apiUrl);
+
+				if (!response.IsSuccessStatusCode)
+				{
+					Logger.Warn("CloudService", $"Failed to fetch all round logs: {response.StatusCode}");
+					return null;
+				}
+
+				var responseBody = await response.Content.ReadAsStringAsync();
+				var rounds = JsonConvert.DeserializeObject<CloudRoundDetail[]>(responseBody);
+
+				Logger.Info("CloudService", $"Fetched all {rounds?.Length ?? 0} round logs from cloud");
+				return rounds;
+			}
+			catch (Exception ex)
+			{
+				Logger.Error("CloudService", $"Error fetching all round logs: {ex.Message}");
 				return null;
 			}
 		}
@@ -470,6 +520,9 @@ namespace ToNStatTool.Services
 
 		[JsonProperty("total_rounds")]
 		public int TotalRounds { get; set; }
+
+		[JsonProperty("access_key")]
+		public string AccessKey { get; set; }
 
 		[JsonProperty("moon_state")]
 		public CloudInstanceMoonState MoonState { get; set; }

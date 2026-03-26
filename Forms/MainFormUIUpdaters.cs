@@ -523,8 +523,9 @@ namespace ToNStatTool
 
                 filteredCount++;
 
-                // リプレイの場合は「RP」、リアルタイムの場合は時間を表示
-                string timeDisplay = log.IsReplay ? "RP" : log.Timestamp.ToString("HH:mm");
+                // クラウドからラウンドログ取得済みならリプレイでも時間表示、未取得ならRP
+                bool canShowReplayTime = webSocketClient?.HasFetchedCloudRoundLogs == true;
+                string timeDisplay = (log.IsReplay && !canShowReplayTime) ? "RP" : log.Timestamp.ToString("HH:mm");
                 var item = new ListViewItem(timeDisplay);
                 item.SubItems.Add(log.RoundTypeDisplayName);
                 item.SubItems.Add(log.MapName);

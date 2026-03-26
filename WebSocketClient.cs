@@ -54,6 +54,7 @@ namespace ToNStatTool
 		public List<GameEvent> RecentEvents { get; private set; } = new List<GameEvent>();
 		public Dictionary<string, object> GameData { get; private set; } = new Dictionary<string, object>();
 		public List<RoundLog> RoundLogs { get; private set; } = new List<RoundLog>();
+		public bool HasFetchedCloudRoundLogs { get; private set; } = false;
 		public List<SaveCodeInfo> SaveCodes { get; private set; } = new List<SaveCodeInfo>();
 		public SessionStats SessionStats { get; private set; } = new SessionStats();
 		public const int MaxSaveCodes = 5; // 保持するセーブコードの最大数
@@ -2786,6 +2787,7 @@ namespace ToNStatTool
 
 				// ラウンドログをクリア
 				RoundLogs.Clear();
+				HasFetchedCloudRoundLogs = false;
 
 				System.Diagnostics.Debug.WriteLine("[リセット] ラウンド統計、テラー統計、ラウンドログをリセットしました");
 			}
@@ -2952,7 +2954,25 @@ namespace ToNStatTool
 				// クラウドのラウンドログをローカルにマージ
 				if (instanceDetail.Rounds != null && instanceDetail.Rounds.Length > 0)
 				{
-					MergeCloudRoundLogs(instanceDetail.Rounds);
+					// 50件制限に達している場合は全件取得を試みる
+					if (instanceDetail.TotalRounds > instanceDetail.Rounds.Length)
+					{
+						Logger.Info("Cloud", $"ラウンドログが50件制限（全{instanceDetail.TotalRounds}件）のため全件取得を試行");
+						var allRounds = await cloudService.FetchAllRoundLogsAsync(instanceUrl);
+						if (allRounds != null && allRounds.Length > 0)
+						{
+							MergeCloudRoundLogs(allRounds);
+						}
+						else
+						{
+							// 全件取得に失敗した場合は50件分を使用
+							MergeCloudRoundLogs(instanceDetail.Rounds);
+						}
+					}
+					else
+					{
+						MergeCloudRoundLogs(instanceDetail.Rounds);
+					}
 				}
 
 				// UIを更新
@@ -3040,6 +3060,7 @@ namespace ToNStatTool
 					RoundLogs.RemoveAt(0);
 				}
 
+				HasFetchedCloudRoundLogs = true;
 				Logger.Info("Cloud", $"クラウドからラウンドログ {addedCount} 件をマージしました（合計 {RoundLogs.Count} 件）");
 			}
 		}
