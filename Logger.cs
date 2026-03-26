@@ -36,7 +36,7 @@ namespace ToNStatTool
 
 		// 設定
 		private const string LOG_FOLDER_NAME = "logs";
-		private const int MAX_LOG_FILES = 10;
+		private const int MAX_LOG_FILES = 50;
 		private const string LOG_FILE_PREFIX = "ToNStatTool_";
 		private const string LOG_FILE_EXTENSION = ".log";
 		private const int FLUSH_INTERVAL_MS = 1000;

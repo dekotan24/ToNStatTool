@@ -626,7 +626,7 @@ namespace ToNStatTool
             var buttonClearFilter = new Button();
             buttonClearFilter.Name = "buttonClearFilter";
             buttonClearFilter.Text = "×";
-            buttonClearFilter.Location = new Point(405, 1);
+            buttonClearFilter.Location = new Point(355, 1);
             buttonClearFilter.Size = new Size(25, 25);
             buttonClearFilter.Click += ButtonClearFilter_Click;
             filterPanel.Controls.Add(buttonClearFilter);
@@ -635,7 +635,7 @@ namespace ToNStatTool
             var labelFilterCount = new Label();
             labelFilterCount.Name = "labelFilterCount";
             labelFilterCount.Text = "";
-            labelFilterCount.Location = new Point(435, 5);
+            labelFilterCount.Location = new Point(385, 5);
             labelFilterCount.Size = new Size(45, 20);
             labelFilterCount.TextAlign = ContentAlignment.MiddleRight;
             filterPanel.Controls.Add(labelFilterCount);

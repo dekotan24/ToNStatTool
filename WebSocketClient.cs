@@ -77,6 +77,9 @@ namespace ToNStatTool
 		// ダブルドラブル検出用
 		private bool isDoubleTroubleActive = false; // ダブルドラブルラウンド中かどうか
 		private DateTime doubleTroubleStartTime = DateTime.MinValue; // ダブルドラブル開始時刻
+		private bool hasReceivedRoundAnnouncement = false; // 接続後に正式なラウンドアナウンスを受けたか
+		private string pendingCloudFetchUrl = null; // バッファ処理完了後にフェッチするURL
+		private bool isFetchingCloudData = false; // クラウドフェッチ実行中フラグ
 
 		// Sound settings
 		public SoundSettings SoundSettings { get; private set; } = new SoundSettings();
@@ -676,6 +679,7 @@ namespace ToNStatTool
 
 				// ラウンド統計、ラウンドログをリセット（接続時にリプレイデータが送られてくるため）
 				ResetRoundStats();
+				hasReceivedRoundAnnouncement = false;
 				
 				// 推定生存回数をリセット（他のインスタンス状態設定値はそのまま）
 				InstanceState.EstimatedSurvivalCount = 0;
@@ -750,9 +754,18 @@ namespace ToNStatTool
 					finally
 					{
 						isProcessingBufferedEvents = false;
-						
+
 						// リプレイ終了後、最終的なテラー情報を反映するために1回だけ更新イベントを発火
 						OnTerrorUpdate?.Invoke();
+
+						// バッファ処理中に遅延されたクラウドフェッチを実行
+						if (!string.IsNullOrEmpty(pendingCloudFetchUrl))
+						{
+							string url = pendingCloudFetchUrl;
+							pendingCloudFetchUrl = null;
+							Logger.Info("Cloud", "バッファ処理完了、遅延クラウドフェッチを実行");
+							_ = FetchInstanceStateFromCloudAsync(url);
+						}
 					}
 				}
 			}
@@ -831,6 +844,12 @@ namespace ToNStatTool
 			{
 				Logger.Info("RoundType", $"ラウンド開始処理: {roundType} ({roundName})");
 				GameData["roundType"] = $"{ToNRoundTypeHelper.GetDisplayName(roundType)} (開始)";
+
+				// 正式なラウンドアナウンスを受信したことを記録（バッファ処理中以外）
+				if (!isProcessingBufferedEvents)
+				{
+					hasReceivedRoundAnnouncement = true;
+				}
 				
 				// ダブルドラブルがアクティブなら終了させる
 				if (isDoubleTroubleActive)
@@ -872,18 +891,19 @@ namespace ToNStatTool
 				var finishedRoundType = InstanceState.CurrentRoundType;
 				
 				FinishCurrentRound();
+
+				// クラウドにラウンド情報を送信（ResetAllPlayersAliveの前に実行すること）
+				SendRoundEndToCloud(finishedRoundType);
+
 				ResetAllPlayersAlive();
 				GameData["saboteur"] = "いいえ";
-				
+
 				// 上書きフラグをリセット
 				InstanceState.IsCurrentRoundOverride = false;
 
 				// ラウンド終了イベントを発火
 				OnRoundEnd?.Invoke();
 				Logger.Info("RoundType", $"ラウンド終了イベントを発火: {roundType}");
-
-				// クラウドにラウンド情報を送信
-				SendRoundEndToCloud(finishedRoundType);
 
 				// アイテムリマインダー対象ラウンドかチェック（Punished/8Pages）
 				// 注意: 受信したroundType(Intermission)ではなく、終了前のラウンドタイプを使用
@@ -931,15 +951,22 @@ namespace ToNStatTool
 			}
 			pendingSaboteurFlag = false; // pendingフラグは常にリセット
 			
-			// 上書きフラグを設定（通常確定時にOverrideラウンドまたは特殊ラウンドが出た場合）
+			// 上書きフラグを設定（通常確定時にOverrideラウンドが出た場合）
 			// ただしMasterChanged（MC）による特殊の場合は上書きではない
 			InstanceState.IsCurrentRoundOverride = false;
 			if (InstanceState.NormalRoundCount == 0 && !InstanceState.MasterChanged)
 			{
-				if (ToNRoundTypeHelper.IsOverrideRound(roundType) || ToNRoundTypeHelper.IsSpecialRound(roundType))
+				if (ToNRoundTypeHelper.IsOverrideRound(roundType))
 				{
+					// Ghost, Unbound, 8Pagesはフルムーン状態問わず通常枠を上書きできる
 					InstanceState.IsCurrentRoundOverride = true;
 					Logger.Info("Round", $"通常確定時に{roundType}が上書き（NormalRoundCount={InstanceState.NormalRoundCount}）");
+				}
+				else if (roundType == ToNRoundType.Alternate && InstanceState.SolsticeUnlocked)
+				{
+					// Alternateはフルムーン（Solstice解禁）時のみ通常枠を上書きできる
+					InstanceState.IsCurrentRoundOverride = true;
+					Logger.Info("Round", $"フルムーン時にAlternateが通常枠を上書き（NormalRoundCount={InstanceState.NormalRoundCount}）");
 				}
 			}
 			
@@ -1284,13 +1311,25 @@ namespace ToNStatTool
 				Logger.Info("DoubleTrouble", "FinishDoubleTroubleRound完了");
 			}
 			
+			// クラウドにラウンド情報を送信（ResetAllPlayersAliveの前に実行すること）
+			// 接続後に正式なラウンドアナウンスを受けていない場合はスキップ
+			// （接続直後の未アナウンスラウンドをダブトラと誤判定する可能性があるため）
+			if (hasReceivedRoundAnnouncement && !isProcessingBufferedEvents)
+			{
+				SendRoundEndToCloud(ToNRoundType.Double_Trouble);
+			}
+			else
+			{
+				Logger.Debug("DoubleTrouble", "クラウド送信スキップ: ラウンドアナウンス未受信またはバッファ処理中");
+			}
+
 			// ラウンド終了イベントを発火
 			OnRoundEnd?.Invoke();
-			
+
 			// プレイヤーの生存状態をリセット
 			ResetAllPlayersAlive();
 			GameData["saboteur"] = "いいえ";
-			
+
 			currentRound = null;
 		}
 
@@ -1850,8 +1889,17 @@ namespace ToNStatTool
 					InstanceState.HadRespawnedInRound = false;
 					InstanceState.IsRespawnSaveCode = false;
 
-					// クラウドからインスタンス状態を取得（非同期）
-					_ = FetchInstanceStateFromCloudAsync(instanceUrl);
+					// クラウドからインスタンス状態を取得
+					// バッファ処理中は遅延（処理完了後にフェッチする）
+					if (isProcessingBufferedEvents)
+					{
+						pendingCloudFetchUrl = instanceUrl;
+						Logger.Debug("Cloud", "バッファ処理中のためクラウドフェッチを遅延");
+					}
+					else
+					{
+						_ = FetchInstanceStateFromCloudAsync(instanceUrl);
+					}
 
 					OnInstanceStateChanged?.Invoke();
 				}
@@ -2788,6 +2836,7 @@ namespace ToNStatTool
 				// ラウンドログをクリア
 				RoundLogs.Clear();
 				HasFetchedCloudRoundLogs = false;
+				isFetchingCloudData = false;
 
 				System.Diagnostics.Debug.WriteLine("[リセット] ラウンド統計、テラー統計、ラウンドログをリセットしました");
 			}
@@ -2912,6 +2961,14 @@ namespace ToNStatTool
 			if (cloudService == null)
 				return;
 
+			// 既にフェッチ中または取得済みなら重複フェッチしない
+			if (isFetchingCloudData || HasFetchedCloudRoundLogs)
+			{
+				Logger.Debug("Cloud", $"クラウドフェッチスキップ (fetching={isFetchingCloudData}, fetched={HasFetchedCloudRoundLogs})");
+				return;
+			}
+
+			isFetchingCloudData = true;
 			try
 			{
 				var instanceDetail = await cloudService.FetchInstanceDetailAsync(instanceUrl);
@@ -2983,38 +3040,76 @@ namespace ToNStatTool
 			{
 				Logger.Warn("Cloud", $"クラウドからインスタンス状態取得エラー: {ex.Message}");
 			}
+			finally
+			{
+				isFetchingCloudData = false;
+			}
 		}
 
 		/// <summary>
 		/// クラウドから取得したラウンドログをローカルのRoundLogsにマージする
-		/// ローカルに既にあるラウンド（タイムスタンプ+ラウンドタイプ+テラーで重複判定）はスキップ
+		/// リプレイログはクラウドデータで置き換え、統計も更新する
 		/// </summary>
 		private void MergeCloudRoundLogs(CloudRoundDetail[] cloudRounds)
 		{
-			int addedCount = 0;
-
-			// ローカルの既存ラウンドをハッシュセットで管理（高速重複チェック用）
-			var existingKeys = new System.Collections.Generic.HashSet<string>();
-			foreach (var log in RoundLogs)
+			// クラウドのラウンドキー一覧を先に作成（リプレイ置き換え判定用）
+			var cloudKeys = new System.Collections.Generic.HashSet<string>();
+			foreach (var cr in cloudRounds)
 			{
-				// タイムスタンプ（分単位）+ ラウンドタイプ + テラー名で重複判定
-				string key = $"{log.Timestamp:yyyyMMddHHmm}|{log.RoundTypeDisplayName}|{log.TerrorNames}";
-				existingKeys.Add(key);
+				string t = cr.Terrors != null ? string.Join(", ", cr.Terrors) : "";
+				cloudKeys.Add($"{cr.RoundType}|{t}");
 			}
+
+			// クラウドに対応するリプレイログのみ削除（クラウドにないリプレイは残す）
+			int removedReplayCount = RoundLogs.RemoveAll(log => log.IsReplay && cloudKeys.Contains($"{log.RoundTypeDisplayName}|{log.TerrorNames}"));
+			if (removedReplayCount > 0)
+			{
+				// 統計をリセットして残ったログから再構築
+				RoundStats = new RoundStats();
+				TerrorStats = new TerrorStats();
+
+				foreach (var log in RoundLogs)
+				{
+					RoundStats.TotalRounds++;
+					if (log.WasOptedIn && log.Survived)
+						RoundStats.SurvivedRounds++;
+					RoundStats.IncrementCount(log.RoundType);
+
+					if (!string.IsNullOrEmpty(log.TerrorNames))
+					{
+						var names = log.TerrorNames.Split(new[] { ", " }, StringSplitOptions.RemoveEmptyEntries);
+						foreach (string t in names)
+						{
+							if (TerrorStats.TerrorTypeCounts.ContainsKey(t))
+								TerrorStats.TerrorTypeCounts[t]++;
+							else
+								TerrorStats.TerrorTypeCounts[t] = 1;
+						}
+					}
+				}
+
+				Logger.Info("Cloud", $"リプレイログ {removedReplayCount} 件をクラウドデータで置き換えます（統計リセット済み）");
+			}
+
+			// クラウドラウンドID（サーバー側で一意）で重複排除
+			var processedCloudIds = new System.Collections.Generic.HashSet<int>();
+
+			int addedCount = 0;
 
 			// クラウドのラウンドを古い順に処理（時系列順にリストに追加するため）
 			var sortedRounds = cloudRounds.OrderBy(r => r.StartedAt).ToArray();
 
 			foreach (var cloudRound in sortedRounds)
 			{
+				// クラウドのround IDで重複排除（LEFT JOINで同一ラウンドが複数行返る場合の対策）
+				if (processedCloudIds.Contains(cloudRound.Id))
+					continue;
+				processedCloudIds.Add(cloudRound.Id);
+
 				string terrorNames = cloudRound.Terrors != null ? string.Join(", ", cloudRound.Terrors) : "";
 
-				// 重複チェック
 				// クラウドのタイムスタンプはUTCなのでローカル時間に変換
 				var localTime = cloudRound.StartedAt.ToLocalTime();
-				string key = $"{localTime:yyyyMMddHHmm}|{cloudRound.RoundType}|{terrorNames}";
-				if (existingKeys.Contains(key))
-					continue;
 
 				// RoundLogに変換してマージ
 				var roundType = ToNRoundTypeHelper.Parse(cloudRound.RoundType);
@@ -3026,7 +3121,7 @@ namespace ToNStatTool
 					TerrorNames = terrorNames,
 					AliveCount = cloudRound.SurvivorCount,
 					TotalPlayerCount = cloudRound.PlayerCount,
-					IsReplay = false, // クラウドからの取得
+					IsReplay = false,
 				};
 
 				// 自分の参加情報があれば反映
@@ -3038,19 +3133,42 @@ namespace ToNStatTool
 				}
 				else
 				{
-					// 自分は不参加だったラウンド
 					roundLog.Survived = false;
 					roundLog.Items = "";
 					roundLog.WasOptedIn = false;
 				}
 
 				RoundLogs.Add(roundLog);
-				existingKeys.Add(key);
 				addedCount++;
+
+				// ラウンド統計を更新
+				RoundStats.TotalRounds++;
+				if (roundLog.WasOptedIn && roundLog.Survived)
+				{
+					RoundStats.SurvivedRounds++;
+				}
+				RoundStats.IncrementCount(roundType);
+
+				// テラー統計を更新
+				if (!string.IsNullOrEmpty(terrorNames))
+				{
+					var splitNames = terrorNames.Split(new[] { ", " }, StringSplitOptions.RemoveEmptyEntries);
+					foreach (string terror in splitNames)
+					{
+						if (TerrorStats.TerrorTypeCounts.ContainsKey(terror))
+						{
+							TerrorStats.TerrorTypeCounts[terror]++;
+						}
+						else
+						{
+							TerrorStats.TerrorTypeCounts[terror] = 1;
+						}
+					}
+				}
 			}
 
 			// タイムスタンプ順にソート
-			if (addedCount > 0)
+			if (addedCount > 0 || removedReplayCount > 0)
 			{
 				RoundLogs.Sort((a, b) => a.Timestamp.CompareTo(b.Timestamp));
 
