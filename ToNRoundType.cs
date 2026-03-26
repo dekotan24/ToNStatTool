@@ -320,19 +320,22 @@ namespace ToNStatTool
 
         /// <summary>
         /// 通常ラウンド（通常スロット消費）かどうかを判定
-        /// Classic, RUN が該当（周期計算で同じ扱い）
+        /// Classic, RUN, GIGABYTE が該当（周期計算で同じ扱い）
+        /// ※GIGABYTEはエイプリルフールイベントでClassicの代わりに出現する
         /// </summary>
         public static bool IsNormalRound(ToNRoundType roundType)
         {
             return roundType == ToNRoundType.Classic ||
-                   roundType == ToNRoundType.RUN;
+                   roundType == ToNRoundType.RUN ||
+                   roundType == ToNRoundType.GIGABYTE;
         }
 
         /// <summary>
         /// スペシャルラウンド（特殊スロット消費）かどうかを判定
         /// Fog, Punished, Sabotage, Cracked, Bloodbath, Double_Trouble, EX, Midnight, Alternate, Fog_Alternate,
-        /// Cold_Night, GIGABYTE が該当（イベントラウンドも特殊枠を消費する）
+        /// Cold_Night が該当
         /// ※Fog/Punished/Sabotage/Crackedは特殊枠から1/6で選出される
+        /// ※GIGABYTEはClassic上書き（通常枠消費）のためここには含まない
         /// </summary>
         public static bool IsSpecialRound(ToNRoundType roundType)
         {
@@ -346,8 +349,7 @@ namespace ToNStatTool
                    roundType == ToNRoundType.Midnight ||
                    roundType == ToNRoundType.Alternate ||
                    roundType == ToNRoundType.Fog_Alternate ||
-                   roundType == ToNRoundType.Cold_Night ||
-                   roundType == ToNRoundType.GIGABYTE;
+                   roundType == ToNRoundType.Cold_Night;
         }
 
         /// <summary>

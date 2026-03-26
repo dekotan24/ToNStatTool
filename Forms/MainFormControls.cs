@@ -425,7 +425,7 @@ namespace ToNStatTool
             groupBoxPlayerList = new GroupBox();
             groupBoxPlayerList.Text = "プレイヤー一覧";
             groupBoxPlayerList.Location = new Point(10, 300);
-            groupBoxPlayerList.Size = new Size(400, 415);
+            groupBoxPlayerList.Size = new Size(350, 415);
             this.Controls.Add(groupBoxPlayerList);
 
             var labelPlayerCount = new Label();
@@ -439,7 +439,7 @@ namespace ToNStatTool
 
             var buttonShowWarningUsers = new Button();
             buttonShowWarningUsers.Name = "buttonShowWarningUsers";
-            buttonShowWarningUsers.Location = new Point(320, 20);
+            buttonShowWarningUsers.Location = new Point(270, 20);
             buttonShowWarningUsers.Size = new Size(30, 25);
             buttonShowWarningUsers.Text = "👤";
             buttonShowWarningUsers.Font = new Font("Segoe UI Emoji", 9);
@@ -449,7 +449,7 @@ namespace ToNStatTool
 
             var buttonReloadWarningUsers = new Button();
             buttonReloadWarningUsers.Name = "buttonReloadWarningUsers";
-            buttonReloadWarningUsers.Location = new Point(355, 20);
+            buttonReloadWarningUsers.Location = new Point(305, 20);
             buttonReloadWarningUsers.Size = new Size(30, 25);
             buttonReloadWarningUsers.Text = "🔄";
             buttonReloadWarningUsers.Font = new Font("Segoe UI Emoji", 9);
@@ -460,13 +460,15 @@ namespace ToNStatTool
             var listViewPlayers = new DoubleBufferedListView();
             listViewPlayers.Name = "listViewPlayers";
             listViewPlayers.Location = new Point(10, 50);
-            listViewPlayers.Size = new Size(375, 350);
+            listViewPlayers.Size = new Size(325, 350);
             listViewPlayers.View = View.Details;
             listViewPlayers.FullRowSelect = true;
             listViewPlayers.GridLines = true;
-            listViewPlayers.Columns.Add("プレイヤー名", 180);
-            listViewPlayers.Columns.Add("状態", 60);
-            listViewPlayers.Columns.Add("種別", 70);
+            listViewPlayers.Columns.Add("プレイヤー名", 125);
+            listViewPlayers.Columns.Add("状態", 50);
+            listViewPlayers.Columns.Add("種別", 55);
+            listViewPlayers.Columns.Add("R数", 40);
+            listViewPlayers.Columns.Add("生存", 40);
             listViewPlayers.DoubleClick += ListViewPlayers_DoubleClick;
             
             // 右クリックメニューの作成
@@ -502,7 +504,7 @@ namespace ToNStatTool
         {
             groupBoxStats = new GroupBox();
             groupBoxStats.Text = "ラウンド統計";
-            groupBoxStats.Location = new Point(420, 300);
+            groupBoxStats.Location = new Point(370, 300);
             groupBoxStats.Size = new Size(300, 415);
             this.Controls.Add(groupBoxStats);
 
@@ -571,14 +573,14 @@ namespace ToNStatTool
         {
             groupBoxRoundLog = new GroupBox();
             groupBoxRoundLog.Text = "ラウンドログ";
-            groupBoxRoundLog.Location = new Point(730, 300);
-            groupBoxRoundLog.Size = new Size(450, 415);
+            groupBoxRoundLog.Location = new Point(680, 300);
+            groupBoxRoundLog.Size = new Size(500, 415);
             this.Controls.Add(groupBoxRoundLog);
 
             // フィルターパネル
             var filterPanel = new Panel();
             filterPanel.Location = new Point(10, 20);
-            filterPanel.Size = new Size(430, 30);
+            filterPanel.Size = new Size(480, 30);
             groupBoxRoundLog.Controls.Add(filterPanel);
 
             // ラウンド種別フィルター
@@ -624,7 +626,7 @@ namespace ToNStatTool
             var buttonClearFilter = new Button();
             buttonClearFilter.Name = "buttonClearFilter";
             buttonClearFilter.Text = "×";
-            buttonClearFilter.Location = new Point(355, 1);
+            buttonClearFilter.Location = new Point(405, 1);
             buttonClearFilter.Size = new Size(25, 25);
             buttonClearFilter.Click += ButtonClearFilter_Click;
             filterPanel.Controls.Add(buttonClearFilter);
@@ -633,7 +635,7 @@ namespace ToNStatTool
             var labelFilterCount = new Label();
             labelFilterCount.Name = "labelFilterCount";
             labelFilterCount.Text = "";
-            labelFilterCount.Location = new Point(385, 5);
+            labelFilterCount.Location = new Point(435, 5);
             labelFilterCount.Size = new Size(45, 20);
             labelFilterCount.TextAlign = ContentAlignment.MiddleRight;
             filterPanel.Controls.Add(labelFilterCount);
@@ -641,15 +643,16 @@ namespace ToNStatTool
             var listViewRoundLog = new DoubleBufferedListView();
             listViewRoundLog.Name = "listViewRoundLog";
             listViewRoundLog.Location = new Point(10, 55);
-            listViewRoundLog.Size = new Size(430, 345);
+            listViewRoundLog.Size = new Size(480, 345);
             listViewRoundLog.View = View.Details;
             listViewRoundLog.FullRowSelect = true;
             listViewRoundLog.GridLines = true;
             listViewRoundLog.Columns.Add("時刻", 40);
             listViewRoundLog.Columns.Add("ラウンド", 75);
-            listViewRoundLog.Columns.Add("マップ", 95);
-            listViewRoundLog.Columns.Add("テラー", 120);
-            listViewRoundLog.Columns.Add("アイテム", 78);
+            listViewRoundLog.Columns.Add("マップ", 100);
+            listViewRoundLog.Columns.Add("テラー", 125);
+            listViewRoundLog.Columns.Add("アイテム", 75);
+            listViewRoundLog.Columns.Add("生存", 42);
             groupBoxRoundLog.Controls.Add(listViewRoundLog);
 
             // ツールチップ設定

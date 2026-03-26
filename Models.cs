@@ -30,6 +30,14 @@ namespace ToNStatTool
 		public DateTime LastSeen { get; set; } = DateTime.Now;
 		public DateTime JoinedAt { get; set; } = DateTime.Now;
 		public bool IsWarningUser { get; set; } = false;
+		/// <summary>
+		/// join以降の経過ラウンド数（表示用、統計ではない）
+		/// </summary>
+		public int RoundCount { get; set; } = 0;
+		/// <summary>
+		/// join以降の生存ラウンド数（表示用、統計ではない）
+		/// </summary>
+		public int SurvivalCount { get; set; } = 0;
 	}
 
 	/// <summary>
@@ -252,7 +260,17 @@ namespace ToNStatTool
 		public string TerrorNames { get; set; }
 		public string Items { get; set; }
 		public bool Survived { get; set; }
-		
+
+		/// <summary>
+		/// ラウンド終了時の生存プレイヤー数
+		/// </summary>
+		public int AliveCount { get; set; }
+
+		/// <summary>
+		/// ラウンド終了時のインスタンス総人数
+		/// </summary>
+		public int TotalPlayerCount { get; set; }
+
 		/// <summary>
 		/// ラウンド開始時にゲームに参加していたか
 		/// </summary>

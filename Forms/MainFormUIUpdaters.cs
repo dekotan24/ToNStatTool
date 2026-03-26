@@ -215,7 +215,7 @@ namespace ToNStatTool
                 hashBuilder.Append(ThemeManager.IsDark ? "D" : "L");
                 foreach (var player in playerList.OrderBy(p => p.Name))
                 {
-                    hashBuilder.Append($"|{player.Name}:{player.IsAlive}:{player.UserId == localPlayerUserId}:{webSocketClient.IsWarningUser(player.Name)}");
+                    hashBuilder.Append($"|{player.Name}:{player.IsAlive}:{player.UserId == localPlayerUserId}:{webSocketClient.IsWarningUser(player.Name)}:{player.RoundCount}:{player.SurvivalCount}");
                 }
                 string currentHash = hashBuilder.ToString();
 
@@ -260,6 +260,8 @@ namespace ToNStatTool
                             warningPlayers++;
                         }
                         item.SubItems.Add(playerType);
+                        item.SubItems.Add(player.RoundCount.ToString());
+                        item.SubItems.Add(player.SurvivalCount.ToString());
 
                         if (displayName != player.Name)
                         {
@@ -303,6 +305,8 @@ namespace ToNStatTool
                         var errorItem = new ListViewItem($"[表示エラー] {player.UserId}");
                         errorItem.SubItems.Add(player.IsAlive ? "生存" : "死亡");
                         errorItem.SubItems.Add(player.UserId == localPlayerUserId ? "自分" : "他人");
+                        errorItem.SubItems.Add(player.RoundCount.ToString());
+                        errorItem.SubItems.Add(player.SurvivalCount.ToString());
                         errorItem.ForeColor = Color.Orange;
                         listView.Items.Add(errorItem);
                     }
@@ -426,11 +430,12 @@ namespace ToNStatTool
                 listView.BeginUpdate();
                 listView.Items.Clear();
 
-                if (roundStats.RoundTypeCounts.Count > 0)
+                var roundTypeCounts = roundStats.RoundTypeCounts.ToList();
+                if (roundTypeCounts.Count > 0)
                 {
-                    foreach (var kvp in roundStats.RoundTypeCounts.OrderByDescending(x => x.Value))
+                    foreach (var kvp in roundTypeCounts.OrderByDescending(x => x.Value))
                     {
-                        double percentage = (double)kvp.Value / roundStats.TotalRounds * 100;
+                        double percentage = roundStats.TotalRounds > 0 ? (double)kvp.Value / roundStats.TotalRounds * 100 : 0;
                         var item = new ListViewItem(ToNRoundTypeHelper.GetDisplayName(kvp.Key));
                         item.SubItems.Add(kvp.Value.ToString());
                         item.SubItems.Add(percentage.ToString("F1"));
@@ -449,9 +454,10 @@ namespace ToNStatTool
                 listView2.BeginUpdate();
                 listView2.Items.Clear();
 
-                if (terrorStats.TerrorTypeCounts.Count > 0)
+                var terrorTypeCounts = terrorStats.TerrorTypeCounts.ToList();
+                if (terrorTypeCounts.Count > 0)
                 {
-                    foreach (var kvp in terrorStats.TerrorTypeCounts.OrderByDescending(x => x.Value))
+                    foreach (var kvp in terrorTypeCounts.OrderByDescending(x => x.Value))
                     {
                         var item = new ListViewItem(kvp.Key);
                         item.SubItems.Add(kvp.Value.ToString());
@@ -524,6 +530,7 @@ namespace ToNStatTool
                 item.SubItems.Add(log.MapName);
                 item.SubItems.Add(log.TerrorNames);
                 item.SubItems.Add(string.IsNullOrEmpty(log.Items) || log.Items == "なし" ? "-" : log.Items);
+                item.SubItems.Add(log.IsReplay ? "-" : (log.TotalPlayerCount > 0 ? $"{log.AliveCount}/{log.TotalPlayerCount}" : "-"));
 
                 if (!log.WasOptedIn)
                 {

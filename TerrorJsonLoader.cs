@@ -84,7 +84,7 @@ namespace ToNStatTool
 				}
 
 				// テラー名の分割処理
-				if (terrorEntry.Key == "Mona & The Mountain" || terrorEntry.Key == "Luigi & Luigi Dolls")
+				if (TerrorConfiguration.AmpersandSplitExclusions.Contains(terrorEntry.Key))
 				{
 					// このテラーは分割しない
 					terrorDetails[terrorDetail.Name] = terrorDetail;

@@ -8,6 +8,16 @@ namespace ToNStatTool
 	public static class TerrorConfiguration
 	{
 		/// <summary>
+		/// " & " で分割しないテラー名のリスト
+		/// </summary>
+		public static readonly HashSet<string> AmpersandSplitExclusions = new HashSet<string>
+		{
+			"Mona & The Mountain",
+			"Luigi & Luigi Dolls",
+			"Search & Destroy",
+		};
+
+		/// <summary>
 		/// テラー名とスタン可否タイプのマッピング辞書（JSONデータが無い場合のフォールバック用）
 		/// </summary>
 		public static readonly Dictionary<string, TerrorStunType> StunConfig = new Dictionary<string, TerrorStunType>
