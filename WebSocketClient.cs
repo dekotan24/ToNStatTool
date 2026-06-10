@@ -937,7 +937,14 @@ namespace ToNStatTool
 			
 			currentRoundItems.Clear();
 			wasDeadDuringRound = false; // ラウンド開始時に死亡フラグをリセット
-			
+
+			// 全プレイヤーのラウンド内死亡フラグをリセット
+			// （前ラウンド終了後〜開始までの間に届いた遅延DEATH/ALIVE=falseの影響を持ち越さない）
+			foreach (var player in Players.Values)
+			{
+				player.DiedThisRound = false;
+			}
+
 			// サボタージュフラグの処理
 			// Sabotageラウンドの場合、ラウンド開始前にIS_SABOTEUR=Trueが来ている可能性があるので
 			// pendingSaboteurFlagを引き継ぐ
@@ -1053,7 +1060,8 @@ namespace ToNStatTool
 					// プレイヤー情報からも確認
 					if (!string.IsNullOrEmpty(LocalPlayerUserId) && Players.ContainsKey(LocalPlayerUserId))
 					{
-						survived = Players[LocalPlayerUserId].IsAlive;
+						var localPlayer = Players[LocalPlayerUserId];
+						survived = localPlayer.IsAlive && !localPlayer.DiedThisRound;
 						System.Diagnostics.Debug.WriteLine($"プレイヤー情報から生存状態を取得: {survived}");
 					}
 					// GameDataからも確認
@@ -1074,7 +1082,7 @@ namespace ToNStatTool
 
 				// 全員死亡チェック: 全プレイヤーが死亡している場合は生存をfalseに修正
 				// （TPKシナリオでALIVE=falseがROUND_TYPE終了より後に届く場合の安全弁）
-				int roundAliveCount = Players.Values.Count(p => p.IsAlive);
+				int roundAliveCount = CountRoundSurvivors();
 				int roundTotalCount = Players.Count;
 				if (survived && roundAliveCount == 0 && roundTotalCount > 0)
 				{
@@ -1090,9 +1098,9 @@ namespace ToNStatTool
 				RoundLogs.Add(currentRound);
 				Logger.Info("Round", $"ラウンドログに記録: {currentRound.RoundTypeDisplayName} - {(survived ? "生存" : "死亡")} - テラー: {currentRound.TerrorNames}");
 
-				// 統計を更新
+				// 統計を更新（クラウドマージ時の再集計と同じく、参加していたラウンドの生存のみカウント）
 				RoundStats.TotalRounds++;
-				if (survived)
+				if (currentRound.WasOptedIn && survived)
 				{
 					RoundStats.SurvivedRounds++;
 				}
@@ -1106,7 +1114,7 @@ namespace ToNStatTool
 					foreach (var player in Players.Values)
 					{
 						player.RoundCount++;
-						if (player.IsAlive)
+						if (player.IsAlive && !player.DiedThisRound)
 						{
 							player.SurvivalCount++;
 						}
@@ -1186,6 +1194,13 @@ namespace ToNStatTool
 			wasDeadDuringRound = false; // 通常と同じく、初期値は生存
 			wasSaboteurDuringRound = false;
 			pendingSaboteurFlag = false;
+
+			// 全プレイヤーのラウンド内死亡フラグをリセット
+			// （この直後に検出契機となったDEATHイベントの本処理でフラグが立つ）
+			foreach (var player in Players.Values)
+			{
+				player.DiedThisRound = false;
+			}
 			
 			// 現在のラウンド種別を記録
 			InstanceState.CurrentRoundType = ToNRoundType.Double_Trouble;
@@ -1235,7 +1250,7 @@ namespace ToNStatTool
 				bool survived = !wasDeadDuringRound && !wasSaboteurDuringRound;
 
 				// 全員死亡チェック
-				int dtAliveCount = Players.Values.Count(p => p.IsAlive);
+				int dtAliveCount = CountRoundSurvivors();
 				int dtTotalCount = Players.Count;
 				if (survived && dtAliveCount == 0 && dtTotalCount > 0)
 				{
@@ -1251,9 +1266,9 @@ namespace ToNStatTool
 				RoundLogs.Add(currentRound);
 				Logger.Info("DoubleTrouble", $"ラウンドログに記録: {currentRound.RoundTypeDisplayName} - {(survived ? "生存" : "死亡")} - テラー: {currentRound.TerrorNames}");
 
-				// 統計を更新
+				// 統計を更新（クラウドマージ時の再集計と同じく、参加していたラウンドの生存のみカウント）
 				RoundStats.TotalRounds++;
-				if (survived)
+				if (currentRound.WasOptedIn && survived)
 				{
 					RoundStats.SurvivedRounds++;
 				}
@@ -1264,7 +1279,7 @@ namespace ToNStatTool
 					foreach (var player in Players.Values)
 					{
 						player.RoundCount++;
-						if (player.IsAlive)
+						if (player.IsAlive && !player.DiedThisRound)
 						{
 							player.SurvivalCount++;
 						}
@@ -1455,7 +1470,9 @@ namespace ToNStatTool
 			Logger.Info("InstanceState", $"更新前: NormalRoundCount={InstanceState.NormalRoundCount}, InstanceState.WasOverrideInUncertainState={InstanceState.WasOverrideInUncertainState}");
 			
 			// インスタンス内の誰かが生存しているかチェック（推定生存回数用）
-			int aliveCount = Players.Values.Count(p => p.IsAlive);
+			// 全滅(TPK)時にリスポーンのALIVE/TRACKER更新が先に届いてもカウントしないよう、
+			// ラウンド内死亡フラグを考慮した集計を使用する
+			int aliveCount = CountRoundSurvivors();
 			bool anyoneSurvived = aliveCount > 0;
 			System.Diagnostics.Debug.WriteLine($"[InstanceState] ラウンド終了時の生存状況: 自分={survived}, インスタンス内生存者={aliveCount}人, anyoneSurvived={anyoneSurvived}");
 
@@ -1677,6 +1694,16 @@ namespace ToNStatTool
 			System.Diagnostics.Debug.WriteLine("[InstanceState] リセット");
 		}
 
+		/// <summary>
+		/// 現在のラウンドを生き残ったプレイヤー数をカウント
+		/// 全滅(TPK)時はラウンド終了通知より先にリスポーンのALIVE/TRACKER更新が届いて
+		/// IsAliveがtrueに戻ることがあるため、IsAliveだけでなくDiedThisRoundも参照する
+		/// </summary>
+		private int CountRoundSurvivors()
+		{
+			return Players.Values.Count(p => p.IsAlive && !p.DiedThisRound);
+		}
+
 		private void ResetAllPlayersAlive()
 		{
 			System.Diagnostics.Debug.WriteLine("[RESET] 全プレイヤーを生存状態にリセット");
@@ -1688,6 +1715,7 @@ namespace ToNStatTool
 					System.Diagnostics.Debug.WriteLine($"  - {player.Name}: 死亡 → 生存");
 				}
 				player.IsAlive = true;
+				player.DiedThisRound = false;
 				player.LastSeen = DateTime.Now;
 			}
 
@@ -1762,9 +1790,14 @@ namespace ToNStatTool
 
 			if (!string.IsNullOrEmpty(LocalPlayerUserId) && Players.ContainsKey(LocalPlayerUserId))
 			{
-				Players[LocalPlayerUserId].IsAlive = isAlive;
-				Players[LocalPlayerUserId].LastSeen = DateTime.Now;
-				
+				var localPlayer = Players[LocalPlayerUserId];
+				localPlayer.IsAlive = isAlive;
+				if (!isAlive)
+				{
+					localPlayer.DiedThisRound = true;
+				}
+				localPlayer.LastSeen = DateTime.Now;
+
 				// プレイヤー数変更イベントを発火
 				OnPlayerCountChanged?.Invoke();
 			}
@@ -2021,11 +2054,15 @@ namespace ToNStatTool
 							int prevRoundCount = 0;
 							int prevSurvivalCount = 0;
 							DateTime prevJoinedAt = DateTime.Now;
+							bool prevDiedThisRound = false;
+							bool wasAlreadyWarning = false;
 							if (existingPlayers.TryGetValue(userId, out var existing))
 							{
 								prevRoundCount = existing.RoundCount;
 								prevSurvivalCount = existing.SurvivalCount;
 								prevJoinedAt = existing.JoinedAt;
+								prevDiedThisRound = existing.DiedThisRound;
+								wasAlreadyWarning = existing.IsWarningUser;
 							}
 
 							var player = new PlayerInfo
@@ -2037,7 +2074,9 @@ namespace ToNStatTool
 								LastSeen = DateTime.Now,
 								JoinedAt = prevJoinedAt,
 								RoundCount = prevRoundCount,
-								SurvivalCount = prevSurvivalCount
+								SurvivalCount = prevSurvivalCount,
+								// ラウンド内死亡フラグは引き継ぐ（IsAliveのみ最新値で上書き）
+								DiedThisRound = prevDiedThisRound || !isAlive
 							};
 
 							Players[userId] = player;
@@ -2046,8 +2085,12 @@ namespace ToNStatTool
 							if (IsWarningUser(playerName))
 							{
 								player.IsWarningUser = true;
-								PlayWarningSound();
-								OnWarningUserJoined?.Invoke(playerName);
+								// 警告音・通知は新規検出時のみ（TRACKER更新のたびに鳴らさない）
+								if (!wasAlreadyWarning && !isProcessingBufferedEvents)
+								{
+									PlayWarningSound();
+									OnWarningUserJoined?.Invoke(playerName);
+								}
 								System.Diagnostics.Debug.WriteLine($"[WARNING] 警告対象ユーザーを検出: {playerName}");
 							}
 
@@ -2555,6 +2598,7 @@ namespace ToNStatTool
 				if (player != null)
 				{
 					player.IsAlive = false;
+					player.DiedThisRound = true;
 					player.LastSeen = DateTime.Now;
 					System.Diagnostics.Debug.WriteLine($"[DEATH] プレイヤー死亡: {player.Name} - メッセージ: {message}");
 					
@@ -2576,6 +2620,7 @@ namespace ToNStatTool
 						UserId = tempId,
 						IsLocal = false,
 						IsAlive = false, // 死亡状態で追加
+						DiedThisRound = true,
 						LastSeen = DateTime.Now,
 						JoinedAt = DateTime.Now
 					};
@@ -2894,7 +2939,7 @@ namespace ToNStatTool
 				int totalPlayerCount = 0;
 				lock (dataLock)
 				{
-					aliveCount = Players.Values.Count(p => p.IsAlive);
+					aliveCount = CountRoundSurvivors();
 					totalPlayerCount = Players.Count;
 				}
 

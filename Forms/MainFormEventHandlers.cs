@@ -464,10 +464,17 @@ namespace ToNStatTool
                 }
 
                 string[] parts = instanceUrl.Split(new[] { ':' }, 2);
-                string worldId = parts[0];
-                string instanceId = parts[1];
-                string launchUrl = $"https://vrchat.com/home/launch?worldId={worldId}&instanceId={instanceId}";
-                
+                string launchUrl;
+                if (parts.Length == 2)
+                {
+                    launchUrl = $"https://vrchat.com/home/launch?worldId={parts[0]}&instanceId={parts[1]}";
+                }
+                else
+                {
+                    // 想定外の形式の場合はそのままコピー
+                    launchUrl = instanceUrl;
+                }
+
                 Clipboard.SetText(launchUrl);
                 
                 var button = sender as Button;

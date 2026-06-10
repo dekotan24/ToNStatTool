@@ -27,6 +27,12 @@ namespace ToNStatTool
 		public string UserId { get; set; } = "";
 		public bool IsLocal { get; set; }
 		public bool IsAlive { get; set; } = true;
+		/// <summary>
+		/// 現在のラウンド中に一度でも死亡したか
+		/// ラウンド終了通知より先にリスポーンのALIVE/TRACKER更新が届いて
+		/// IsAliveがtrueに戻っても、ラウンド境界まで保持される
+		/// </summary>
+		public bool DiedThisRound { get; set; } = false;
 		public DateTime LastSeen { get; set; } = DateTime.Now;
 		public DateTime JoinedAt { get; set; } = DateTime.Now;
 		public bool IsWarningUser { get; set; } = false;
