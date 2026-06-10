@@ -69,10 +69,11 @@ namespace ToNStatTool
 			this.Icon = Properties.Resources.AppIcon;
 
 			// タブコントロール（オーナー描画でダークモード対応）
+			// ※DrawItemはOwnerDrawFixedでないと発火しない
 			tabControl = new TabControl();
 			tabControl.Location = new Point(10, 10);
 			tabControl.Size = new Size(445, 520);
-			tabControl.DrawMode = TabDrawMode.Normal;
+			tabControl.DrawMode = TabDrawMode.OwnerDrawFixed;
 			tabControl.DrawItem += TabControl_DrawItem;
 			this.Controls.Add(tabControl);
 
