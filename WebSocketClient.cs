@@ -1704,6 +1704,38 @@ namespace ToNStatTool
 			return Players.Values.Count(p => p.IsAlive && !p.DiedThisRound);
 		}
 
+		/// <summary>
+		/// プレイヤー名からプレイヤーを検索する
+		/// 似た名前のプレイヤー（例: "Ken" と "Kenta"）への誤マッチを防ぐため、
+		/// 完全一致 → 正規化一致 → 部分一致 の優先順位で評価する
+		/// 見つからない場合はKeyがnullのペアを返す
+		/// </summary>
+		private KeyValuePair<string, PlayerInfo> FindPlayerByName(string playerName)
+		{
+			if (string.IsNullOrEmpty(playerName))
+				return default(KeyValuePair<string, PlayerInfo>);
+
+			// 1. 完全一致（名前またはID）
+			var match = Players.FirstOrDefault(p => p.Value.Name == playerName || p.Key == playerName);
+			if (match.Key != null)
+				return match;
+
+			// 2. 正規化一致（空白・記号・大文字小文字の違いを無視）
+			string normalized = NormalizePlayerName(playerName);
+			if (!string.IsNullOrEmpty(normalized))
+			{
+				match = Players.FirstOrDefault(p => NormalizePlayerName(p.Value.Name) == normalized);
+				if (match.Key != null)
+					return match;
+			}
+
+			// 3. 部分一致（最後の手段: 名前の切り詰め等の対策。最も長く一致する候補を優先）
+			return Players
+				.Where(p => p.Value.Name.Contains(playerName) || playerName.Contains(p.Value.Name))
+				.OrderByDescending(p => Math.Min(p.Value.Name.Length, playerName.Length))
+				.FirstOrDefault();
+		}
+
 		private void ResetAllPlayersAlive()
 		{
 			System.Diagnostics.Debug.WriteLine("[RESET] 全プレイヤーを生存状態にリセット");
@@ -2532,12 +2564,8 @@ namespace ToNStatTool
 					System.Diagnostics.Debug.WriteLine($"[PLAYER_LEAVE] サウンドスキップ: バッファ処理中={isProcessingBufferedEvents}, インスタンス移動中={isInstanceTransitioning}, 初期リスト受信中={isReceivingInitialList}");
 				}
 
-				// 名前またはIDで検索
-				var playerToRemove = Players.FirstOrDefault(p =>
-					p.Value.Name == playerName ||
-					p.Key == playerName ||
-					p.Value.Name.Contains(playerName) ||
-					playerName.Contains(p.Value.Name));
+				// 名前またはIDで検索（完全一致 → 正規化一致 → 部分一致）
+				var playerToRemove = FindPlayerByName(playerName);
 
 				if (playerToRemove.Key != null)
 				{
@@ -2588,12 +2616,8 @@ namespace ToNStatTool
 					StartDoubleTroubleRound();
 				}
 
-				// より柔軟な検索
-				var player = Players.Values.FirstOrDefault(p =>
-					p.Name == playerName ||
-					p.Name.Contains(playerName) ||
-					playerName.Contains(p.Name) ||
-					NormalizePlayerName(p.Name) == NormalizePlayerName(playerName));
+				// 名前で検索（完全一致 → 正規化一致 → 部分一致）
+				var player = FindPlayerByName(playerName).Value;
 
 				if (player != null)
 				{
@@ -3413,12 +3437,8 @@ namespace ToNStatTool
 				if (string.IsNullOrWhiteSpace(playerName))
 					return false;
 
-				// プレイヤーを検索
-				var playerEntry = Players.FirstOrDefault(p =>
-					p.Value.Name == playerName ||
-					p.Value.Name.Contains(playerName) ||
-					playerName.Contains(p.Value.Name) ||
-					NormalizePlayerName(p.Value.Name) == NormalizePlayerName(playerName));
+				// プレイヤーを検索（完全一致 → 正規化一致 → 部分一致）
+				var playerEntry = FindPlayerByName(playerName);
 
 				if (playerEntry.Key != null)
 				{
