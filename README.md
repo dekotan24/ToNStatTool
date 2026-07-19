@@ -27,6 +27,7 @@ ToNStatToolは、VRChatワールド「**Terror of Nowhere**」のゲームデー
 | 👥 **プレイヤー管理** | 参加プレイヤーの生存状態をリアルタイム表示 |
 | ⚠️ **警告システム** | 特定ユーザーの参加を通知・警告 |
 | 🔔 **アイテムリマインダー** | 8ページ/アンバウンド終了後にアイテム装備を通知 |
+| 🥽 **VR通知** | XSOverlay連携でVRヘッドセット内にプッシュ通知 |
 | 🎨 **テーマ切替** | ダーク/ライトテーマに対応 |
 
 ---
@@ -80,8 +81,19 @@ ToNStatToolは、VRChatワールド「**Terror of Nowhere**」のゲームデー
 | 🟣 | スタン可否不明 |
 
 **特性アイコン:**
-- ➡️ 追跡型 | 🔄 徘徊型 | ⚡ テレポート | 💀 即死
-- ➕ 召喚 | ⬇️ デバフ | ↩️ カウンター | ••• 複数体
+
+テラーの行動特性を色付きバッジアイコンで表示します。アイコンにカーソルを合わせると詳細な説明が表示されます。
+
+| アイコン | 特性 | アイコン | 特性 |
+|:---:|------|:---:|------|
+| ![追跡型](docs/traits/chase.png) | 追跡型 | ![召喚](docs/traits/summon.png) | 召喚 |
+| ![徘徊型](docs/traits/wander.png) | 徘徊型 | ![複数体](docs/traits/multiple.png) | 複数体 |
+| ![壁貫通](docs/traits/wallpass.png) | 壁貫通 | ![変身](docs/traits/transform.png) | 変身・形態変化 |
+| ![即死](docs/traits/instantkill.png) | 即死 | ![停止](docs/traits/stop.png) | 停止 |
+| ![デバフ](docs/traits/debuff.png) | デバフ | ![速度](docs/traits/speed.png) | 速度（数値は最大速度） |
+| ![掴み](docs/traits/grab.png) | 掴み | ![カウンター](docs/traits/counter.png) | カウンター |
+| ![視界ダメージ](docs/traits/sight.png) | 視界ダメージ | ![スタン](docs/traits/stun.png) | スタン攻撃 |
+| ![テレポート](docs/traits/teleport.png) | テレポート | ![不明](docs/traits/unknown.png) | その他・不明 |
 
 ### 👥 プレイヤー管理
 
@@ -110,6 +122,21 @@ ToNStatToolは、VRChatワールド「**Terror of Nowhere**」のゲームデー
 - **サボタージュでキラー側になった時**
 
 テラー表示ウィンドウに「アイテムを持ち直してください」と表示されます。
+
+### 🥽 VR通知（XSOverlay連携）
+
+[XSOverlay](https://store.steampowered.com/app/1173510/XSOverlay/)のNotification APIを使って、VRヘッドセット内にプッシュ通知を表示します：
+
+| イベント | 内容 |
+|---------|------|
+| 次ラウンド予測 | ラウンド終了時に次ラウンドの予測を通知 |
+| テラー情報 | ラウンド開始時にテラー名とスタン可否を通知 |
+| 警告ユーザー参加 | 警告リストのユーザーが参加した時に通知 |
+| アイテムリマインダー | アイテム装備忘れをVR内にも通知 |
+
+- 設定画面の「VR通知」タブから有効化・イベント別ON/OFFを設定できます（デフォルトは無効）
+- 「テスト通知を送信」ボタンでVR内の表示を確認できます
+- XSOverlayが起動している必要があります（UDPポート既定: 42069）
 
 ### 📊 統計・ログ
 
@@ -153,6 +180,10 @@ ToNSaveManagerのポート設定を変更している場合は、接続URLを調
 ### テーマ
 
 設定画面からダーク/ライトテーマを切り替え可能。
+
+### VR通知
+
+設定画面の「VR通知」タブからXSOverlay通知の有効化・イベント別ON/OFF・UDPポートを設定可能。
 
 ---
 

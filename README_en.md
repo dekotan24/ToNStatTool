@@ -27,6 +27,7 @@ ToNStatTool is a Windows application that tracks and displays game data from the
 | 👥 **Player Management** | Shows player survival status in real-time |
 | ⚠️ **Warning System** | Notifies when specific users join |
 | 🔔 **Item Reminder** | Notifies to re-equip items after 8 Pages/Unbound |
+| 🥽 **VR Notifications** | Push notifications into your VR headset via XSOverlay |
 | 🎨 **Theme Switching** | Supports dark/light themes |
 
 ---
@@ -80,8 +81,19 @@ Displays current terrors with the following information:
 | 🟣 | Stun status unknown |
 
 **Trait Icons:**
-- ➡️ Chaser | 🔄 Wanderer | ⚡ Teleport | 💀 Instant Kill
-- ➕ Summoner | ⬇️ Debuff | ↩️ Counter | ••• Multiple
+
+Terror behavior traits are displayed as colored badge icons. Hover over an icon to see a detailed description.
+
+| Icon | Trait | Icon | Trait |
+|:---:|------|:---:|------|
+| ![Chaser](docs/traits/chase.png) | Chaser | ![Summoner](docs/traits/summon.png) | Summoner |
+| ![Wanderer](docs/traits/wander.png) | Wanderer | ![Multiple](docs/traits/multiple.png) | Multiple |
+| ![Wall Pass](docs/traits/wallpass.png) | Wall Pass | ![Transform](docs/traits/transform.png) | Transform |
+| ![Instant Kill](docs/traits/instantkill.png) | Instant Kill | ![Stop](docs/traits/stop.png) | Stop |
+| ![Debuff](docs/traits/debuff.png) | Debuff | ![Speed](docs/traits/speed.png) | Speed (number = max speed) |
+| ![Grab](docs/traits/grab.png) | Grab | ![Counter](docs/traits/counter.png) | Counter |
+| ![Sight Damage](docs/traits/sight.png) | Sight Damage | ![Stun Attack](docs/traits/stun.png) | Stun Attack |
+| ![Teleport](docs/traits/teleport.png) | Teleport | ![Unknown](docs/traits/unknown.png) | Other / Unknown |
 
 ### 👥 Player Management
 
@@ -110,6 +122,21 @@ Notifies you to re-equip items at the following times:
 - **When becoming killer in Sabotage**
 
 Displays "Please re-equip your items" in the Terror Display Window.
+
+### 🥽 VR Notifications (XSOverlay Integration)
+
+Shows push notifications inside your VR headset via the [XSOverlay](https://store.steampowered.com/app/1173510/XSOverlay/) Notification API:
+
+| Event | Description |
+|-------|-------------|
+| Next Round Prediction | Notifies the next round prediction when a round ends |
+| Terror Information | Notifies terror names with stun status when a round starts |
+| Warning User Join | When a user on the warning list joins |
+| Item Reminder | Item re-equip reminders, also in VR |
+
+- Enable and toggle each event from the "VR通知" (VR Notify) tab in Settings (disabled by default)
+- Use the test button to verify the notification appears in VR
+- XSOverlay must be running (default UDP port: 42069)
 
 ### 📊 Statistics & Logs
 
@@ -153,6 +180,10 @@ Supported formats: MP3, WAV
 ### Theme
 
 Switch between dark/light themes from the settings screen.
+
+### VR Notifications
+
+Enable XSOverlay notifications, toggle individual events, and change the UDP port from the "VR通知" (VR Notify) tab in Settings.
 
 ---
 
