@@ -136,6 +136,12 @@
     <Compile Include="Services\XSOverlayNotifier.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="WebSocketClient.cs" />
+    <Compile Include="WebSocket\WebSocketClient.Events.cs" />
+    <Compile Include="WebSocket\WebSocketClient.RoundState.cs" />
+    <Compile Include="WebSocket\WebSocketClient.Players.cs" />
+    <Compile Include="WebSocket\WebSocketClient.Sound.cs" />
+    <Compile Include="WebSocket\WebSocketClient.WarningUsers.cs" />
+    <Compile Include="WebSocket\WebSocketClient.Cloud.cs" />
     <Compile Include="Controls\DoubleBufferedListView.cs">
       <SubType>Component</SubType>
     </Compile>
