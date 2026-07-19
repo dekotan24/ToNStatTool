@@ -623,10 +623,10 @@ namespace ToNStatTool
 				var trait = terrorDetail.Traits[i];
 
 				var iconBox = new PictureBox();
-				iconBox.Size = new Size(14, 14);
+				iconBox.Size = new Size(15, 15);
 				iconBox.SizeMode = PictureBoxSizeMode.StretchImage;
 				// 説明付きでアイコンを取得（速度の場合は数値）
-				iconBox.Image = TerrorTraitIcons.GetTraitIcon(trait.TraitType, trait.Description, 16);
+				iconBox.Image = TerrorTraitIcons.GetTraitIcon(trait.TraitType, trait.Description, 15);
 				iconBox.Margin = new Padding(0, 1, 0, 1);
 
 				// ツールチップに説明を設定

@@ -2,115 +2,36 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Text;
 using System.Text.RegularExpressions;
 
 namespace ToNStatTool
 {
 	/// <summary>
-	/// テラー特性のアイコンを管理するクラス（テーマ対応版）
+	/// テラー特性のアイコンを管理するクラス（フラットバッジ版）
+	/// 角丸の色付き背景 + 白抜きグリフ。要求サイズの4倍で描画してから縮小することで、
+	/// 15px程度の小サイズでも輪郭が崩れないようにしている。
+	/// バッジは背景色を自前で持つためテーマ非依存。
 	/// </summary>
 	public static class TerrorTraitIcons
 	{
 		private static readonly Dictionary<string, Image> iconCache = new Dictionary<string, Image>();
-		private static AppTheme lastCachedTheme = AppTheme.Light;
 
-		#region テーマ対応色取得メソッド
+		/// <summary>要求サイズに対する内部描画の倍率（スーパーサンプリング）</summary>
+		private const int SuperSample = 4;
 
-		/// <summary>
-		/// 赤系の色を取得（追跡、視界ダメージ、停止、カウンター）
-		/// </summary>
-		private static Color GetRedColor()
-		{
-			return ThemeManager.IsDark ? Color.Red : Color.DarkRed;
-		}
+		#region バッジ背景色（ダーク/ライト両テーマで視認できる彩度）
 
-		/// <summary>
-		/// 暗い赤色を取得（即死）
-		/// </summary>
-		private static Color GetDarkRedColor()
-		{
-			return ThemeManager.IsDark ? Color.DarkRed : Color.Maroon;
-		}
-
-		/// <summary>
-		/// 青系の色を取得（徘徊、複数）
-		/// </summary>
-		private static Color GetBlueColor()
-		{
-			return ThemeManager.IsDark ? Color.Cyan : Color.SteelBlue;
-		}
-
-		/// <summary>
-		/// シアン色を取得（テレポート）
-		/// </summary>
-		private static Color GetCyanColor()
-		{
-			return ThemeManager.IsDark ? Color.Cyan : Color.Teal;
-		}
-
-		/// <summary>
-		/// 緑系の色を取得（召喚）
-		/// </summary>
-		private static Color GetGreenColor()
-		{
-			return ThemeManager.IsDark ? Color.LimeGreen : Color.DarkGreen;
-		}
-
-		/// <summary>
-		/// 紫系の色を取得（壁貫通、変身）
-		/// </summary>
-		private static Color GetPurpleColor()
-		{
-			return ThemeManager.IsDark ? Color.MediumPurple : Color.DarkMagenta;
-		}
-
-		/// <summary>
-		/// オレンジ系の色を取得（デバフ、掴み）
-		/// </summary>
-		private static Color GetOrangeColor()
-		{
-			return ThemeManager.IsDark ? Color.Orange : Color.OrangeRed;
-		}
-
-		/// <summary>
-		/// 黄色系の色を取得（速度、スタン）
-		/// </summary>
-		private static Color GetYellowColor()
-		{
-			return ThemeManager.IsDark ? Color.Gold : Color.Orange;
-		}
-
-		/// <summary>
-		/// グレー系の色を取得（デフォルト、壁）
-		/// </summary>
-		private static Color GetGrayColor()
-		{
-			return ThemeManager.IsDark ? Color.Gray : Color.DimGray;
-		}
-
-		/// <summary>
-		/// 白色を取得（背景用）
-		/// </summary>
-		private static Color GetWhiteColor()
-		{
-			return ThemeManager.IsDark ? Color.White : Color.WhiteSmoke;
-		}
-
-		/// <summary>
-		/// 黒色を取得（テキスト用）
-		/// </summary>
-		private static Color GetBlackColor()
-		{
-			return ThemeManager.IsDark ? Color.Black : Color.FromArgb(32, 32, 32);
-		}
-
-		/// <summary>
-		/// 速度アイコンの背景色を取得
-		/// </summary>
-		private static Color GetSpeedBackgroundColor()
-		{
-			return ThemeManager.IsDark ? Color.Yellow : Color.Gold;
-		}
+		private static readonly Color BadgeRed = Color.FromArgb(229, 72, 77);       // 追跡・視界・停止・カウンター
+		private static readonly Color BadgeDarkRed = Color.FromArgb(153, 27, 27);   // 即死
+		private static readonly Color BadgeBlue = Color.FromArgb(62, 123, 192);     // 徘徊・複数
+		private static readonly Color BadgeCyan = Color.FromArgb(0, 145, 178);      // テレポート
+		private static readonly Color BadgeGreen = Color.FromArgb(48, 164, 108);    // 召喚
+		private static readonly Color BadgePurple = Color.FromArgb(126, 91, 196);   // 壁貫通・変身
+		private static readonly Color BadgeOrange = Color.FromArgb(232, 119, 46);   // デバフ・掴み
+		private static readonly Color BadgeAmber = Color.FromArgb(245, 158, 11);    // 速度
+		private static readonly Color BadgeGold = Color.FromArgb(202, 138, 4);      // スタン
+		private static readonly Color BadgeGray = Color.FromArgb(107, 114, 128);    // 不明
 
 		#endregion
 
@@ -119,24 +40,16 @@ namespace ToNStatTool
 		/// </summary>
 		public static Image GetTraitIcon(string traitType, int size = 16)
 		{
-			// テーマごとにキャッシュキーを分ける（描画中のイメージを破棄しない）
-			string cacheKey = $"{traitType}_{size}_{ThemeManager.CurrentTheme}";
-
-			if (iconCache.ContainsKey(cacheKey))
-				return iconCache[cacheKey];
-
-			var icon = CreateTraitIcon(traitType, size);
-			iconCache[cacheKey] = icon;
-			return icon;
+			return GetTraitIcon(traitType, "", size);
 		}
 
 		/// <summary>
-		/// 特性タイプと説明に応じたアイコンを取得（説明付きバージョン）
+		/// 特性タイプと説明に応じたアイコンを取得（速度は説明から数値を抽出して表示）
 		/// </summary>
 		public static Image GetTraitIcon(string traitType, string description, int size = 16)
 		{
-			// テーマごとにキャッシュキーを分ける（描画中のイメージを破棄しない）
-			string cacheKey = $"{traitType}_{description}_{size}_{ThemeManager.CurrentTheme}";
+			// バッジはテーマ非依存なのでキャッシュキーにテーマは含めない
+			string cacheKey = $"{traitType}_{description}_{size}";
 
 			if (iconCache.ContainsKey(cacheKey))
 				return iconCache[cacheKey];
@@ -147,101 +60,142 @@ namespace ToNStatTool
 		}
 
 		/// <summary>
-		/// 特性カテゴリーに応じたアイコンを作成
-		/// </summary>
-		private static Image CreateTraitIcon(string traitType, int size)
-		{
-			return CreateTraitIcon(traitType, "", size);
-		}
-
-		/// <summary>
-		/// 特性カテゴリーに応じたアイコンを作成（説明付きバージョン）
+		/// 特性カテゴリーに応じたバッジアイコンを作成
 		/// </summary>
 		private static Image CreateTraitIcon(string traitType, string description, int size)
 		{
-			var bitmap = new Bitmap(size, size);
-			using (var g = Graphics.FromImage(bitmap))
+			// 高解像度で描画（最低48px確保）
+			int ss = Math.Max(size * SuperSample, 48);
+			float s = ss;
+
+			var big = new Bitmap(ss, ss);
+			using (var g = Graphics.FromImage(big))
 			{
 				g.SmoothingMode = SmoothingMode.AntiAlias;
+				g.TextRenderingHint = TextRenderingHint.AntiAlias;
 
-				string lowerType = traitType.ToLower();
+				string lowerType = (traitType ?? "").ToLower();
 
 				// 移動関連
 				if (lowerType.Contains("追跡"))
 				{
-					DrawChaseIcon(g, size);
+					DrawBadge(g, s, BadgeRed, DrawChaseGlyph);
 				}
 				else if (lowerType.Contains("徘徊"))
 				{
-					DrawWanderIcon(g, size);
+					DrawBadge(g, s, BadgeBlue, DrawWanderGlyph);
 				}
 				else if (lowerType.Contains("壁貫通"))
 				{
-					DrawWallPassIcon(g, size);
+					DrawBadge(g, s, BadgePurple, DrawWallPassGlyph);
 				}
 				// 攻撃関連
 				else if (lowerType.Contains("即死"))
 				{
-					DrawInstantKillIcon(g, size);
+					DrawBadge(g, s, BadgeDarkRed, DrawInstantKillGlyph);
 				}
 				else if (lowerType.Contains("デバフ"))
 				{
-					DrawDebuffIcon(g, size);
+					DrawBadge(g, s, BadgeOrange, DrawDebuffGlyph);
 				}
 				else if (lowerType.Contains("掴み"))
 				{
-					DrawGrabIcon(g, size);
+					DrawBadge(g, s, BadgeOrange, DrawGrabGlyph);
 				}
 				else if (lowerType.Contains("視界ダメージ") || lowerType.Contains("視認"))
 				{
-					DrawEyeIcon(g, size);
+					DrawBadge(g, s, BadgeRed, DrawEyeGlyph);
 				}
 				// 特殊能力
 				else if (lowerType.Contains("テレポート"))
 				{
-					DrawTeleportIcon(g, size);
+					DrawBadge(g, s, BadgeCyan, DrawTeleportGlyph);
 				}
 				else if (lowerType.Contains("召喚"))
 				{
-					DrawSummonIcon(g, size);
+					DrawBadge(g, s, BadgeGreen, DrawSummonGlyph);
 				}
 				else if (lowerType.Contains("複数"))
 				{
-					DrawMultipleIcon(g, size);
+					DrawBadge(g, s, BadgeBlue, DrawMultipleGlyph);
 				}
 				else if (lowerType.Contains("変身") || lowerType.Contains("形態"))
 				{
-					DrawTransformIcon(g, size);
+					DrawBadge(g, s, BadgePurple, DrawTransformGlyph);
 				}
 				else if (lowerType.Contains("停止"))
 				{
-					DrawStopIcon(g, size);
+					DrawBadge(g, s, BadgeRed, DrawStopGlyph);
 				}
 				// 速度関連
 				else if (lowerType.Contains("速度") || lowerType.Contains("加速"))
 				{
-					// 説明から最大速度を抽出して表示
 					string maxSpeed = ExtractMaxSpeed(description);
-					DrawSpeedIcon(g, size, maxSpeed);
+					DrawBadge(g, s, BadgeAmber, (gg, sz) => DrawSpeedGlyph(gg, sz, maxSpeed));
 				}
 				// カウンター
 				else if (lowerType.Contains("カウンター"))
 				{
-					DrawCounterIcon(g, size);
+					DrawBadge(g, s, BadgeRed, DrawCounterGlyph);
 				}
 				// スタン関連
 				else if (lowerType.Contains("スタン"))
 				{
-					DrawStunIcon(g, size);
+					DrawBadge(g, s, BadgeGold, DrawStunGlyph);
 				}
 				// その他
 				else
 				{
-					DrawDefaultIcon(g, size);
+					DrawBadge(g, s, BadgeGray, DrawDefaultGlyph);
 				}
 			}
 
-			return bitmap;
+			// 要求サイズへ高品質縮小
+			var bmp = new Bitmap(size, size);
+			using (var g = Graphics.FromImage(bmp))
+			{
+				g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+				g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+				g.SmoothingMode = SmoothingMode.AntiAlias;
+				g.DrawImage(big, new Rectangle(0, 0, size, size));
+			}
+			big.Dispose();
+			return bmp;
+		}
+
+		/// <summary>
+		/// 角丸バッジ背景を描いてからグリフを描画する
+		/// </summary>
+		private static void DrawBadge(Graphics g, float s, Color bg, Action<Graphics, float> glyph)
+		{
+			using (var path = RoundedRect(new RectangleF(s * 0.01f, s * 0.01f, s * 0.98f, s * 0.98f), s * 0.22f))
+			using (var brush = new SolidBrush(bg))
+			{
+				g.FillPath(brush, path);
+			}
+			glyph(g, s);
+		}
+
+		private static GraphicsPath RoundedRect(RectangleF r, float radius)
+		{
+			var path = new GraphicsPath();
+			float d = radius * 2;
+			path.AddArc(r.X, r.Y, d, d, 180, 90);
+			path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+			path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+			path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+			path.CloseFigure();
+			return path;
+		}
+
+		/// <summary>白の丸キャップペンを作成（呼び出し側でDispose）</summary>
+		private static Pen WhitePen(float s, float widthRatio = 0.10f)
+		{
+			var pen = new Pen(Color.White, s * widthRatio);
+			pen.StartCap = LineCap.Round;
+			pen.EndCap = LineCap.Round;
+			pen.LineJoin = LineJoin.Round;
+			return pen;
 		}
 
 		/// <summary>
@@ -311,325 +265,282 @@ namespace ToNStatTool
 			return "";
 		}
 
-		// 追跡アイコン（人型と矢印）
-		private static void DrawChaseIcon(Graphics g, int size)
+		#region グリフ描画（すべて白、座標はサイズ比）
+
+		// 追跡: 走る人型 + 右向き矢印
+		private static void DrawChaseGlyph(Graphics g, float s)
 		{
-			using (var pen = new Pen(GetRedColor(), 2))
+			using (var wb = new SolidBrush(Color.White))
+			using (var pen = WhitePen(s))
 			{
-				// 人型の簡易シルエット
-				g.DrawEllipse(pen, size / 4, 2, size / 6, size / 6); // 頭
-				g.DrawLine(pen, size / 3, size / 3, size / 3, size * 2 / 3); // 体
-																			 // 矢印
-				g.DrawLine(pen, size / 2, size / 2, size - 3, size / 2);
-				g.DrawLine(pen, size - 6, size / 2 - 3, size - 3, size / 2);
-				g.DrawLine(pen, size - 6, size / 2 + 3, size - 3, size / 2);
+				g.FillEllipse(wb, s * 0.20f, s * 0.14f, s * 0.20f, s * 0.20f);      // 頭
+				g.DrawLine(pen, s * 0.30f, s * 0.38f, s * 0.38f, s * 0.62f);        // 体（前傾）
+				g.DrawLine(pen, s * 0.38f, s * 0.62f, s * 0.24f, s * 0.84f);        // 後ろ脚
+				g.DrawLine(pen, s * 0.38f, s * 0.62f, s * 0.54f, s * 0.80f);        // 前脚
+				g.DrawLine(pen, s * 0.52f, s * 0.40f, s * 0.84f, s * 0.40f);        // 矢印軸
+				g.DrawLine(pen, s * 0.70f, s * 0.27f, s * 0.84f, s * 0.40f);        // 矢頭上
+				g.DrawLine(pen, s * 0.70f, s * 0.53f, s * 0.84f, s * 0.40f);        // 矢頭下
 			}
 		}
 
-		// 徘徊アイコン（ランダムな軌跡）
-		private static void DrawWanderIcon(Graphics g, int size)
+		// 徘徊: 蛇行する軌跡 + 矢頭
+		private static void DrawWanderGlyph(Graphics g, float s)
 		{
-			using (var pen = new Pen(GetBlueColor(), 1.5f))
+			using (var pen = WhitePen(s))
 			{
-				Point[] points = {
-					new Point(2, size / 2),
-					new Point(size / 4, size / 4),
-					new Point(size / 2, size * 3 / 4),
-					new Point(size * 3 / 4, size / 3),
-					new Point(size - 2, size * 2 / 3)
+				PointF[] points = {
+					new PointF(s * 0.16f, s * 0.66f),
+					new PointF(s * 0.32f, s * 0.32f),
+					new PointF(s * 0.50f, s * 0.66f),
+					new PointF(s * 0.70f, s * 0.36f)
 				};
-				g.DrawCurve(pen, points);
+				g.DrawCurve(pen, points, 0.6f);
+				g.DrawLine(pen, s * 0.60f, s * 0.32f, s * 0.70f, s * 0.36f);        // 矢頭
+				g.DrawLine(pen, s * 0.72f, s * 0.50f, s * 0.70f, s * 0.36f);
 			}
 		}
 
-		// 壁貫通アイコン（壁と通り抜ける矢印）
-		private static void DrawWallPassIcon(Graphics g, int size)
+		// 壁貫通: 半透明の壁 + 貫通する矢印
+		private static void DrawWallPassGlyph(Graphics g, float s)
 		{
-			using (var penWall = new Pen(GetGrayColor(), 3))
-			using (var penArrow = new Pen(GetPurpleColor(), 2))
+			using (var wallPen = new Pen(Color.FromArgb(150, Color.White), s * 0.10f))
+			using (var pen = WhitePen(s))
 			{
-				// 壁
-				g.DrawLine(penWall, size / 2, 2, size / 2, size - 2);
-				// 貫通矢印
-				g.DrawLine(penArrow, 2, size / 2, size - 2, size / 2);
-				g.DrawLine(penArrow, size - 5, size / 2 - 3, size - 2, size / 2);
-				g.DrawLine(penArrow, size - 5, size / 2 + 3, size - 2, size / 2);
+				wallPen.StartCap = LineCap.Round;
+				wallPen.EndCap = LineCap.Round;
+				g.DrawLine(wallPen, s * 0.50f, s * 0.16f, s * 0.50f, s * 0.84f);    // 壁
+				g.DrawLine(pen, s * 0.14f, s * 0.50f, s * 0.84f, s * 0.50f);        // 矢印軸
+				g.DrawLine(pen, s * 0.70f, s * 0.37f, s * 0.84f, s * 0.50f);        // 矢頭
+				g.DrawLine(pen, s * 0.70f, s * 0.63f, s * 0.84f, s * 0.50f);
 			}
 		}
 
-		// 即死アイコン（ドクロ改良版）
-		private static void DrawInstantKillIcon(Graphics g, int size)
+		// 即死: ドクロ
+		private static void DrawInstantKillGlyph(Graphics g, float s)
 		{
-			using (var brush = new SolidBrush(GetDarkRedColor()))
-			using (var whiteBrush = new SolidBrush(GetWhiteColor()))
+			using (var wb = new SolidBrush(Color.White))
+			using (var bb = new SolidBrush(BadgeDarkRed))
 			{
-				// ドクロの形
-				g.FillEllipse(brush, size / 4, size / 4, size / 2, size / 3);
-				// 目の穴
-				g.FillEllipse(whiteBrush, size / 3, size / 3, size / 8, size / 8);
-				g.FillEllipse(whiteBrush, size / 2, size / 3, size / 8, size / 8);
-				// 鼻
-				g.FillPolygon(whiteBrush, new Point[] {
-					new Point(size * 7 / 16, size * 5 / 12),
-					new Point(size * 9 / 16, size * 5 / 12),
-					new Point(size / 2, size / 2)
-				});
+				g.FillEllipse(wb, s * 0.24f, s * 0.14f, s * 0.52f, s * 0.46f);      // 頭蓋
+				g.FillRectangle(wb, s * 0.32f, s * 0.48f, s * 0.36f, s * 0.22f);    // 顎
+				g.FillEllipse(bb, s * 0.33f, s * 0.30f, s * 0.13f, s * 0.15f);      // 左目
+				g.FillEllipse(bb, s * 0.54f, s * 0.30f, s * 0.13f, s * 0.15f);      // 右目
+				g.FillRectangle(bb, s * 0.415f, s * 0.56f, s * 0.045f, s * 0.14f);  // 歯の隙間
+				g.FillRectangle(bb, s * 0.54f, s * 0.56f, s * 0.045f, s * 0.14f);
 			}
 		}
 
-		// デバフアイコン（下向き矢印に波模様）
-		private static void DrawDebuffIcon(Graphics g, int size)
+		// デバフ: 塗りつぶしの下向き矢印
+		private static void DrawDebuffGlyph(Graphics g, float s)
 		{
-			using (var pen = new Pen(GetOrangeColor(), 2))
+			using (var wb = new SolidBrush(Color.White))
 			{
-				// 下向き矢印
-				g.DrawLine(pen, size / 2, 2, size / 2, size - 4);
-				g.DrawLine(pen, size / 2 - 3, size - 7, size / 2, size - 4);
-				g.DrawLine(pen, size / 2 + 3, size - 7, size / 2, size - 4);
-
-				// 波模様（デバフ効果を表現）
-				using (var thinPen = new Pen(GetOrangeColor(), 1))
-				{
-					for (int i = 0; i < 3; i++)
-					{
-						int y = size / 4 + i * size / 8;
-						g.DrawArc(thinPen, size / 2 + 2, y, size / 8, size / 16, 0, 180);
-					}
-				}
+				PointF[] arrow = {
+					new PointF(s * 0.40f, s * 0.16f),
+					new PointF(s * 0.60f, s * 0.16f),
+					new PointF(s * 0.60f, s * 0.52f),
+					new PointF(s * 0.76f, s * 0.52f),
+					new PointF(s * 0.50f, s * 0.84f),
+					new PointF(s * 0.24f, s * 0.52f),
+					new PointF(s * 0.40f, s * 0.52f)
+				};
+				g.FillPolygon(wb, arrow);
 			}
 		}
 
-		// 掴みアイコン（手の形）
-		private static void DrawGrabIcon(Graphics g, int size)
+		// 掴み: 手のひら
+		private static void DrawGrabGlyph(Graphics g, float s)
 		{
-			using (var pen = new Pen(GetOrangeColor(), 2))
-			using (var brush = new SolidBrush(GetOrangeColor()))
+			using (var wb = new SolidBrush(Color.White))
+			using (var pen = WhitePen(s, 0.085f))
 			{
-				// 手のひら
-				g.FillEllipse(brush, size / 3, size / 3, size / 3, size / 2);
-				// 指
+				g.FillEllipse(wb, s * 0.28f, s * 0.52f, s * 0.44f, s * 0.32f);      // 手のひら
 				for (int i = 0; i < 4; i++)
 				{
-					int x = size / 3 + i * size / 12;
-					g.DrawLine(pen, x, size / 3, x, size / 6);
+					float x = s * (0.32f + i * 0.12f);
+					float topY = (i == 1 || i == 2) ? s * 0.16f : s * 0.24f;        // 中指・薬指を長く
+					g.DrawLine(pen, x, s * 0.56f, x, topY);
 				}
 			}
 		}
 
-		// 視界ダメージアイコン（目に波線）
-		private static void DrawEyeIcon(Graphics g, int size)
+		// 視界ダメージ: 目
+		private static void DrawEyeGlyph(Graphics g, float s)
 		{
-			using (var pen = new Pen(GetRedColor(), 1.5f))
-			using (var brush = new SolidBrush(GetWhiteColor()))
+			using (var wb = new SolidBrush(Color.White))
+			using (var bb = new SolidBrush(BadgeRed))
 			{
-				// 目の形
-				g.FillEllipse(brush, size / 4, size / 3, size / 2, size / 4);
-				g.DrawEllipse(pen, size / 4, size / 3, size / 2, size / 4);
-				// 瞳
-				g.FillEllipse(new SolidBrush(GetBlackColor()), size * 5 / 12, size * 5 / 12, size / 6, size / 8);
-				// ダメージ波線
-				using (var redPen = new Pen(GetRedColor(), 1))
-				{
-					for (int i = 0; i < 2; i++)
-					{
-						int y = size / 2 + i * size / 8;
-						g.DrawArc(redPen, size / 4, y, size / 2, size / 8, 0, 180);
-					}
-				}
+				// アーモンド形の目（上下まぶたをベジェ曲線で描いて両端を尖らせる）
+				var eye = new GraphicsPath();
+				eye.AddBezier(
+					s * 0.10f, s * 0.50f,
+					s * 0.30f, s * 0.16f, s * 0.70f, s * 0.16f,
+					s * 0.90f, s * 0.50f);
+				eye.AddBezier(
+					s * 0.90f, s * 0.50f,
+					s * 0.70f, s * 0.84f, s * 0.30f, s * 0.84f,
+					s * 0.10f, s * 0.50f);
+				eye.CloseFigure();
+				g.FillPath(wb, eye);
+				eye.Dispose();
+				g.FillEllipse(bb, s * 0.39f, s * 0.36f, s * 0.22f, s * 0.28f);      // 瞳
 			}
 		}
 
-		// テレポートアイコン（稲妻改良版）
-		private static void DrawTeleportIcon(Graphics g, int size)
+		// テレポート: 稲妻
+		private static void DrawTeleportGlyph(Graphics g, float s)
 		{
-			using (var pen = new Pen(GetCyanColor(), 2))
-			using (var brush = new SolidBrush(GetCyanColor()))
+			using (var wb = new SolidBrush(Color.White))
 			{
-				// ジグザグの稲妻
-				Point[] lightning = {
-					new Point(size * 3 / 4, 2),
-					new Point(size / 2, size / 3),
-					new Point(size * 2 / 3, size / 2),
-					new Point(size / 4, size - 2)
+				PointF[] bolt = {
+					new PointF(s * 0.60f, s * 0.10f),
+					new PointF(s * 0.30f, s * 0.52f),
+					new PointF(s * 0.47f, s * 0.52f),
+					new PointF(s * 0.40f, s * 0.90f),
+					new PointF(s * 0.72f, s * 0.44f),
+					new PointF(s * 0.53f, s * 0.44f)
 				};
-				g.DrawLines(pen, lightning);
+				g.FillPolygon(wb, bolt);
+			}
+		}
 
-				// エフェクト（点々）
-				for (int i = 0; i < 3; i++)
+		// 召喚: 円 + 十字（魔法陣）
+		private static void DrawSummonGlyph(Graphics g, float s)
+		{
+			using (var pen = WhitePen(s))
+			{
+				g.DrawEllipse(pen, s * 0.18f, s * 0.18f, s * 0.64f, s * 0.64f);
+				g.DrawLine(pen, s * 0.50f, s * 0.32f, s * 0.50f, s * 0.68f);
+				g.DrawLine(pen, s * 0.32f, s * 0.50f, s * 0.68f, s * 0.50f);
+			}
+		}
+
+		// 複数: 3つの人影
+		private static void DrawMultipleGlyph(Graphics g, float s)
+		{
+			using (var wb = new SolidBrush(Color.White))
+			{
+				// 左右（少し下げて小さめ）
+				for (int i = 0; i < 2; i++)
 				{
-					g.FillEllipse(brush, 2 + i * 3, size / 4 + i * 2, 2, 2);
-					g.FillEllipse(brush, size - 8 + i * 2, size * 2 / 3 - i * 2, 2, 2);
+					float cx = (i == 0) ? s * 0.24f : s * 0.76f;
+					g.FillEllipse(wb, cx - s * 0.07f, s * 0.30f, s * 0.14f, s * 0.14f);
+					g.FillEllipse(wb, cx - s * 0.10f, s * 0.48f, s * 0.20f, s * 0.28f);
 				}
+				// 中央（大きめ・手前）
+				g.FillEllipse(wb, s * 0.41f, s * 0.20f, s * 0.18f, s * 0.18f);
+				g.FillEllipse(wb, s * 0.37f, s * 0.42f, s * 0.26f, s * 0.38f);
 			}
 		}
 
-		// 召喚アイコン（魔法陣風）
-		private static void DrawSummonIcon(Graphics g, int size)
+		// 変身: 循環する2つの矢印
+		private static void DrawTransformGlyph(Graphics g, float s)
 		{
-			using (var pen = new Pen(GetGreenColor(), 2))
-			using (var thinPen = new Pen(GetGreenColor(), 1))
+			using (var pen = WhitePen(s))
 			{
-				// 外側の円
-				g.DrawEllipse(thinPen, 2, 2, size - 4, size - 4);
-				// 十字
-				g.DrawLine(pen, size / 2, 3, size / 2, size - 3);
-				g.DrawLine(pen, 3, size / 2, size - 3, size / 2);
-				// 対角線
-				g.DrawLine(thinPen, size / 4, size / 4, size * 3 / 4, size * 3 / 4);
-				g.DrawLine(thinPen, size * 3 / 4, size / 4, size / 4, size * 3 / 4);
+				g.DrawArc(pen, s * 0.20f, s * 0.20f, s * 0.60f, s * 0.60f, 200, 130);   // 上弧
+				g.DrawArc(pen, s * 0.20f, s * 0.20f, s * 0.60f, s * 0.60f, 20, 130);    // 下弧
+				// 上弧の矢頭（右上向き）
+				g.DrawLine(pen, s * 0.68f, s * 0.16f, s * 0.78f, s * 0.30f);
+				g.DrawLine(pen, s * 0.62f, s * 0.34f, s * 0.78f, s * 0.30f);
+				// 下弧の矢頭（左下向き）
+				g.DrawLine(pen, s * 0.32f, s * 0.84f, s * 0.22f, s * 0.70f);
+				g.DrawLine(pen, s * 0.38f, s * 0.66f, s * 0.22f, s * 0.70f);
 			}
 		}
 
-		// 複数アイコン（3つの人影）
-		private static void DrawMultipleIcon(Graphics g, int size)
+		// 停止: 一時停止バー
+		private static void DrawStopGlyph(Graphics g, float s)
 		{
-			using (var brush = new SolidBrush(GetBlueColor()))
+			using (var pen = WhitePen(s, 0.15f))
 			{
-				int figureWidth = size / 6;
-				int figureHeight = size / 3;
-
-				// 3つの人影
-				for (int i = 0; i < 3; i++)
-				{
-					int x = size / 6 + i * size / 4;
-					int y = size / 3;
-
-					// 頭
-					g.FillEllipse(brush, x, y, figureWidth, figureWidth);
-					// 体
-					g.FillRectangle(brush, x, y + figureWidth, figureWidth, figureHeight);
-				}
+				g.DrawLine(pen, s * 0.38f, s * 0.28f, s * 0.38f, s * 0.72f);
+				g.DrawLine(pen, s * 0.62f, s * 0.28f, s * 0.62f, s * 0.72f);
 			}
 		}
 
-		// 変身アイコン（変化する形）
-		private static void DrawTransformIcon(Graphics g, int size)
+		// 速度: 数値、なければ二重シェブロン
+		private static void DrawSpeedGlyph(Graphics g, float s, string speedText)
 		{
-			using (var pen = new Pen(GetPurpleColor(), 2))
-			{
-				// 変化前（四角）
-				g.DrawRectangle(pen, 2, size / 4, size / 3, size / 3);
-				// 矢印
-				g.DrawLine(pen, size / 3 + 2, size / 2, size * 2 / 3 - 2, size / 2);
-				g.DrawLine(pen, size * 2 / 3 - 5, size / 2 - 2, size * 2 / 3 - 2, size / 2);
-				g.DrawLine(pen, size * 2 / 3 - 5, size / 2 + 2, size * 2 / 3 - 2, size / 2);
-				// 変化後（円）
-				g.DrawEllipse(pen, size * 2 / 3, size / 4, size / 3 - 2, size / 3);
-			}
-		}
-
-		// 停止アイコン（停止標識）
-		private static void DrawStopIcon(Graphics g, int size)
-		{
-			using (var brush = new SolidBrush(GetRedColor()))
-			using (var whiteBrush = new SolidBrush(GetWhiteColor()))
-			{
-				// 八角形の停止標識
-				g.FillEllipse(brush, 2, 2, size - 4, size - 4);
-				// 白い「止」の文字風
-				g.FillRectangle(whiteBrush, size / 3, size / 4, size / 3, size / 8);
-				g.FillRectangle(whiteBrush, size * 5 / 12, size / 3, size / 6, size / 2);
-			}
-		}
-
-		// 速度アイコン（>>と数値、改良版）
-		private static void DrawSpeedIcon(Graphics g, int size, string speedText = "")
-		{
-			using (var brush = new SolidBrush(GetSpeedBackgroundColor()))
-			{
-				// 背景の四角形
-				g.FillRectangle(brush, 0, 0, size, size);
-			}
-
-			using (var pen = new Pen(GetBlackColor(), 1))
-			{
-				// 境界線
-				g.DrawRectangle(pen, 0, 0, size - 1, size - 1);
-			}
-
-			// 速度数値を表示
 			if (!string.IsNullOrEmpty(speedText))
 			{
-				using (var font = new Font("Arial", size * 0.35f, FontStyle.Bold))
-				using (var brush = new SolidBrush(GetBlackColor()))
+				float fontSize = s * (speedText.Length >= 2 ? 0.44f : 0.56f);
+				using (var font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Pixel))
+				using (var wb = new SolidBrush(Color.White))
 				{
-					var textSize = g.MeasureString(speedText, font);
-					float x = (size - textSize.Width) / 2;
-					float y = (size - textSize.Height) / 2;
-					g.DrawString(speedText, font, brush, x, y);
+					var sf = new StringFormat
+					{
+						Alignment = StringAlignment.Center,
+						LineAlignment = StringAlignment.Center
+					};
+					g.DrawString(speedText, font, wb, new RectangleF(0, s * -0.01f, s, s), sf);
 				}
 			}
 			else
 			{
-				// 数値がない場合は従来の>>アイコン
-				using (var pen = new Pen(GetBlackColor(), 1.5f))
+				using (var pen = WhitePen(s, 0.12f))
 				{
-					// 二重矢印
-					g.DrawLine(pen, size / 6, size / 2 - size / 8, size / 2, size / 2);
-					g.DrawLine(pen, size / 6, size / 2 + size / 8, size / 2, size / 2);
-					g.DrawLine(pen, size / 2, size / 2 - size / 8, size * 5 / 6, size / 2);
-					g.DrawLine(pen, size / 2, size / 2 + size / 8, size * 5 / 6, size / 2);
+					g.DrawLine(pen, s * 0.20f, s * 0.26f, s * 0.46f, s * 0.50f);
+					g.DrawLine(pen, s * 0.20f, s * 0.74f, s * 0.46f, s * 0.50f);
+					g.DrawLine(pen, s * 0.54f, s * 0.26f, s * 0.80f, s * 0.50f);
+					g.DrawLine(pen, s * 0.54f, s * 0.74f, s * 0.80f, s * 0.50f);
 				}
 			}
 		}
 
-		// カウンターアイコン（回転矢印改良版）
-		private static void DrawCounterIcon(Graphics g, int size)
+		// カウンター: 回転矢印 + 中央の「!」
+		private static void DrawCounterGlyph(Graphics g, float s)
 		{
-			using (var pen = new Pen(GetRedColor(), 2))
+			using (var pen = WhitePen(s, 0.09f))
+			using (var wb = new SolidBrush(Color.White))
 			{
-				// 反撃を表現する回転矢印
-				g.DrawArc(pen, 3, 3, size - 6, size - 6, 45, 270);
-				// 矢印の先端
-				g.DrawLine(pen, size - 4, size / 2 + 2, size - 2, size / 2);
-				g.DrawLine(pen, size - 4, size / 2 - 2, size - 2, size / 2);
-
-				// 中央に「!」マーク
-				using (var brush = new SolidBrush(GetRedColor()))
-				using (var font = new Font("Arial", size * 0.4f, FontStyle.Bold))
+				g.DrawArc(pen, s * 0.16f, s * 0.16f, s * 0.68f, s * 0.68f, -60, 270);
+				// 矢頭（円弧の終端付近）
+				g.DrawLine(pen, s * 0.86f, s * 0.28f, s * 0.80f, s * 0.44f);
+				g.DrawLine(pen, s * 0.66f, s * 0.32f, s * 0.80f, s * 0.44f);
+				// 中央の「!」
+				using (var exPen = WhitePen(s, 0.11f))
 				{
-					g.DrawString("!", font, brush, size / 2 - size / 8, size / 2 - size / 6);
+					g.DrawLine(exPen, s * 0.50f, s * 0.34f, s * 0.50f, s * 0.54f);
 				}
+				g.FillEllipse(wb, s * 0.44f, s * 0.62f, s * 0.12f, s * 0.12f);
 			}
 		}
 
-		// スタンアイコン（稲妻とスタン効果）
-		private static void DrawStunIcon(Graphics g, int size)
+		// スタン: バースト（8方向の光）
+		private static void DrawStunGlyph(Graphics g, float s)
 		{
-			using (var pen = new Pen(GetYellowColor(), 2))
-			using (var brush = new SolidBrush(GetYellowColor()))
+			using (var pen = WhitePen(s))
+			using (var wb = new SolidBrush(Color.White))
 			{
-				// スタン効果の星
-				for (int i = 0; i < 4; i++)
+				for (int i = 0; i < 8; i++)
 				{
-					double angle = i * Math.PI / 2;
-					int x1 = (int)(size / 2 + Math.Cos(angle) * size / 4);
-					int y1 = (int)(size / 2 + Math.Sin(angle) * size / 4);
-					int x2 = (int)(size / 2 + Math.Cos(angle) * size / 6);
-					int y2 = (int)(size / 2 + Math.Sin(angle) * size / 6);
-					g.DrawLine(pen, x2, y2, x1, y1);
+					double a = i * Math.PI / 4;
+					float len = (i % 2 == 0) ? s * 0.36f : s * 0.27f;
+					g.DrawLine(pen,
+						(float)(s * 0.5 + Math.Cos(a) * s * 0.14), (float)(s * 0.5 + Math.Sin(a) * s * 0.14),
+						(float)(s * 0.5 + Math.Cos(a) * len), (float)(s * 0.5 + Math.Sin(a) * len));
 				}
-
-				// 中央の円
-				g.FillEllipse(brush, size / 2 - size / 8, size / 2 - size / 8, size / 4, size / 4);
+				g.FillEllipse(wb, s * 0.42f, s * 0.42f, s * 0.16f, s * 0.16f);
 			}
 		}
 
-		// デフォルトアイコン（？マーク改良版）
-		private static void DrawDefaultIcon(Graphics g, int size)
+		// 不明: 「?」
+		private static void DrawDefaultGlyph(Graphics g, float s)
 		{
-			using (var brush = new SolidBrush(GetGrayColor()))
-			using (var whiteBrush = new SolidBrush(GetWhiteColor()))
-			using (var font = new Font("Arial", size * 0.5f, FontStyle.Bold))
+			using (var font = new Font("Segoe UI", s * 0.58f, FontStyle.Bold, GraphicsUnit.Pixel))
+			using (var wb = new SolidBrush(Color.White))
 			{
-				// 背景円
-				g.FillEllipse(brush, 1, 1, size - 2, size - 2);
-				// 白い「？」
-				var textSize = g.MeasureString("?", font);
-				g.DrawString("?", font, whiteBrush,
-					(size - textSize.Width) / 2, (size - textSize.Height) / 2);
+				var sf = new StringFormat
+				{
+					Alignment = StringAlignment.Center,
+					LineAlignment = StringAlignment.Center
+				};
+				g.DrawString("?", font, wb, new RectangleF(0, s * -0.02f, s, s), sf);
 			}
 		}
+
+		#endregion
 
 		/// <summary>
 		/// キャッシュをクリア
@@ -644,13 +555,11 @@ namespace ToNStatTool
 		}
 
 		/// <summary>
-		/// テーマ変更時の処理（キャッシュはクリアしない - 描画中のイメージを保護）
+		/// テーマ変更時の処理（バッジはテーマ非依存なので何もしない）
 		/// </summary>
 		public static void OnThemeChanged()
 		{
-			// キャッシュキーにテーマが含まれているので、
-			// クリアしなくても新しいテーマのアイコンが生成される
-			// 古いテーマのアイコンはアプリ終了時にDisposeされる
+			// フラットバッジは自前の背景色を持つためテーマの影響を受けない
 		}
 	}
 }
