@@ -26,7 +26,7 @@ ToNStatTool is a Windows application that tracks and displays game data from the
 | 📊 **Statistics Tracking** | Automatically records round and terror encounter stats |
 | 👥 **Player Management** | Shows player survival status in real-time |
 | ⚠️ **Warning System** | Notifies when specific users join |
-| 🔔 **Item Reminder** | Notifies to re-equip items after 8 Pages/Unbound |
+| 🔔 **Item Reminder** | Notifies to re-equip items after 8 Pages/Punished |
 | 🥽 **VR Notifications** | Push notifications into your VR headset via XSOverlay |
 | 🎨 **Theme Switching** | Supports dark/light themes |
 
@@ -117,7 +117,7 @@ Configuration:
 
 Notifies you to re-equip items at the following times:
 
-- **After 8 Pages / Unbound** - When rounds that confiscate items end
+- **After 8 Pages / Punished** - When rounds that confiscate items end
 - **After respawn and rejoin** - When you rejoin the game after respawning
 - **When becoming killer in Sabotage**
 

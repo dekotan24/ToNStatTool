@@ -58,7 +58,7 @@ namespace ToNStatTool
 		// 警告ユーザー参加時サウンド
 		public bool EnableWarningUserSound { get; set; } = true;
 		public string WarningUserSoundPath { get; set; } = "";
-		// アイテムリマインダー設定（8ページ/アンバウンド/サボタージュ）
+		// アイテムリマインダー設定（8ページ/パニッシュド/サボタージュ）
 		public bool EnableItemReminder { get; set; } = true;
 		public bool EnableItemReminderSound { get; set; } = true;
 		public string ItemReminderSoundPath { get; set; } = "";

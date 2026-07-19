@@ -35,7 +35,7 @@ namespace ToNStatTool
 		public event Action<ToNRoundType> OnRoundStart;
 		public event Action OnInstanceStateChanged; // インスタンス状態変更イベント
 		public event Action OnPlayerCountChanged; // プレイヤー数変更イベント
-		public event Action OnItemReminderRoundEnd; // 8ページ/アンバウンド終了時のリマインダーイベント
+		public event Action OnItemReminderRoundEnd; // 8ページ/パニッシュド終了時のリマインダーイベント
 		public event Action OnMasterChanged; // マスター変更イベント
 		public event Action<SaveCodeInfo> OnSaveCodeReceived; // セーブコード受信イベント
 		public event Action<bool> OnOptedInChanged; // ゲーム参加状態変更イベント

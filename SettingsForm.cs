@@ -369,7 +369,7 @@ namespace ToNStatTool
 		{
 			// リマインダー設定グループ
 			var groupReminder = new GroupBox();
-			groupReminder.Text = "8ページ / アンバウンド終了時のリマインダー";
+			groupReminder.Text = "8ページ / パニッシュド終了時のリマインダー";
 			groupReminder.Location = new Point(10, 10);
 			groupReminder.Size = new Size(415, 220);
 			tab.Controls.Add(groupReminder);
@@ -384,7 +384,7 @@ namespace ToNStatTool
 
 			// 説明ラベル
 			var labelDescription = new Label();
-			labelDescription.Text = "8ページ・アンバウンド終了後、テラー表示ウィンドウに\n「アイテムを持ち直してください」と表示します。\nサボタージュでキラー側になった時も通知します。";
+			labelDescription.Text = "8ページ・パニッシュド終了後、テラー表示ウィンドウに\n「アイテムを持ち直してください」と表示します。\nサボタージュでキラー側になった時も通知します。";
 			labelDescription.Location = new Point(15, 55);
 			labelDescription.Size = new Size(380, 50);
 			labelDescription.ForeColor = Color.Gray;
