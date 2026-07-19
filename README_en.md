@@ -21,13 +21,16 @@ ToNStatTool is a Windows application that tracks and displays game data from the
 
 | Feature | Description |
 |---------|-------------|
-| 🔮 **Next Round Prediction** | Predicts the next round type based on round cycles |
-| 👻 **Terror Information** | Displays current terrors with icons in real-time |
-| 📊 **Statistics Tracking** | Automatically records round and terror encounter stats |
+| 🔮 **Next Round Prediction** | Predicts the next round type based on round cycles and Moon unlock conditions |
+| 👻 **Terror Information** | Displays current terrors with stun status and trait icons in real-time |
+| 📊 **Statistics Tracking** | Automatically records session stats and round/terror encounter stats |
+| 📝 **Round Log** | Records every round with filtering and CSV export |
 | 👥 **Player Management** | Shows player survival status in real-time |
-| ⚠️ **Warning System** | Notifies when specific users join |
-| 🔔 **Item Reminder** | Notifies to re-equip items after 8 Pages/Punished |
+| ⚠️ **Warning System** | Notifies with sound and highlight when specific users join |
+| 🔔 **Item Reminder** | Notifies to re-equip items after 8 Pages/Punished and more |
 | 🥽 **VR Notifications** | Push notifications into your VR headset via XSOverlay |
+| ☁️ **Cloud Sync** | Sends round info and fetches past logs / instance state |
+| 💾 **Save Codes** | One-click access to recently received save codes |
 | 🎨 **Theme Switching** | Supports dark/light themes |
 
 ---
@@ -49,8 +52,8 @@ ToNStatTool is a Windows application that tracks and displays game data from the
 
 ```
 1. Start ToNSaveManager and enable WebSocket API Server
-2. Launch `ToNStatTool.exe`
-3. Click the "Connect" button
+2. Launch `ToNStatTool.exe` (it will try to auto-connect on startup)
+3. If not connected, click the "Connect" button
 ```
 
 ---
@@ -64,13 +67,18 @@ Analyzes in-game round cycles to predict the next round type:
 - **Normal** - Next round is Normal (Classic/RUN)
 - **Special** - Next round is Special (Alternate, Punished, etc.)
 - **Normal or Special** - Either is possible
-- **Moon** - Predicted when unlock conditions are met
+- **Moon** - Predicted when unlock conditions are met (3 birds, survival count, Midnight survival, etc.)
+- **Special (Master Change)** - Guaranteed Special due to instance master change
 
-> ⚠️ Predictions are probability-based and not 100% accurate
+> ⚠️ Predictions are probability-based and not 100% accurate.
+> To improve accuracy, adjust the "Instance State" settings manually (see below).
 
 ### 👻 Terror Information
 
-Displays current terrors with the following information:
+Displays current terrors with stun status, behavior traits, and terror images.
+The compact "Terror Display Window" (with adjustable opacity) is handy for streaming layouts or a second monitor.
+
+**Stun Status Icons:**
 
 | Icon | Meaning |
 |:---:|---------|
@@ -95,6 +103,11 @@ Terror behavior traits are displayed as colored badge icons. Hover over an icon 
 | ![Sight Damage](docs/traits/sight.png) | Sight Damage | ![Stun Attack](docs/traits/stun.png) | Stun Attack |
 | ![Teleport](docs/traits/teleport.png) | Teleport | ![Unknown](docs/traits/unknown.png) | Other / Unknown |
 
+**Additional Displays:**
+
+- 🏠 **HFA (Homefield Advantage)** - Shows a house icon when the current map is a combination where the terror is empowered
+- 🔀 **Unbound Breakdown** - During Unbound rounds, expands the display into the individual terrors
+
 ### 👥 Player Management
 
 - Real-time survival/death status display
@@ -108,6 +121,7 @@ Detects and notifies when specific users join:
 - Audio alert
 - Window title notification
 - Orange highlight in player list
+- View, remove, and reload the list from within the app
 
 Configuration:
 1. Add usernames to `warn_user.txt` (one per line)
@@ -140,10 +154,23 @@ Shows push notifications inside your VR headset via the [XSOverlay](https://stor
 
 ### 📊 Statistics & Logs
 
-- **Session Stats** - Survivals, deaths, stuns, damage taken
+- **Session Stats** - Survivals, deaths, survival rate, stuns, damage taken
 - **Round Stats** - Count and percentage by round type
 - **Terror Stats** - Encounter count by terror
-- **Round Log** - Time, round type, map, terrors, result
+- **Round Log** - Time, round type, map, terrors, items, result
+  - Filter by round type and terror name
+  - Export to CSV file
+- **Save Codes** - View and copy recently received save codes (up to 5) via the 💾 button
+
+### ☁️ Cloud Sync
+
+Connects to a cloud server to share round information:
+
+- **Send** - Sends terror, map, and survivor info to the cloud when a round ends
+- **Fetch** - Fetches past round logs of the same instance and merges them into the local log
+- **State Sharing** - Fetches instance state (cycle, Moon unlocks, etc.) when joining mid-instance to improve prediction accuracy
+
+Enable it from the "その他" (Other) tab in Settings (disabled by default). An API key is required.
 
 ### 🌙 Instance State Management
 
@@ -185,6 +212,10 @@ Switch between dark/light themes from the settings screen.
 
 Enable XSOverlay notifications, toggle individual events, and change the UDP port from the "VR通知" (VR Notify) tab in Settings.
 
+### Cloud Sync
+
+Enable cloud sync and set the server URL / API key from the "その他" (Other) tab in Settings.
+
 ---
 
 ## 📁 File Structure
@@ -193,6 +224,8 @@ Enable XSOverlay notifications, toggle individual events, and change the UDP por
 ToNStatTool/
 ├── ToNStatTool.exe       # Main executable
 ├── terrorsInfo.json      # Terror information database
+├── unboundInfo.json      # Unbound breakdown data
+├── hfaInfo.json          # HFA (Homefield Advantage) data
 ├── warn_user.txt         # Warning user list
 ├── settings.json         # App settings (auto-generated)
 ├── sound_settings.json   # Sound settings (auto-generated)
@@ -271,6 +304,13 @@ Get the latest `terrorsInfo.json` from the following repository:
 ### Next Round Prediction is Wrong
 
 - Prediction accuracy decreases immediately after joining mid-instance
+- Manually adjusting bird encounters / Moon unlocks in "Instance State" settings helps
+
+### VR Notifications Not Showing
+
+- Verify XSOverlay is running
+- Press "テスト通知を送信" (Send test notification) in the VR Notify tab to check connectivity
+- Verify the UDP port setting (default: 42069) matches XSOverlay
 
 ---
 
@@ -303,7 +343,7 @@ See [LICENSE](LICENSE) file and `licenses/` directory for details.
 - **terrorsInfo.json**: yussy - [ToNRoundCounter](https://github.com/lovetwice1012/ToNRoundCounter)
 - **Sound Assets**: [OtoLogic](https://otologic.jp) (CC BY 4.0)
 - **ToNSaveManager**: [ChrisFeline](https://github.com/ChrisFeline/ToNSaveManager)
-- **Development Support**: [Claude](https://claude.ai) (Opus 4.5)
+- **Development Support**: [Claude](https://claude.ai)
 
 ---
 
