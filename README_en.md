@@ -73,12 +73,12 @@ Analyzes in-game round cycles to predict the next round type:
 Displays current terrors with the following information:
 
 | Icon | Meaning |
-|------|---------|
-| 🟢 | Stunnable |
-| 🟡 | Conditional Stun |
-| 🔴 | Do NOT Stun |
-| ⚪ | Stun has no effect |
-| 🟣 | Stun status unknown |
+|:---:|---------|
+| ![Stunnable](docs/stun/safe.png) | Stunnable |
+| ![Conditional Stun](docs/stun/caution.png) | Conditional Stun (use caution) |
+| ![Do NOT Stun](docs/stun/forbidden.png) | Do NOT Stun |
+| ![No effect](docs/stun/ineffective.png) | Stun has no effect |
+| ![Unknown](docs/stun/unknown.png) | Stun status unknown |
 
 **Trait Icons:**
 

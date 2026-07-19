@@ -116,6 +116,7 @@
     <Compile Include="UnboundJsonLoader.cs" />
     <Compile Include="HfaJsonLoader.cs" />
     <Compile Include="TerrorStunType.cs" />
+    <Compile Include="TerrorStunIcons.cs" />
     <Compile Include="TerrorTraitIcons.cs" />
     <Compile Include="ThemeManager.cs" />
     <Compile Include="ToNStatTool.cs">
