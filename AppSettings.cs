@@ -48,6 +48,36 @@ namespace ToNStatTool
 		public string CloudApiKey { get; set; } = "";
 
 		/// <summary>
+		/// XSOverlayへのVR通知を有効にするか（デフォルトはオフ）
+		/// </summary>
+		public bool EnableXSOverlayNotify { get; set; } = false;
+
+		/// <summary>
+		/// XSOverlay Notification APIのUDPポート
+		/// </summary>
+		public int XSOverlayPort { get; set; } = 42069;
+
+		/// <summary>
+		/// 次ラウンド予測をXSOverlayに通知するか
+		/// </summary>
+		public bool XSOverlayNotifyPrediction { get; set; } = true;
+
+		/// <summary>
+		/// 警告ユーザー参加をXSOverlayに通知するか
+		/// </summary>
+		public bool XSOverlayNotifyWarningUser { get; set; } = true;
+
+		/// <summary>
+		/// アイテムリマインダーをXSOverlayに通知するか
+		/// </summary>
+		public bool XSOverlayNotifyItemReminder { get; set; } = true;
+
+		/// <summary>
+		/// テラー情報をXSOverlayに通知するか
+		/// </summary>
+		public bool XSOverlayNotifyTerror { get; set; } = true;
+
+		/// <summary>
 		/// 設定をファイルから読み込む
 		/// </summary>
 		public static AppSettings Load()

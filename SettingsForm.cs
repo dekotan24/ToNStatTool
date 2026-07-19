@@ -45,6 +45,15 @@ namespace ToNStatTool
 		private TextBox textCloudServerUrl;
 		private TextBox textCloudApiKey;
 
+		// VR通知（XSOverlay）設定コントロール
+		private CheckBox checkXSOverlayEnabled;
+		private CheckBox checkXSONotifyPrediction;
+		private CheckBox checkXSONotifyWarningUser;
+		private CheckBox checkXSONotifyItemReminder;
+		private CheckBox checkXSONotifyTerror;
+		private NumericUpDown numXSOverlayPort;
+		private Button buttonXSOverlayTest;
+
 		// 音声再生用
 		private IWavePlayer currentPlayer;
 		private AudioFileReader currentAudioFile;
@@ -86,6 +95,11 @@ namespace ToNStatTool
 			var tabReminder = new TabPage("アイテムリマインダー");
 			tabControl.TabPages.Add(tabReminder);
 			CreateReminderSettingsTab(tabReminder);
+
+			// VR通知タブ
+			var tabVRNotify = new TabPage("VR通知");
+			tabControl.TabPages.Add(tabVRNotify);
+			CreateVRNotifySettingsTab(tabVRNotify);
 
 			// テーマ設定タブ
 			var tabTheme = new TabPage("テーマ");
@@ -560,6 +574,106 @@ namespace ToNStatTool
 			groupCloud.Controls.Add(textCloudApiKey);
 		}
 
+		private void CreateVRNotifySettingsTab(TabPage tab)
+		{
+			// XSOverlay通知グループ
+			var groupXSO = new GroupBox();
+			groupXSO.Text = "XSOverlay通知";
+			groupXSO.Location = new Point(10, 10);
+			groupXSO.Size = new Size(415, 320);
+			tab.Controls.Add(groupXSO);
+
+			// 有効/無効
+			checkXSOverlayEnabled = new CheckBox();
+			checkXSOverlayEnabled.Text = "XSOverlayにVR通知を送信する";
+			checkXSOverlayEnabled.Location = new Point(15, 25);
+			checkXSOverlayEnabled.Size = new Size(250, 20);
+			checkXSOverlayEnabled.CheckedChanged += (s, e) => UpdateXSOverlayControlsState();
+			groupXSO.Controls.Add(checkXSOverlayEnabled);
+
+			// 説明ラベル
+			var labelXSODescription = new Label();
+			labelXSODescription.Text = "XSOverlayのNotification API（UDP）を使って、VRヘッドセット内に\nプッシュ通知を表示します。XSOverlayが起動している必要があります。";
+			labelXSODescription.Location = new Point(15, 50);
+			labelXSODescription.Size = new Size(390, 35);
+			labelXSODescription.ForeColor = Color.Gray;
+			groupXSO.Controls.Add(labelXSODescription);
+
+			// 通知するイベント
+			var labelEvents = new Label();
+			labelEvents.Text = "通知するイベント:";
+			labelEvents.Location = new Point(15, 95);
+			labelEvents.Size = new Size(150, 20);
+			groupXSO.Controls.Add(labelEvents);
+
+			checkXSONotifyPrediction = new CheckBox();
+			checkXSONotifyPrediction.Text = "次ラウンド予測（ラウンド終了時）";
+			checkXSONotifyPrediction.Location = new Point(30, 120);
+			checkXSONotifyPrediction.Size = new Size(300, 20);
+			groupXSO.Controls.Add(checkXSONotifyPrediction);
+
+			checkXSONotifyTerror = new CheckBox();
+			checkXSONotifyTerror.Text = "テラー情報（ラウンド開始時、スタン可否付き）";
+			checkXSONotifyTerror.Location = new Point(30, 145);
+			checkXSONotifyTerror.Size = new Size(300, 20);
+			groupXSO.Controls.Add(checkXSONotifyTerror);
+
+			checkXSONotifyWarningUser = new CheckBox();
+			checkXSONotifyWarningUser.Text = "警告ユーザー参加";
+			checkXSONotifyWarningUser.Location = new Point(30, 170);
+			checkXSONotifyWarningUser.Size = new Size(300, 20);
+			groupXSO.Controls.Add(checkXSONotifyWarningUser);
+
+			checkXSONotifyItemReminder = new CheckBox();
+			checkXSONotifyItemReminder.Text = "アイテムリマインダー";
+			checkXSONotifyItemReminder.Location = new Point(30, 195);
+			checkXSONotifyItemReminder.Size = new Size(300, 20);
+			groupXSO.Controls.Add(checkXSONotifyItemReminder);
+
+			// ポート設定
+			var labelPort = new Label();
+			labelPort.Text = "UDPポート:";
+			labelPort.Location = new Point(15, 230);
+			labelPort.Size = new Size(80, 20);
+			groupXSO.Controls.Add(labelPort);
+
+			numXSOverlayPort = new NumericUpDown();
+			numXSOverlayPort.Location = new Point(100, 228);
+			numXSOverlayPort.Size = new Size(90, 23);
+			numXSOverlayPort.Minimum = 1;
+			numXSOverlayPort.Maximum = 65535;
+			numXSOverlayPort.Value = 42069;
+			groupXSO.Controls.Add(numXSOverlayPort);
+
+			var labelPortNote = new Label();
+			labelPortNote.Text = "※ XSOverlayの既定は42069";
+			labelPortNote.Location = new Point(200, 230);
+			labelPortNote.Size = new Size(200, 20);
+			labelPortNote.ForeColor = Color.Gray;
+			groupXSO.Controls.Add(labelPortNote);
+
+			// テスト送信ボタン
+			buttonXSOverlayTest = new Button();
+			buttonXSOverlayTest.Text = "テスト通知を送信";
+			buttonXSOverlayTest.Location = new Point(15, 265);
+			buttonXSOverlayTest.Size = new Size(140, 28);
+			buttonXSOverlayTest.Click += (s, e) =>
+			{
+				Services.XSOverlayNotifier.SendRaw(
+					(int)numXSOverlayPort.Value,
+					"ToNStatTool",
+					"テスト通知です。VR内に表示されていれば設定OK！");
+			};
+			groupXSO.Controls.Add(buttonXSOverlayTest);
+
+			var labelTestNote = new Label();
+			labelTestNote.Text = "※ VRヘッドセット内に通知が表示されるか\n　 確認できます";
+			labelTestNote.Location = new Point(165, 263);
+			labelTestNote.Size = new Size(240, 34);
+			labelTestNote.ForeColor = Color.Gray;
+			groupXSO.Controls.Add(labelTestNote);
+		}
+
 		private void BrowseSoundFile(TextBox targetTextBox)
 		{
 			using (var ofd = new OpenFileDialog())
@@ -676,8 +790,17 @@ namespace ToNStatTool
 			textCloudServerUrl.Text = appSettings.CloudServerUrl;
 			textCloudApiKey.Text = appSettings.CloudApiKey;
 
+			// VR通知設定（AppSettingsから読み込み）
+			checkXSOverlayEnabled.Checked = appSettings.EnableXSOverlayNotify;
+			checkXSONotifyPrediction.Checked = appSettings.XSOverlayNotifyPrediction;
+			checkXSONotifyWarningUser.Checked = appSettings.XSOverlayNotifyWarningUser;
+			checkXSONotifyItemReminder.Checked = appSettings.XSOverlayNotifyItemReminder;
+			checkXSONotifyTerror.Checked = appSettings.XSOverlayNotifyTerror;
+			numXSOverlayPort.Value = Math.Max(1, Math.Min(65535, appSettings.XSOverlayPort));
+
 			UpdateReminderControlsState();
 			UpdateCloudControlsState();
+			UpdateXSOverlayControlsState();
 		}
 
 		private void UpdateReminderControlsState()
@@ -693,6 +816,17 @@ namespace ToNStatTool
 			bool enabled = checkCloudSyncEnabled.Checked;
 			textCloudServerUrl.Enabled = enabled;
 			textCloudApiKey.Enabled = enabled;
+		}
+
+		private void UpdateXSOverlayControlsState()
+		{
+			bool enabled = checkXSOverlayEnabled.Checked;
+			checkXSONotifyPrediction.Enabled = enabled;
+			checkXSONotifyWarningUser.Enabled = enabled;
+			checkXSONotifyItemReminder.Enabled = enabled;
+			checkXSONotifyTerror.Enabled = enabled;
+			numXSOverlayPort.Enabled = enabled;
+			// テストボタンは有効化前でも動作確認できるよう常に有効
 		}
 
 		private void ButtonSave_Click(object sender, EventArgs e)
@@ -730,6 +864,14 @@ namespace ToNStatTool
 			appSettings.EnableCloudSync = checkCloudSyncEnabled.Checked;
 			appSettings.CloudServerUrl = textCloudServerUrl.Text;
 			appSettings.CloudApiKey = textCloudApiKey.Text;
+
+			// VR通知設定を更新（AppSettingsに保存）
+			appSettings.EnableXSOverlayNotify = checkXSOverlayEnabled.Checked;
+			appSettings.XSOverlayNotifyPrediction = checkXSONotifyPrediction.Checked;
+			appSettings.XSOverlayNotifyWarningUser = checkXSONotifyWarningUser.Checked;
+			appSettings.XSOverlayNotifyItemReminder = checkXSONotifyItemReminder.Checked;
+			appSettings.XSOverlayNotifyTerror = checkXSONotifyTerror.Checked;
+			appSettings.XSOverlayPort = (int)numXSOverlayPort.Value;
 
 			appSettings.Save();
 			VerboseLogEnabled = checkVerboseLog.Checked;

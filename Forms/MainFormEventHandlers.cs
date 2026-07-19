@@ -3,12 +3,16 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using ToNStatTool.Services;
 
 namespace ToNStatTool
 {
     // イベントハンドラ部分
     public partial class ToNStatTool
     {
+        // XSOverlayへ最後に通知したテラー情報（同一内容の再通知を防ぐ）
+        private string lastXSOverlayTerrorNotify = "";
+
         /// <summary>
         /// スレッドセーフにUIを更新するヘルパーメソッド
         /// ハンドルが作成されていない場合やフォームが破棄中の場合は何もしない
@@ -121,7 +125,70 @@ namespace ToNStatTool
             SafeInvoke(() =>
             {
                 UpdateTerrorDisplay();
+                NotifyTerrorToXSOverlay();
             });
+        }
+
+        /// <summary>
+        /// 現在のテラー情報（スタン可否付き）をXSOverlayに通知する
+        /// </summary>
+        private void NotifyTerrorToXSOverlay()
+        {
+            if (!XSOverlayNotifier.Enabled || !XSOverlayNotifier.NotifyTerror) return;
+            if (webSocketClient.ShouldMuteNotificationSounds()) return;
+
+            List<TerrorInfo> terrors;
+            try
+            {
+                terrors = webSocketClient.CurrentTerrors?.ToList() ?? new List<TerrorInfo>();
+            }
+            catch (InvalidOperationException)
+            {
+                return;
+            }
+            if (terrors.Count == 0) return;
+
+            var lines = new List<string>();
+            foreach (var terror in terrors)
+            {
+                var detail = TerrorJsonLoader.GetTerrorDetail(terror.Name);
+                lines.Add($"{terror.Name}{GetStunLabelForNotify(detail)}");
+            }
+            string content = string.Join("\n", lines);
+
+            // 同ラウンド内で同じ内容の再通知はしない
+            if (content == lastXSOverlayTerrorNotify) return;
+            lastXSOverlayTerrorNotify = content;
+
+            XSOverlayNotifier.Send("テラー出現", content, 5f);
+        }
+
+        private static string GetStunLabelForNotify(TerrorDetailInfo detail)
+        {
+            if (detail == null) return "";
+            switch (detail.StunType)
+            {
+                case TerrorStunType.Safe: return " [スタン可]";
+                case TerrorStunType.Caution: return " [条件付スタン]";
+                case TerrorStunType.Forbidden: return " [スタン厳禁]";
+                case TerrorStunType.Ineffective: return " [スタン無効]";
+                default: return "";
+            }
+        }
+
+        /// <summary>
+        /// 次ラウンド予測をXSOverlayに通知する（ラウンド終了時に呼ぶ）
+        /// </summary>
+        private void NotifyPredictionToXSOverlay()
+        {
+            if (!XSOverlayNotifier.Enabled || !XSOverlayNotifier.NotifyPrediction) return;
+            if (webSocketClient.ShouldMuteNotificationSounds()) return;
+
+            var textBoxNextRound = FindControl("textBox_nextRound") as TextBox;
+            string prediction = textBoxNextRound?.Text;
+            if (string.IsNullOrEmpty(prediction) || prediction == "-") return;
+
+            XSOverlayNotifier.Send("次ラウンド予測", prediction, 4f);
         }
 
         private void OnRoundEnd()
@@ -133,9 +200,10 @@ namespace ToNStatTool
                 
                 mainFormRoundActive = false;
                 elapsedTimeTimer.Stop();
-                
+
                 UpdateNextRoundPrediction();
-                
+                NotifyPredictionToXSOverlay();
+
                 if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
                 {
                     terrorDisplayForm.OnRoundEnd();
@@ -150,7 +218,10 @@ namespace ToNStatTool
                 mainFormRoundStartTime = DateTime.Now;
                 mainFormRoundActive = true;
                 elapsedTimeTimer.Start();
-                
+
+                // 新ラウンド開始でテラー通知の重複判定をリセット
+                lastXSOverlayTerrorNotify = "";
+
                 UpdateNextRoundPrediction();
                 
                 if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
@@ -246,6 +317,11 @@ namespace ToNStatTool
                     System.Diagnostics.Debug.WriteLine("[ITEM_REMINDER_UI] サウンド再生");
                     PlayItemReminderSound();
                 }
+
+                if (XSOverlayNotifier.Enabled && XSOverlayNotifier.NotifyItemReminder)
+                {
+                    XSOverlayNotifier.Send("アイテムリマインダー", "アイテムを持ち直してください", 5f);
+                }
             }));
         }
 
@@ -308,6 +384,12 @@ namespace ToNStatTool
                     timer.Dispose();
                 };
                 timer.Start();
+
+                if (XSOverlayNotifier.Enabled && XSOverlayNotifier.NotifyWarningUser
+                    && !webSocketClient.ShouldMuteNotificationSounds())
+                {
+                    XSOverlayNotifier.Send("⚠ 警告ユーザー参加", $"{userName} が参加しました", 6f);
+                }
 
                 System.Diagnostics.Debug.WriteLine($"[WARNING_UI] {warningMessage}");
             }

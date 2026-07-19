@@ -10,6 +10,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using ToNStatTool.Controls;
 using ToNStatTool.Helpers;
+using ToNStatTool.Services;
 
 namespace ToNStatTool
 {
@@ -76,6 +77,9 @@ namespace ToNStatTool
             {
                 Logger.EnableVerboseLogging();
             }
+
+            // XSOverlay通知設定を反映
+            XSOverlayNotifier.ApplySettings(appSettings);
             
             // 保存されたURLを復元
             if (!string.IsNullOrEmpty(appSettings.WebSocketUrl))
@@ -183,6 +187,9 @@ namespace ToNStatTool
                         settingsForm.CloudSyncEnabled,
                         settingsForm.CloudServerUrl,
                         settingsForm.CloudApiKey);
+
+                    // XSOverlay通知設定を反映
+                    XSOverlayNotifier.ApplySettings(appSettings);
                 }
             }
         }
