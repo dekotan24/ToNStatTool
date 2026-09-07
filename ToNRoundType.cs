@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace ToNStatTool
@@ -17,7 +17,7 @@ namespace ToNStatTool
         Classic = 1,
         /// <summary>フォグ</summary>
         Fog = 2,
-        /// <summary>パニッシュド</summary>
+        /// <summary>パニッシュ</summary>
         Punished = 3,
         /// <summary>サボタージュ</summary>
         Sabotage = 4,
@@ -85,27 +85,34 @@ namespace ToNStatTool
         static ToNRoundTypeHelper()
         {
             // 文字列→Enumマッピング（英語・日本語両対応）
+            // 日本語名はToNSaveManagerのja-JP.json（ROUND_TYPE.*）の訳語に合わせてある。
+            // 表記が違う他ツール由来の文字列も拾えるよう、別表記も併記する
             NameToTypeMap = new Dictionary<string, ToNRoundType>(StringComparer.OrdinalIgnoreCase)
             {
                 // Intermission
                 { "intermission", ToNRoundType.Intermission },
                 { "インターミッション", ToNRoundType.Intermission },
+                { "休憩時間", ToNRoundType.Intermission },      // ToNSaveManager ja-JP
 
                 // Normal Rounds
                 { "classic", ToNRoundType.Classic },
                 { "クラシック", ToNRoundType.Classic },
-                
+
                 { "fog", ToNRoundType.Fog },
                 { "フォグ", ToNRoundType.Fog },
-                
+                { "霧", ToNRoundType.Fog },                     // ToNSaveManager ja-JP
+
                 { "punished", ToNRoundType.Punished },
-                { "パニッシュド", ToNRoundType.Punished },
-                
+                { "パニッシュ", ToNRoundType.Punished },        // ToNSaveManager ja-JP
+                { "パニッシュド", ToNRoundType.Punished },      // 旧表記（過去のCSV等の読み込み互換用）
+
                 { "sabotage", ToNRoundType.Sabotage },
                 { "サボタージュ", ToNRoundType.Sabotage },
-                
+
                 { "cracked", ToNRoundType.Cracked },
                 { "クラックド", ToNRoundType.Cracked },
+                { "クラック", ToNRoundType.Cracked },
+                { "狂気", ToNRoundType.Cracked },               // ToNSaveManager ja-JP
                 
                 { "bloodbath", ToNRoundType.Bloodbath },
                 { "ブラッドバス", ToNRoundType.Bloodbath },
@@ -128,16 +135,21 @@ namespace ToNStatTool
                 
                 { "alternate", ToNRoundType.Alternate },
                 { "オルタネート", ToNRoundType.Alternate },
-                
+                { "オルタネイト", ToNRoundType.Alternate },     // ToNSaveManager ja-JP
+
                 { "fog alternate", ToNRoundType.Fog_Alternate },
                 { "fog_alternate", ToNRoundType.Fog_Alternate },
                 { "fog (alternate)", ToNRoundType.Fog_Alternate },
                 { "フォグオルタネート", ToNRoundType.Fog_Alternate },
-                
+                { "霧(オルタネイト)", ToNRoundType.Fog_Alternate },     // ToNSaveManager ja-JP
+                { "霧（オルタネイト）", ToNRoundType.Fog_Alternate },   // 全角括弧
+
                 { "ghost alternate", ToNRoundType.Ghost_Alternate },
                 { "ghost_alternate", ToNRoundType.Ghost_Alternate },
                 { "ghost (alternate)", ToNRoundType.Ghost_Alternate },
                 { "ゴーストオルタネート", ToNRoundType.Ghost_Alternate },
+                { "ゴースト(オルタネイト)", ToNRoundType.Ghost_Alternate },   // ToNSaveManager ja-JP
+                { "ゴースト（オルタネイト）", ToNRoundType.Ghost_Alternate }, // 全角括弧
 
                 // Moons
                 { "mystic moon", ToNRoundType.Mystic_Moon },
@@ -157,6 +169,7 @@ namespace ToNStatTool
                 // Specials
                 { "run", ToNRoundType.RUN },
                 { "走れ", ToNRoundType.RUN },
+                { "走れ！", ToNRoundType.RUN },                 // ToNSaveManager ja-JP
                 
                 { "8 pages", ToNRoundType.Eight_Pages },
                 { "8pages", ToNRoundType.Eight_Pages },
@@ -173,6 +186,7 @@ namespace ToNStatTool
 
                 // Custom
                 { "custom", ToNRoundType.Custom },
+                { "カスタム", ToNRoundType.Custom },            // ToNSaveManager ja-JP
                 { "unknown", ToNRoundType.Custom }
             };
 
@@ -238,10 +252,15 @@ namespace ToNStatTool
             if (lower.Contains("solstice") || lower.Contains("ソルスティス")) { result = ToNRoundType.Solstice; return true; }
 
             // Alternates
-            if ((lower.Contains("fog") || lower.Contains("フォグ")) && lower.Contains("alternate")) { result = ToNRoundType.Fog_Alternate; return true; }
-            if ((lower.Contains("ghost") || lower.Contains("ゴースト")) && lower.Contains("alternate")) { result = ToNRoundType.Ghost_Alternate; return true; }
+            // 「オルタネート」「オルタネイト」の両表記に対応する（ToNSaveManagerのja-JPは後者）
+            bool isAlternate = lower.Contains("alternate") || lower.Contains("オルタネート") || lower.Contains("オルタネイト");
+            bool hasFog = lower.Contains("fog") || lower.Contains("フォグ") || lower.Contains("霧");
+            bool hasGhost = lower.Contains("ghost") || lower.Contains("ゴースト");
+
+            if (hasFog && isAlternate) { result = ToNRoundType.Fog_Alternate; return true; }
+            if (hasGhost && isAlternate) { result = ToNRoundType.Ghost_Alternate; return true; }
             if (lower.Contains("midnight") || lower.Contains("ミッドナイト")) { result = ToNRoundType.Midnight; return true; }
-            if (lower.Contains("alternate") || lower.Contains("オルタネート")) { result = ToNRoundType.Alternate; return true; }
+            if (isAlternate) { result = ToNRoundType.Alternate; return true; }
 
             // Specials
             if (lower.Contains("8 pages") || lower.Contains("8pages") || lower.Contains("8ページ")) { result = ToNRoundType.Eight_Pages; return true; }
@@ -253,13 +272,13 @@ namespace ToNStatTool
             if (lower.Contains("double") && lower.Contains("trouble")) { result = ToNRoundType.Double_Trouble; return true; }
             if (lower.Contains("ダブルトラブル")) { result = ToNRoundType.Double_Trouble; return true; }
             if (lower.Contains("classic") || lower.Contains("クラシック")) { result = ToNRoundType.Classic; return true; }
-            if (lower.Contains("fog") || lower.Contains("フォグ")) { result = ToNRoundType.Fog; return true; }
-            if (lower.Contains("punished") || lower.Contains("パニッシュド")) { result = ToNRoundType.Punished; return true; }
+            if (hasFog) { result = ToNRoundType.Fog; return true; }
+            if (lower.Contains("punished") || lower.Contains("パニッシュ")) { result = ToNRoundType.Punished; return true; }
             if (lower.Contains("sabotage") || lower.Contains("サボタージュ")) { result = ToNRoundType.Sabotage; return true; }
-            if (lower.Contains("cracked") || lower.Contains("クラックド")) { result = ToNRoundType.Cracked; return true; }
+            if (lower.Contains("cracked") || lower.Contains("クラック") || lower.Contains("狂気")) { result = ToNRoundType.Cracked; return true; }
             if (lower.Contains("bloodbath") || lower.Contains("ブラッドバス")) { result = ToNRoundType.Bloodbath; return true; }
             if (lower == "ex") { result = ToNRoundType.EX; return true; }
-            if (lower.Contains("ghost") || lower.Contains("ゴースト")) { result = ToNRoundType.Ghost; return true; }
+            if (hasGhost) { result = ToNRoundType.Ghost; return true; }
             if (lower.Contains("unbound") || lower.Contains("アンバウンド")) { result = ToNRoundType.Unbound; return true; }
 
             result = ToNRoundType.Custom;
@@ -349,7 +368,9 @@ namespace ToNStatTool
                    roundType == ToNRoundType.Midnight ||
                    roundType == ToNRoundType.Alternate ||
                    roundType == ToNRoundType.Fog_Alternate ||
-                   roundType == ToNRoundType.Cold_Night;
+                   roundType == ToNRoundType.Cold_Night ||
+                   // Custom（Randomizer等）は期間限定イベントのラウンドで、特殊枠を消費する
+                   roundType == ToNRoundType.Custom;
         }
 
         /// <summary>

@@ -241,6 +241,7 @@ namespace ToNStatTool
                 UpdateBirdCheckboxes();
                 UpdateNextRoundPrediction();
                 UpdateCurrentItemDisplay();
+                UpdateInstanceInfoDisplay();
                 
                 if (terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
                 {
@@ -419,6 +420,9 @@ namespace ToNStatTool
                 terrorDisplayForm.ApplyTheme();
             }
 
+            // インスタンス種別の色はテーマ依存なので塗り直す
+            UpdateInstanceInfoDisplay();
+
             // メインフォームのテラーコントロールのテーマを更新
             foreach (var terrorControl in terrorControls)
             {
@@ -487,7 +491,7 @@ namespace ToNStatTool
             try
             {
                 var result = MessageBox.Show(
-                    "ラウンド統計、テラー統計、ラウンドログをすべてリセットします。\n\nこの操作は取り消せません。よろしいですか？",
+                    "ラウンド統計、テラー統計、ラウンドログ、インスタンス状態設定をすべてリセットします。\n\nこの操作は取り消せません。よろしいですか？",
                     "統計リセットの確認",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Warning);
@@ -497,6 +501,10 @@ namespace ToNStatTool
                     webSocketClient.ResetRoundStats();
                     UpdateStatsDisplay();
                     UpdateRoundLogDisplay();
+
+                    // インスタンス状態設定のリセットも同時に実行する
+                    // （こちらは確認ダイアログを出さないので二重確認にはならない）
+                    ButtonResetInstanceState_Click(sender, e);
                 }
             }
             catch (Exception ex)
@@ -511,7 +519,7 @@ namespace ToNStatTool
             {
                 if (sessionStatsForm == null || sessionStatsForm.IsDisposed)
                 {
-                    sessionStatsForm = new SessionStatsForm(webSocketClient.SessionStats);
+                    sessionStatsForm = new SessionStatsForm(webSocketClient.SessionStats, webSocketClient);
                 }
                 
                 sessionStatsForm.UpdateDisplay();
@@ -649,6 +657,9 @@ namespace ToNStatTool
                 {
                     terrorDisplayForm = new TerrorDisplayForm();
                     terrorDisplayForm.SetInstanceState(webSocketClient.InstanceState);
+
+                    // 保存済みの位置・サイズを復元し、以後の移動を保存対象にする
+                    SetupOverlayWindow(terrorDisplayForm);
                     
                     // スレッドセーフにコレクションをコピー
                     List<TerrorInfo> terrorsCopy;
@@ -725,6 +736,9 @@ namespace ToNStatTool
                         }
                     };
                     terrorDisplayForm.Show();
+
+                    // クリックスルーはウィンドウハンドル生成後に適用する
+                    ApplyOverlayWindowStyles(terrorDisplayForm);
                 }
             }
             else
@@ -907,6 +921,12 @@ namespace ToNStatTool
         private void UiUpdateTimer_Tick(object sender, EventArgs e)
         {
             webSocketClient.CleanupOldData();
+
+            // 統計ウィンドウを開いたままにしている場合は滞在時間や統計を追従させる
+            if (sessionStatsForm != null && !sessionStatsForm.IsDisposed && sessionStatsForm.Visible)
+            {
+                sessionStatsForm.UpdateDisplay();
+            }
         }
 
         private void ElapsedTimeTimer_Tick(object sender, EventArgs e)

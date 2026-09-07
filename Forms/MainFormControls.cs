@@ -12,8 +12,8 @@ namespace ToNStatTool
     {
         private void CreateConnectionControls()
         {
-            // ToolTipオブジェクトを作成（このメソッド全体で共有）
-            var mainToolTip = new ToolTip();
+            // ToolTipオブジェクトを作成（インスタンス情報の更新でも使うためフィールドに保持）
+            mainToolTip = new ToolTip();
             mainToolTip.AutoPopDelay = 5000;
             mainToolTip.InitialDelay = 500;
             mainToolTip.ReshowDelay = 200;
@@ -546,7 +546,7 @@ namespace ToNStatTool
 
             // 統計リセットボタンのToolTip
             var statsToolTip = new ToolTip();
-            statsToolTip.SetToolTip(buttonResetStats, "ラウンド統計をリセット");
+            statsToolTip.SetToolTip(buttonResetStats, "ラウンド統計・テラー統計・ラウンドログとインスタンス状態設定をリセット");
 
             var listViewStats = new DoubleBufferedListView();
             listViewStats.Name = "listViewStats";
@@ -881,6 +881,9 @@ namespace ToNStatTool
             if (checkMysticMoon != null) checkMysticMoon.Checked = false;
             if (checkSolstice != null) checkSolstice.Checked = false;
             if (labelSurvivalValue != null) labelSurvivalValue.Text = "0";
+
+            // InstanceState.Reset()でInstanceUrlもクリアされるため、種別表示も同期させる
+            UpdateInstanceInfoDisplay();
         }
     }
 }

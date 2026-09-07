@@ -23,6 +23,51 @@ namespace ToNStatTool
 		public int TerrorFormOpacity { get; set; } = 100;
 
 		/// <summary>
+		/// テラー表示フォームの位置とサイズを記憶するか
+		/// </summary>
+		public bool RememberTerrorFormBounds { get; set; } = true;
+
+		/// <summary>
+		/// テラー表示フォームのX座標（int.MinValue = 未保存）
+		/// </summary>
+		public int TerrorFormX { get; set; } = int.MinValue;
+
+		/// <summary>
+		/// テラー表示フォームのY座標（int.MinValue = 未保存）
+		/// </summary>
+		public int TerrorFormY { get; set; } = int.MinValue;
+
+		/// <summary>
+		/// テラー表示フォームの幅（0以下 = 未保存）
+		/// </summary>
+		public int TerrorFormWidth { get; set; } = 0;
+
+		/// <summary>
+		/// テラー表示フォームの高さ（0以下 = 未保存）
+		/// </summary>
+		public int TerrorFormHeight { get; set; } = 0;
+
+		/// <summary>
+		/// テラー表示フォームをクリックスルー（マウス操作を透過）するか
+		/// </summary>
+		public bool TerrorFormClickThrough { get; set; } = false;
+
+		/// <summary>
+		/// グローバルホットキーを有効にするか
+		/// </summary>
+		public bool OverlayHotkeyEnabled { get; set; } = false;
+
+		/// <summary>
+		/// オーバーレイ表示切替のホットキー（例: "Ctrl+Shift+T"、空文字で無効）
+		/// </summary>
+		public string OverlayToggleHotkey { get; set; } = "Ctrl+Shift+T";
+
+		/// <summary>
+		/// クリックスルー切替のホットキー（例: "Ctrl+Shift+C"、空文字で無効）
+		/// </summary>
+		public string ClickThroughHotkey { get; set; } = "Ctrl+Shift+C";
+
+		/// <summary>
 		/// WebSocket URL
 		/// </summary>
 		public string WebSocketUrl { get; set; } = "ws://localhost:11398";

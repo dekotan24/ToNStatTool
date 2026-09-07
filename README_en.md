@@ -25,6 +25,8 @@ ToNStatTool is a Windows application that tracks and displays game data from the
 | 👻 **Terror Information** | Displays current terrors with stun status and trait icons in real-time |
 | 📊 **Statistics Tracking** | Automatically records session stats and round/terror encounter stats |
 | 📝 **Round Log** | Records every round with filtering and CSV export |
+| 🌐 **Instance Type Display** | Automatically detects Public / Friends+ / Invite / Group+ and the region |
+| 🖱️ **Overlay Controls** | Remembers position and size, click-through, global hotkeys |
 | 👥 **Player Management** | Shows player survival status in real-time |
 | ⚠️ **Warning System** | Notifies with sound and highlight when specific users join |
 | 🔔 **Item Reminder** | Notifies to re-equip items after 8 Pages/Punished and more |
@@ -108,6 +110,22 @@ Terror behavior traits are displayed as colored badge icons. Hover over an icon 
 - 🏠 **HFA (Homefield Advantage)** - Shows a house icon when the current map is a combination where the terror is empowered
 - 🔀 **Unbound Breakdown** - During Unbound rounds, expands the display into the individual terrors
 
+### 🌐 Instance Type Display
+
+The instance ID you are in is parsed and shown in the "Round Info" group title (e.g. `Round Info － Group+ / JP`), color-coded by type. Age-gated (18+) instances are marked as well.
+
+Detected types: Public, Friends+, Friends, Invite+, Invite, Group Public, Group+, Group.
+
+Hover the 🔗 button to see details such as the world ID, instance name and group ID.
+
+### 🖱️ Overlay Controls (Terror Display Window)
+
+Configurable from the "Overlay" tab in the settings window.
+
+- **Remember position and size** - The window reopens where you left it. Drag the bottom-right corner to resize. If a monitor layout change leaves it off-screen, it returns to the default position automatically
+- **Click-through** - Clicks pass through the overlay to the window behind it (dragging and resizing are disabled while enabled)
+- **Global hotkeys** - Toggle the overlay and click-through even while another app has focus. Defaults are `Ctrl+Shift+T` and `Ctrl+Shift+C` (disabled by default; click the input box and press a key to change it, Backspace to clear)
+
 ### 👥 Player Management
 
 - Real-time survival/death status display
@@ -154,7 +172,8 @@ Shows push notifications inside your VR headset via the [XSOverlay](https://stor
 
 ### 📊 Statistics & Logs
 
-- **Session Stats** - Survivals, deaths, survival rate, stuns, damage taken
+- **Session Stats** - Survivals, deaths, survival rate, stuns and damage taken, shown side by side as "total" and "current instance"
+- **Instance History** - Time spent, round count and survival rate per instance (via the 📊 button)
 - **Round Stats** - Count and percentage by round type
 - **Terror Stats** - Encounter count by terror
 - **Round Log** - Time, round type, map, terrors, items, result
@@ -211,6 +230,10 @@ Switch between dark/light themes from the settings screen.
 ### VR Notifications
 
 Enable XSOverlay notifications, toggle individual events, and change the UDP port from the "VR通知" (VR Notify) tab in Settings.
+
+### Overlay
+
+Configure the terror display window's position memory, click-through and global hotkeys from the "オーバーレイ" (Overlay) tab in Settings. "位置をリセット" (Reset position) puts the window back to the top-right of the screen.
 
 ### Cloud Sync
 

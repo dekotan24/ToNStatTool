@@ -82,9 +82,9 @@ namespace ToNStatTool
 			}
 			else if (roundType == ToNRoundType.Punished)
 			{
-				// パニッシュド: アイテムが没収されるためリセット
+				// パニッシュ: アイテムが没収されるためリセット
 				InstanceState.CurrentItem = "";
-				Logger.Debug("Round", "パニッシュドラウンドのためアイテムをリセット");
+				Logger.Debug("Round", "パニッシュラウンドのためアイテムをリセット");
 			}
 			
 			// マスター変更フラグをリセット（ラウンド開始で消費）
@@ -182,6 +182,7 @@ namespace ToNStatTool
 				currentRound.Survived = survived;
 				currentRound.AliveCount = roundAliveCount;
 				currentRound.TotalPlayerCount = roundTotalCount;
+				currentRound.InstanceUrl = InstanceState.InstanceUrl;
 
 				// ログに追加
 				RoundLogs.Add(currentRound);
@@ -352,6 +353,7 @@ namespace ToNStatTool
 				currentRound.Survived = survived;
 				currentRound.AliveCount = dtAliveCount;
 				currentRound.TotalPlayerCount = dtTotalCount;
+				currentRound.InstanceUrl = InstanceState.InstanceUrl;
 
 				// ログに追加
 				RoundLogs.Add(currentRound);
@@ -557,6 +559,20 @@ namespace ToNStatTool
 		/// <summary>
 		/// インスタンス状態を更新（ラウンド予測用）
 		/// </summary>
+		/// <summary>
+		/// 特殊/Moonラウンドを観測したことを記録し、特殊解放状態を確定させる
+		/// （実際に特殊が出た＝解放済みなので、誤って未解放と判定していた場合も自動復帰する）
+		/// </summary>
+		private void MarkSpecialRoundObserved(ToNRoundType roundType)
+		{
+			InstanceState.SpecialRoundObserved = true;
+			if (!InstanceState.SpecialUnlocked)
+			{
+				InstanceState.SpecialUnlocked = true;
+				Logger.Info("InstanceState", $"特殊ラウンド({roundType})を観測 → 特殊解放済みに復帰");
+			}
+		}
+
 		private void UpdateInstanceState(ToNRoundType roundType, bool survived, string[] terrorNames)
 		{
 			// ラウンド終了時の状態をログ出力
@@ -579,6 +595,7 @@ namespace ToNStatTool
 				if (InstanceState.EstimatedSurvivalCount >= 3 && !InstanceState.SpecialUnlocked)
 				{
 					InstanceState.SpecialUnlocked = true;
+					Logger.Info("InstanceState", $"生存{InstanceState.EstimatedSurvivalCount}回達成 → 特殊ラウンド解放");
 					System.Diagnostics.Debug.WriteLine("[InstanceState] 特殊ラウンド解放");
 				}
 
@@ -670,21 +687,23 @@ namespace ToNStatTool
 					// 特殊枠は消費されたが特殊が出せないのでNormalが代わりに出た
 					InstanceState.NormalRoundCount = 0;
 					System.Diagnostics.Debug.WriteLine("[InstanceState] Normal(特殊未解放時): 特殊枠消費 → NormalRoundCount=0");
+
+					// このインスタンスでまだ特殊/Moonを一度も観測しておらず、生存回数も解禁条件(3回)未満なら
+					// 「特殊未解放」と確定できる（特殊が出せる状態なら特殊枠にNormalは来ない）
+					// 特殊観測済みで来た場合は周期のズレなので解放状態は変更しない
+					if (!InstanceState.SpecialRoundObserved
+						&& InstanceState.EstimatedSurvivalCount < 3
+						&& InstanceState.SpecialUnlocked)
+					{
+						InstanceState.SpecialUnlocked = false;
+						Logger.Info("InstanceState", $"特殊枠にNormalが出現 → 特殊未解放と判定 (EstimatedSurvivalCount={InstanceState.EstimatedSurvivalCount})");
+					}
 				}
 				else
 				{
 					// N=0 → N=1, N=1 → N=2
 					InstanceState.NormalRoundCount++;
 					System.Diagnostics.Debug.WriteLine($"[InstanceState] Normal: NormalRoundCount={InstanceState.NormalRoundCount}");
-				}
-				
-				// 通常が3回連続 → インスタンス作成者確定、特殊未解放
-				if (InstanceState.NormalRoundCount >= 3 && !InstanceState.IsInstanceOwner)
-				{
-					InstanceState.IsInstanceOwner = true;
-					InstanceState.SpecialUnlocked = false;
-					InstanceState.EstimatedSurvivalCount = RoundStats.SurvivedRounds;
-					System.Diagnostics.Debug.WriteLine("[InstanceState] インスタンス作成者と判定");
 				}
 			}
 			else if (ToNRoundTypeHelper.IsMoonRound(roundType))
@@ -693,6 +712,7 @@ namespace ToNStatTool
 				// 初回: Classicを上書きして出現 → Override系と同じ挙動
 				// 2回目以降: 特殊ラウンドの1/20で選出 → 特殊枠を消費
 				InstanceState.WasOverrideInUncertainState = false; // Moonが出たらフラグリセット
+				MarkSpecialRoundObserved(roundType);
 				
 				if (isCurrentRoundFirstMoon)
 				{
@@ -748,6 +768,7 @@ namespace ToNStatTool
 			else if (ToNRoundTypeHelper.IsSpecialRound(roundType))
 			{
 				// 特殊ラウンド
+				MarkSpecialRoundObserved(roundType);
 				if (InstanceState.IsCurrentRoundOverride)
 				{
 					// 上書きで出た特殊（MCなしで通常確定時に出現）→ 通常枠を消費したのでN=1

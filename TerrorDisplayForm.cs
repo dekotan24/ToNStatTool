@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -26,6 +26,16 @@ namespace ToNStatTool
 		// ドラッグ用の変数
 		private bool isDragging = false;
 		private Point dragStartPoint;
+
+		// リサイズ用（右下グリップ）
+		private Panel resizeGrip;
+		private bool isResizing = false;
+		private Point resizeStartScreenPoint;
+		private Size resizeStartSize;
+		private const int RESIZE_GRIP_SIZE = 18;
+
+		// クリックスルー状態
+		private bool isClickThrough = false;
 
 		// インスタンス状態への参照
 		private InstanceState instanceState;
@@ -193,6 +203,33 @@ namespace ToNStatTool
 			labelNextRound.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
 			bottomPanel.Controls.Add(labelNextRound);
 
+			// リサイズグリップ（右下。FormBorderStyle.Noneなので枠でのリサイズができないため自前で用意する）
+			resizeGrip = new Panel();
+			resizeGrip.Size = new Size(RESIZE_GRIP_SIZE, BOTTOM_PANEL_HEIGHT);
+			resizeGrip.Cursor = Cursors.SizeNWSE;
+			resizeGrip.BackColor = Color.Transparent;
+			resizeGrip.MouseDown += ResizeGrip_MouseDown;
+			resizeGrip.MouseMove += ResizeGrip_MouseMove;
+			resizeGrip.MouseUp += ResizeGrip_MouseUp;
+			resizeGrip.Paint += (s, e) =>
+			{
+				// 斜めの三本線でグリップらしく見せる
+				using (var pen = new Pen(ThemeManager.GetDragHandleLineColor(), 1))
+				{
+					int w = resizeGrip.Width;
+					int h = resizeGrip.Height;
+					for (int offset = 0; offset < 3; offset++)
+					{
+						int d = 4 + offset * 4;
+						e.Graphics.DrawLine(pen, w - d, h - 2, w - 2, h - d);
+					}
+				}
+			};
+			bottomPanel.Controls.Add(resizeGrip);
+			resizeGrip.BringToFront();
+
+			LayoutBottomPanel();
+
 			// リサイズイベント
 			this.Resize += (s, e) =>
 			{
@@ -205,7 +242,30 @@ namespace ToNStatTool
 					bottomPanel.Location = new Point(0, this.ClientSize.Height - BOTTOM_PANEL_HEIGHT);
 					bottomPanel.Size = new Size(this.ClientSize.Width, BOTTOM_PANEL_HEIGHT);
 				}
+				LayoutBottomPanel();
 			};
+		}
+
+		/// <summary>
+		/// 下部パネル内の可変幅コントロール（次ラウンド予測・リサイズグリップ）を配置し直す
+		/// </summary>
+		private void LayoutBottomPanel()
+		{
+			if (bottomPanel == null) return;
+
+			int panelWidth = bottomPanel.ClientSize.Width;
+
+			if (resizeGrip != null)
+			{
+				resizeGrip.Location = new Point(Math.Max(0, panelWidth - RESIZE_GRIP_SIZE), 0);
+			}
+
+			if (labelNextRound != null && !isShowingReminder)
+			{
+				// グリップに被らない範囲まで伸ばす
+				int available = panelWidth - labelNextRound.Left - RESIZE_GRIP_SIZE - 2;
+				labelNextRound.Size = new Size(Math.Max(60, available), 16);
+			}
 		}
 
 		private void InitializeElapsedTimer()
@@ -237,7 +297,7 @@ namespace ToNStatTool
 		}
 
 		/// <summary>
-		/// アイテムリマインダーを表示（8ページ/パニッシュド終了時）
+		/// アイテムリマインダーを表示（8ページ/パニッシュ終了時）
 		/// </summary>
 		public void ShowItemReminder(int durationSeconds = 10)
 		{
@@ -288,6 +348,9 @@ namespace ToNStatTool
 				labelElapsedTime.Size = new Size(58, 16);  // 元のサイズに戻す
 				labelCurrentRound.Text = savedCurrentRoundText;
 				labelCurrentRound.ForeColor = savedCurrentRoundColor;
+
+				// リマインダー中は幅調整を止めているので、戻ったタイミングで再配置する
+				LayoutBottomPanel();
 			});
 		}
 
@@ -337,9 +400,131 @@ namespace ToNStatTool
 			}
 		}
 
+		/// <summary>
+		/// ユーザー操作（ドラッグ・リサイズ）で位置やサイズが変わったときに発火する。
+		/// 異常終了しても位置が残るよう、都度保存させるためのフック
+		/// </summary>
+		public event Action BoundsUserChanged;
+
 		private void DragHandle_MouseUp(object sender, MouseEventArgs e)
 		{
+			if (!isDragging) return;
+
 			isDragging = false;
+			BoundsUserChanged?.Invoke();
+		}
+
+		private void ResizeGrip_MouseDown(object sender, MouseEventArgs e)
+		{
+			if (e.Button == MouseButtons.Left)
+			{
+				isResizing = true;
+				resizeStartScreenPoint = Control.MousePosition;
+				resizeStartSize = this.Size;
+			}
+		}
+
+		private void ResizeGrip_MouseMove(object sender, MouseEventArgs e)
+		{
+			if (!isResizing) return;
+
+			// グリップ自身が動くのでクライアント座標だと不安定。スクリーン座標の差分で計算する
+			Point current = Control.MousePosition;
+			int newWidth = resizeStartSize.Width + (current.X - resizeStartScreenPoint.X);
+			int newHeight = resizeStartSize.Height + (current.Y - resizeStartScreenPoint.Y);
+
+			newWidth = Math.Max(this.MinimumSize.Width, newWidth);
+			newHeight = Math.Max(this.MinimumSize.Height, newHeight);
+
+			this.Size = new Size(newWidth, newHeight);
+		}
+
+		private void ResizeGrip_MouseUp(object sender, MouseEventArgs e)
+		{
+			if (!isResizing) return;
+
+			isResizing = false;
+			BoundsUserChanged?.Invoke();
+		}
+
+		/// <summary>
+		/// 保存されていた位置とサイズを復元する。
+		/// モニタ構成が変わって画面外になっている場合は既定位置に戻す
+		/// </summary>
+		public void ApplySavedBounds(AppSettings settings)
+		{
+			if (settings == null || !settings.RememberTerrorFormBounds) return;
+
+			int width = settings.TerrorFormWidth > 0 ? settings.TerrorFormWidth : this.Width;
+			int height = settings.TerrorFormHeight > 0 ? settings.TerrorFormHeight : this.Height;
+			width = Math.Max(this.MinimumSize.Width, width);
+			height = Math.Max(this.MinimumSize.Height, height);
+
+			// 位置が未保存ならサイズだけ復元して既定位置のままにする
+			if (settings.TerrorFormX == int.MinValue || settings.TerrorFormY == int.MinValue)
+			{
+				this.Size = new Size(width, height);
+				return;
+			}
+
+			var bounds = new Rectangle(settings.TerrorFormX, settings.TerrorFormY, width, height);
+
+			if (!Services.OverlayWindowHelper.IsBoundsVisible(bounds))
+			{
+				Logger.Warn("Overlay", $"保存位置({bounds})が画面外のため既定位置に戻します");
+				this.Size = new Size(width, height);
+				this.Location = new Point(Screen.PrimaryScreen.WorkingArea.Width - width, 0);
+				return;
+			}
+
+			this.Bounds = bounds;
+		}
+
+		/// <summary>
+		/// 現在の位置とサイズを設定オブジェクトに書き出す（保存自体は呼び出し側で行う）
+		/// </summary>
+		public void SaveBoundsTo(AppSettings settings)
+		{
+			if (settings == null || this.IsDisposed) return;
+			if (this.WindowState != FormWindowState.Normal) return;
+
+			settings.TerrorFormX = this.Location.X;
+			settings.TerrorFormY = this.Location.Y;
+			settings.TerrorFormWidth = this.Width;
+			settings.TerrorFormHeight = this.Height;
+		}
+
+		/// <summary>
+		/// 位置とサイズを既定（画面右上・初期サイズ）に戻す
+		/// </summary>
+		public void ResetBoundsToDefault()
+		{
+			SafeInvoke(() =>
+			{
+				this.Size = new Size(450, TERROR_PANEL_HEIGHT + BOTTOM_PANEL_HEIGHT);
+				this.Location = new Point(Screen.PrimaryScreen.WorkingArea.Width - this.Width, 0);
+			});
+		}
+
+		/// <summary>
+		/// クリックスルー中かどうか
+		/// </summary>
+		public bool IsClickThrough => isClickThrough;
+
+		/// <summary>
+		/// クリックスルー（マウス操作をVRChat側に透過）を切り替える。
+		/// 有効中はドラッグもリサイズもできなくなるので、ハンドルを隠して分かるようにする
+		/// </summary>
+		public void SetClickThrough(bool enabled)
+		{
+			SafeInvoke(() =>
+			{
+				isClickThrough = enabled;
+				Services.OverlayWindowHelper.SetClickThrough(this, enabled);
+
+				if (dragHandle != null) dragHandle.Visible = !enabled;
+				if (resizeGrip != null) resizeGrip.Visible = !enabled;
+			});
 		}
 
 		/// <summary>
@@ -540,7 +725,7 @@ namespace ToNStatTool
 			}
 
 			// マスター変更時は特殊確定（ラウンド進行中でも即座に反映）
-			if (instanceState.MasterChanged)
+			if (instanceState.MasterChanged && instanceState.SpecialUnlocked)
 			{
 				labelNextRound.Text = "➡️ 次: 特殊(MC)";
 				labelNextRound.ForeColor = ThemeManager.GetPredictionColor("special");
@@ -549,6 +734,14 @@ namespace ToNStatTool
 
 			string prediction = "";
 			Color color = ThemeManager.IsDark ? ThemeManager.Dark.TerrorNextRound : ThemeManager.Light.TerrorNextRound;
+
+			// 特殊未解放（インスタンス全体で3回生存前）なら次は必ず通常
+			if (!instanceState.SpecialUnlocked)
+			{
+				labelNextRound.Text = "➡️ 次: 通常";
+				labelNextRound.ForeColor = ThemeManager.GetPredictionColor("disabled");
+				return;
+			}
 
 			// 現在のラウンドが特殊なら次は通常
 			if (ToNRoundTypeHelper.IsSpecialRound(currentRoundType))
@@ -652,7 +845,7 @@ namespace ToNStatTool
 				Color color = ThemeManager.IsDark ? ThemeManager.Dark.TerrorNextRound : ThemeManager.Light.TerrorNextRound;
 
 				// マスター変更時は特殊確定
-				if (instanceState.MasterChanged)
+				if (instanceState.MasterChanged && instanceState.SpecialUnlocked)
 				{
 					prediction = "特殊(MC)";
 					color = ThemeManager.GetPredictionColor("special");
@@ -661,8 +854,25 @@ namespace ToNStatTool
 					return;
 				}
 
+				// Moon解禁直後フラグを最優先でチェック（メインフォームと同じ優先度）
+				// 優先度: Twilight > Mystic Moon > Blood Moon
+				if (instanceState.TwilightJustUnlocked)
+				{
+					prediction = "Twilight(解禁直後)";
+					color = ThemeManager.GetPredictionColor("twilight");
+				}
+				else if (instanceState.MysticMoonJustUnlocked)
+				{
+					prediction = "Mystic Moon(解禁直後)";
+					color = ThemeManager.GetPredictionColor("mystic");
+				}
+				else if (instanceState.BloodMoonJustUnlocked)
+				{
+					prediction = "Blood Moon(解禁直後)";
+					color = ThemeManager.GetPredictionColor("blood");
+				}
 				// Moon解禁チェック（優先順位: Twilight > Mystic > Blood）
-				if (instanceState.AllBirdsMet && !instanceState.TwilightUnlocked)
+				else if (instanceState.AllBirdsMet && !instanceState.TwilightUnlocked)
 				{
 					prediction = "Twilight";
 					color = ThemeManager.GetPredictionColor("twilight");
@@ -725,8 +935,9 @@ namespace ToNStatTool
 					}
 					else
 					{
-						prediction = "通常 or 特殊";
-						color = ThemeManager.GetPredictionColor("special");
+						// N=0（特殊直後など）は通常確定
+						prediction = "通常";
+						color = ThemeManager.GetPredictionColor("normal");
 					}
 				}
 
@@ -836,6 +1047,12 @@ namespace ToNStatTool
 					? ThemeManager.Dark.TerrorDragHandle 
 					: ThemeManager.Light.TerrorDragHandle;
 				dragHandle.Invalidate(); // 再描画を要求
+			}
+
+			// リサイズグリップ（背景は下部パネル、線色だけテーマ追従なので再描画のみ）
+			if (resizeGrip != null)
+			{
+				resizeGrip.Invalidate();
 			}
 
 			// ラベル色

@@ -35,7 +35,7 @@ namespace ToNStatTool
 		public event Action<ToNRoundType> OnRoundStart;
 		public event Action OnInstanceStateChanged; // インスタンス状態変更イベント
 		public event Action OnPlayerCountChanged; // プレイヤー数変更イベント
-		public event Action OnItemReminderRoundEnd; // 8ページ/パニッシュド終了時のリマインダーイベント
+		public event Action OnItemReminderRoundEnd; // 8ページ/パニッシュ終了時のリマインダーイベント
 		public event Action OnMasterChanged; // マスター変更イベント
 		public event Action<SaveCodeInfo> OnSaveCodeReceived; // セーブコード受信イベント
 		public event Action<bool> OnOptedInChanged; // ゲーム参加状態変更イベント
@@ -62,6 +62,11 @@ namespace ToNStatTool
 		public RoundStats RoundStats { get; private set; } = new RoundStats();
 		public TerrorStats TerrorStats { get; private set; } = new TerrorStats();
 		public InstanceState InstanceState { get; private set; } = new InstanceState();
+
+		/// <summary>
+		/// インスタンスの滞在履歴（古い順）。インスタンス移動のたびに1件増える
+		/// </summary>
+		public List<InstanceVisit> InstanceVisits { get; private set; } = new List<InstanceVisit>();
 
 		// Round tracking
 		private RoundLog currentRound = null;

@@ -561,11 +561,17 @@ namespace ToNStatTool
 							Players[localPlayer.UserId] = localPlayer;
 						}
 						Logger.Debug("Instance", "インスタンス移動のためプレイヤーリストをクリア（ローカルプレイヤーは保持）");
+
+						// ラウンド周期・特殊/Moon解禁状態は前のインスタンスのものなので破棄する
+						// （引き継ぐと新インスタンスで予測が最初からずれる）
+						InstanceState.ResetForNewInstance();
+						Logger.Info("Instance", "インスタンス移動のためラウンド予測状態をリセット");
 					}
 					
 					lastInstanceUrl = instanceUrl;
 					InstanceState.InstanceUrl = instanceUrl;
-					Logger.Info("Instance", $"インスタンスURL更新: {instanceUrl}");
+					UpdateInstanceVisit(instanceUrl);
+					Logger.Info("Instance", $"インスタンスURL更新: {instanceUrl} [{InstanceState.InstanceInfo.ShortDescription}]");
 
 					// インスタンス変更時は状態をリセット
 					InstanceState.MasterChanged = false;
@@ -598,6 +604,40 @@ namespace ToNStatTool
 			}
 		}
 
+
+		/// <summary>
+		/// インスタンス滞在履歴を更新する。
+		/// 別インスタンスに移ったら直前の記録を閉じて、新しい記録を開始する
+		/// </summary>
+		private void UpdateInstanceVisit(string instanceUrl)
+		{
+			if (string.IsNullOrEmpty(instanceUrl)) return;
+
+			try
+			{
+				var current = InstanceVisits.LastOrDefault(v => v.IsCurrent);
+
+				// 同じインスタンスのイベントが再送された場合は何もしない
+				if (current != null && current.InstanceUrl == instanceUrl) return;
+
+				if (current != null)
+				{
+					current.LeftAt = DateTime.Now;
+					Logger.Info("Instance", $"インスタンス滞在を記録: {current.Info.ShortDescription} / 滞在 {current.Duration:hh\\:mm\\:ss}");
+				}
+
+				InstanceVisits.Add(new InstanceVisit
+				{
+					InstanceUrl = instanceUrl,
+					Info = VRChatInstanceParser.Parse(instanceUrl),
+					JoinedAt = DateTime.Now
+				});
+			}
+			catch (Exception ex)
+			{
+				Logger.Error("Instance", "インスタンス滞在履歴の更新エラー", ex);
+			}
+		}
 
 		private void ProcessStatsEvent(JObject jsonData)
 		{
@@ -632,9 +672,28 @@ namespace ToNStatTool
 					case "DamageTaken":
 						SessionStats.DamageTaken = valueToken.ToObject<int>();
 						break;
+					case "LobbyDeaths":
+						SessionStats.LobbyDeaths = valueToken.ToObject<int?>() ?? 0;
+						break;
+					case "LobbyStuns":
+						SessionStats.LobbyStuns = valueToken.ToObject<int?>() ?? 0;
+						break;
+					case "LobbyStunsAll":
+						SessionStats.LobbyStunsAll = valueToken.ToObject<int?>() ?? 0;
+						break;
+					case "LobbyTopStuns":
+						SessionStats.LobbyTopStuns = valueToken.ToObject<int?>() ?? 0;
+						break;
+					case "LobbyTopStunsAll":
+						SessionStats.LobbyTopStunsAll = valueToken.ToObject<int?>() ?? 0;
+						break;
+					case "LobbyDamageTaken":
+						SessionStats.LobbyDamageTaken = valueToken.ToObject<int?>() ?? 0;
+						break;
 					case "LobbySurvivals":
 						// ロビー生存数が15以上ならMystic Moon解禁
 						int lobbySurvivals = valueToken.ToObject<int?>() ?? 0;
+						SessionStats.LobbySurvivals = lobbySurvivals;
 						if (lobbySurvivals >= 15 && !InstanceState.MysticMoonUnlocked)
 						{
 							InstanceState.MysticMoonUnlocked = true;

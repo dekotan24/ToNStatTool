@@ -55,6 +55,9 @@ namespace ToNStatTool
         // コントロールキャッシュ（FindControl高速化用）
         private readonly Dictionary<string, Control> controlCache = new Dictionary<string, Control>();
 
+        // メイン画面共通のツールチップ（インスタンス情報の詳細表示などに使う）
+        private ToolTip mainToolTip;
+
         // アプリケーション設定
         private AppSettings appSettings;
 
@@ -96,6 +99,9 @@ namespace ToNStatTool
             
             // フォームクローズ時に設定を保存
             this.FormClosing += ToNStatTool_FormClosing;
+
+            // オーバーレイ機能（ホットキー等）はウィンドウハンドル生成後に初期化する
+            this.Shown += (s, e) => InitializeOverlayFeatures();
 
             // フォーム表示後に自動接続を試行
             this.Shown += async (s, e) => await TryAutoConnectAsync();
@@ -190,6 +196,16 @@ namespace ToNStatTool
 
                     // XSOverlay通知設定を反映
                     XSOverlayNotifier.ApplySettings(appSettings);
+
+                    // オーバーレイ設定（クリックスルー・ホットキー）を反映
+                    ApplyOverlaySettings(notifyHotkeyFailure: true);
+
+                    // 位置リセットが押されていたら、開いているウィンドウも既定位置へ戻す
+                    if (settingsForm.OverlayBoundsReset
+                        && terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
+                    {
+                        terrorDisplayForm.ResetBoundsToDefault();
+                    }
                 }
             }
         }
@@ -419,7 +435,14 @@ namespace ToNStatTool
                 }
                 
                 currentSettings.WebSocketUrl = textBoxUrl.Text;
-                
+
+                // オーバーレイの位置・サイズ（開いている場合のみ現在値で更新）
+                if (currentSettings.RememberTerrorFormBounds
+                    && terrorDisplayForm != null && !terrorDisplayForm.IsDisposed)
+                {
+                    terrorDisplayForm.SaveBoundsTo(currentSettings);
+                }
+
                 currentSettings.Save();
             }
             catch (Exception ex)
@@ -462,7 +485,9 @@ namespace ToNStatTool
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             SaveSettings();
-            
+
+            DisposeOverlayFeatures();
+
             webSocketClient?.DisconnectAsync().Wait();
 
             uiUpdateTimer?.Stop();

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
@@ -58,7 +58,7 @@ namespace ToNStatTool
 		// 警告ユーザー参加時サウンド
 		public bool EnableWarningUserSound { get; set; } = true;
 		public string WarningUserSoundPath { get; set; } = "";
-		// アイテムリマインダー設定（8ページ/パニッシュド/サボタージュ）
+		// アイテムリマインダー設定（8ページ/パニッシュ/サボタージュ）
 		public bool EnableItemReminder { get; set; } = true;
 		public bool EnableItemReminderSound { get; set; } = true;
 		public string ItemReminderSoundPath { get; set; } = "";
@@ -80,6 +80,10 @@ namespace ToNStatTool
 		
 		// 特殊ラウンド解放状態（インスタンス全体で3回生存）
 		public bool SpecialUnlocked { get; set; } = true; // 途中参加を考慮してデフォルトtrue
+		
+		// このインスタンスで特殊/Moonラウンドを実際に観測したか
+		// （特殊未解放の推定に使用。未観測のまま特殊枠にNormalが来たら未解放と判定する）
+		public bool SpecialRoundObserved { get; set; } = false;
 		
 		// 通常ラウンド連続回数（特殊後にリセット）
 		public int NormalRoundCount { get; set; } = 0;
@@ -116,6 +120,10 @@ namespace ToNStatTool
 		// マスター変更フラグ（次ラウンドが特殊確定）
 		public bool MasterChanged { get; set; } = false;
 		
+		// インスタンスURLを解析した情報（種別・リージョンなど）。InstanceUrlの設定時に自動更新される
+		private VRChatInstanceInfo _instanceInfo = new VRChatInstanceInfo();
+		public VRChatInstanceInfo InstanceInfo => _instanceInfo;
+
 		// インスタンスURL（バッキングフィールド付きでロギング）
 		private string _instanceUrl = "";
 		public string InstanceUrl
@@ -125,6 +133,7 @@ namespace ToNStatTool
 			{
 				string oldValue = _instanceUrl;
 				_instanceUrl = value ?? "";
+				_instanceInfo = VRChatInstanceParser.Parse(_instanceUrl);
 
 				// 値が変更された場合にログを出力
 				if (oldValue != _instanceUrl)
@@ -196,6 +205,37 @@ namespace ToNStatTool
 		public bool HasLastRound => LastRoundType != ToNRoundType.Intermission;
 		
 		/// <summary>
+		/// インスタンス移動時に、そのインスタンス固有の予測用状態だけをリセットする。
+		/// InstanceUrl や参加状態など、移動処理側で管理する値には触れない。
+		/// </summary>
+		public void ResetForNewInstance()
+		{
+			IsInstanceOwner = false;
+			SpecialUnlocked = true;      // 途中参加を考慮してデフォルトtrue
+			SpecialRoundObserved = false;
+			NormalRoundCount = 0;
+			NormalRoundCountAtRoundStart = 0;
+			WasOverrideInUncertainState = false;
+			IsCurrentRoundOverride = false;
+			LastRoundType = ToNRoundType.Intermission;
+			CurrentRoundType = ToNRoundType.Intermission;
+			EstimatedSurvivalCount = 0;
+			MetBigBird = false;
+			MetJudgementBird = false;
+			MetPunishingBird = false;
+			BloodMoonUnlocked = false;
+			TwilightUnlocked = false;
+			MysticMoonUnlocked = false;
+			SolsticeUnlocked = false;
+			BloodMoonJustUnlocked = false;
+			TwilightJustUnlocked = false;
+			MysticMoonJustUnlocked = false;
+			MidnightSurvived = false;
+			MasterChanged = false;
+			IsCurrentRoundFirstMoon = false;
+		}
+
+		/// <summary>
 		/// 状態をリセット
 		/// </summary>
 		public void Reset()
@@ -208,6 +248,7 @@ namespace ToNStatTool
 
 			IsInstanceOwner = false;
 			SpecialUnlocked = true;
+			SpecialRoundObserved = false;
 			NormalRoundCount = 0;
 			LastRoundType = ToNRoundType.Intermission;
 			CurrentRoundType = ToNRoundType.Intermission;
@@ -286,6 +327,41 @@ namespace ToNStatTool
 		/// リプレイ（バッファイベント処理）から取得したログかどうか
 		/// </summary>
 		public bool IsReplay { get; set; } = false;
+
+		/// <summary>
+		/// このラウンドを記録したインスタンスのURL（インスタンス別集計に使う）
+		/// </summary>
+		public string InstanceUrl { get; set; } = "";
+	}
+
+	/// <summary>
+	/// インスタンスへの滞在記録（1回の入室 = 1レコード）
+	/// </summary>
+	public class InstanceVisit
+	{
+		public string InstanceUrl { get; set; } = "";
+
+		/// <summary>解析済みのインスタンス情報（種別・リージョンなど）</summary>
+		public VRChatInstanceInfo Info { get; set; } = new VRChatInstanceInfo();
+
+		/// <summary>入室を検知した時刻</summary>
+		public DateTime JoinedAt { get; set; } = DateTime.Now;
+
+		/// <summary>退室（別インスタンスへの移動）を検知した時刻。滞在中はnull</summary>
+		public DateTime? LeftAt { get; set; } = null;
+
+		/// <summary>滞在中かどうか</summary>
+		public bool IsCurrent => LeftAt == null;
+
+		/// <summary>滞在時間</summary>
+		public TimeSpan Duration => (LeftAt ?? DateTime.Now) - JoinedAt;
+
+		// 以下はラウンドログから集計して詰める（表示時に更新）
+		public int Rounds { get; set; } = 0;
+		public int Survived { get; set; } = 0;
+
+		public int Deaths => Math.Max(0, Rounds - Survived);
+		public double SurvivalRate => Rounds > 0 ? (double)Survived / Rounds * 100 : 0;
 	}
 
 	/// <summary>
@@ -368,9 +444,23 @@ namespace ToNStatTool
 		public int RoundStuns { get; set; } = 0;   // 現在ラウンドのスタン
 		public int RoundStunsAll { get; set; } = 0;
 		
+		// ここから下はインスタンス（ロビー）単位の統計。
+		// ToNSaveManagerがワールド移動を検知してリセットした値をSTATSイベントで送ってくるので、
+		// ToNStatTool側でリセットタイミングを判断する必要はない
+		public int LobbySurvivals { get; set; } = 0;
+		public int LobbyDeaths { get; set; } = 0;
+		public int LobbyStuns { get; set; } = 0;
+		public int LobbyStunsAll { get; set; } = 0;
+		public int LobbyTopStuns { get; set; } = 0;
+		public int LobbyTopStunsAll { get; set; } = 0;
+		public int LobbyDamageTaken { get; set; } = 0;
+
 		public int TotalRounds => Survivals + Deaths;
 		public double SurvivalRate => TotalRounds > 0 ? (double)Survivals / TotalRounds * 100 : 0;
-		
+
+		public int LobbyTotalRounds => LobbySurvivals + LobbyDeaths;
+		public double LobbySurvivalRate => LobbyTotalRounds > 0 ? (double)LobbySurvivals / LobbyTotalRounds * 100 : 0;
+
 		/// <summary>
 		/// ラウンド終了時に呼び出し（スタン記録更新）
 		/// </summary>
@@ -408,6 +498,14 @@ namespace ToNStatTool
 			RoundDamage = 0;
 			RoundStuns = 0;
 			RoundStunsAll = 0;
+
+			LobbySurvivals = 0;
+			LobbyDeaths = 0;
+			LobbyStuns = 0;
+			LobbyStunsAll = 0;
+			LobbyTopStuns = 0;
+			LobbyTopStunsAll = 0;
+			LobbyDamageTaken = 0;
 		}
 	}
 }

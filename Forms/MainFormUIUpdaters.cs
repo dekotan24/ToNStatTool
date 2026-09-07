@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -637,6 +637,99 @@ namespace ToNStatTool
             textBoxCurrentItem.Text = displayText;
         }
 
+        /// <summary>
+        /// インスタンス種別（Public/Group/Invite等）とリージョンの表示を更新する。
+        /// ラウンド情報グループのタイトルに出し、詳細は🔗ボタンのツールチップに載せる
+        /// </summary>
+        private void UpdateInstanceInfoDisplay()
+        {
+            SafeInvoke(() =>
+            {
+                var info = webSocketClient?.InstanceState?.InstanceInfo;
+                var button = FindControl("buttonCopyInstanceUrl") as Button;
+
+                const string baseTitle = "ラウンド情報";
+                const string baseTooltip = "インスタンスURLをクリップボードにコピー";
+
+                if (info == null || !info.IsValid)
+                {
+                    if (groupBoxRoundInfo != null && !groupBoxRoundInfo.IsDisposed)
+                    {
+                        groupBoxRoundInfo.Text = baseTitle;
+                        groupBoxRoundInfo.ForeColor = ThemeManager.IsDark ? ThemeManager.Dark.Text : ThemeManager.Light.Text;
+                    }
+
+                    if (button != null && !button.IsDisposed)
+                    {
+                        mainToolTip?.SetToolTip(button, baseTooltip);
+                    }
+                    return;
+                }
+
+                if (groupBoxRoundInfo != null && !groupBoxRoundInfo.IsDisposed)
+                {
+                    // グループのタイトルを種別色で塗って、ひと目で分かるようにする
+                    // （🔗ボタンの絵文字はカラー絵文字なのでForeColorが効かない）
+                    groupBoxRoundInfo.Text = $"{baseTitle} － {info.ShortDescription}";
+                    groupBoxRoundInfo.ForeColor = info.GetTypeColor(ThemeManager.IsDark);
+                }
+
+                if (button != null && !button.IsDisposed)
+                {
+                    var tooltip = new System.Text.StringBuilder();
+                    tooltip.AppendLine($"インスタンス種別: {info.TypeDisplayName}");
+                    tooltip.AppendLine($"リージョン: {info.RegionDisplayName}");
+
+                    if (info.IsAgeGated)
+                    {
+                        tooltip.AppendLine("18+インスタンス");
+                    }
+
+                    if (!string.IsNullOrEmpty(info.GroupId))
+                    {
+                        tooltip.AppendLine($"グループ: {info.GroupId}");
+                    }
+
+                    if (!string.IsNullOrEmpty(info.InstanceName))
+                    {
+                        tooltip.AppendLine($"インスタンス名: {info.InstanceName}");
+                    }
+
+                    tooltip.AppendLine();
+                    tooltip.Append(baseTooltip);
+
+                    mainToolTip?.SetToolTip(button, tooltip.ToString());
+                }
+            });
+        }
+
+        // 直近にログ出力した予測（同じ内容を繰り返しログに書かないため）
+        private string lastLoggedPrediction = null;
+
+        /// <summary>
+        /// 次ラウンド予測をテキストボックスに反映し、内容が変わったらログに残す。
+        /// （ログから予測の妥当性を後追い検証できるようにするため）
+        /// </summary>
+        private void SetNextRoundPrediction(TextBox textBox, string text, Color color)
+        {
+            textBox.Text = text;
+            textBox.ForeColor = color;
+
+            if (text != lastLoggedPrediction)
+            {
+                lastLoggedPrediction = text;
+                var st = webSocketClient?.InstanceState;
+                if (st != null)
+                {
+                    Logger.Info("Prediction", $"次ラウンド予測: {text} (N={st.NormalRoundCount}, 不確定={st.WasOverrideInUncertainState}, 特殊解放={st.SpecialUnlocked}, 特殊観測={st.SpecialRoundObserved}, 推定生存={st.EstimatedSurvivalCount}, 現ラウンド={st.CurrentRoundType})");
+                }
+                else
+                {
+                    Logger.Info("Prediction", $"次ラウンド予測: {text}");
+                }
+            }
+        }
+
         private void UpdateNextRoundPrediction()
         {
             var textBoxNextRound = FindControl("textBox_nextRound") as TextBox;
@@ -645,8 +738,7 @@ namespace ToNStatTool
             var instanceState = webSocketClient?.InstanceState;
             if (instanceState == null)
             {
-                textBoxNextRound.Text = "-";
-                textBoxNextRound.ForeColor = ThemeManager.IsDark ? ThemeManager.Dark.Text : ThemeManager.Light.Text;
+                SetNextRoundPrediction(textBoxNextRound, "-", ThemeManager.IsDark ? ThemeManager.Dark.Text : ThemeManager.Light.Text);
                 return;
             }
 
@@ -659,12 +751,11 @@ namespace ToNStatTool
             string prediction = "";
             Color color = ThemeManager.IsDark ? ThemeManager.Dark.Text : ThemeManager.Light.Text;
 
-            if (instanceState.MasterChanged)
+            if (instanceState.MasterChanged && instanceState.SpecialUnlocked)
             {
                 prediction = "特殊 (マスター変更)";
                 color = ThemeManager.GetPredictionColor("special");
-                textBoxNextRound.Text = prediction;
-                textBoxNextRound.ForeColor = color;
+                SetNextRoundPrediction(textBoxNextRound, prediction, color);
                 return;
             }
 
@@ -726,8 +817,7 @@ namespace ToNStatTool
                 }
             }
 
-            textBoxNextRound.Text = prediction;
-            textBoxNextRound.ForeColor = color;
+            SetNextRoundPrediction(textBoxNextRound, prediction, color);
         }
 
         private void UpdateNextRoundPredictionForCurrentRound(ToNRoundType currentRoundType)
@@ -738,15 +828,14 @@ namespace ToNStatTool
             var instanceState = webSocketClient?.InstanceState;
             if (instanceState == null)
             {
-                textBoxNextRound.Text = "-";
+                SetNextRoundPrediction(textBoxNextRound, "-", ThemeManager.IsDark ? ThemeManager.Dark.Text : ThemeManager.Light.Text);
                 return;
             }
 
             // マスター変更時は特殊確定（ラウンド進行中でも即座に反映）
-            if (instanceState.MasterChanged)
+            if (instanceState.MasterChanged && instanceState.SpecialUnlocked)
             {
-                textBoxNextRound.Text = "特殊(MC)";
-                textBoxNextRound.ForeColor = ThemeManager.GetPredictionColor("special");
+                SetNextRoundPrediction(textBoxNextRound, "特殊(MC)", ThemeManager.GetPredictionColor("special"));
                 return;
             }
 
@@ -754,6 +843,13 @@ namespace ToNStatTool
             Color color = ThemeManager.IsDark ? ThemeManager.Dark.Text : ThemeManager.Light.Text;
 
             int normalCountAtStart = instanceState.NormalRoundCountAtRoundStart;
+
+            // 特殊未解放（インスタンス全体で3回生存前）なら次は必ず通常
+            if (!instanceState.SpecialUnlocked)
+            {
+                SetNextRoundPrediction(textBoxNextRound, "通常 (特殊未解放)", ThemeManager.GetPredictionColor("disabled"));
+                return;
+            }
 
             if (ToNRoundTypeHelper.IsSpecialRound(currentRoundType))
             {
@@ -819,8 +915,7 @@ namespace ToNStatTool
                 }
             }
 
-            textBoxNextRound.Text = prediction;
-            textBoxNextRound.ForeColor = color;
+            SetNextRoundPrediction(textBoxNextRound, prediction, color);
         }
 
         private void UpdateTextBoxWithColor(string key, string value)

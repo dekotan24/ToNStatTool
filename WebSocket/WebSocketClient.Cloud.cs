@@ -319,6 +319,9 @@ namespace ToNStatTool
 					roundLog.WasOptedIn = false;
 				}
 
+				// クラウドから取得するのは現在参加中のインスタンスの過去ログなので、同じインスタンスとして集計する
+				roundLog.InstanceUrl = InstanceState.InstanceUrl;
+
 				RoundLogs.Add(roundLog);
 				addedCount++;
 

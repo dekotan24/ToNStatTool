@@ -54,6 +54,18 @@ namespace ToNStatTool
 		private NumericUpDown numXSOverlayPort;
 		private Button buttonXSOverlayTest;
 
+		// オーバーレイ（テラー表示ウィンドウ）設定コントロール
+		private CheckBox checkOverlayClickThrough;
+		private CheckBox checkRememberOverlayBounds;
+		private Button buttonResetOverlayBounds;
+		private CheckBox checkOverlayHotkeyEnabled;
+		private TextBox textOverlayToggleHotkey;
+		private TextBox textClickThroughHotkey;
+		private Label labelOverlayBoundsState;
+
+		// 「位置をリセット」が押されたか（保存時に反映する）
+		private bool overlayBoundsResetRequested = false;
+
 		// 音声再生用
 		private IWavePlayer currentPlayer;
 		private AudioFileReader currentAudioFile;
@@ -100,6 +112,11 @@ namespace ToNStatTool
 			var tabVRNotify = new TabPage("VR通知");
 			tabControl.TabPages.Add(tabVRNotify);
 			CreateVRNotifySettingsTab(tabVRNotify);
+
+			// オーバーレイ設定タブ
+			var tabOverlay = new TabPage("オーバーレイ");
+			tabControl.TabPages.Add(tabOverlay);
+			CreateOverlaySettingsTab(tabOverlay);
 
 			// テーマ設定タブ
 			var tabTheme = new TabPage("テーマ");
@@ -369,7 +386,7 @@ namespace ToNStatTool
 		{
 			// リマインダー設定グループ
 			var groupReminder = new GroupBox();
-			groupReminder.Text = "8ページ / パニッシュド終了時のリマインダー";
+			groupReminder.Text = "8ページ / パニッシュ終了時のリマインダー";
 			groupReminder.Location = new Point(10, 10);
 			groupReminder.Size = new Size(415, 220);
 			tab.Controls.Add(groupReminder);
@@ -384,7 +401,7 @@ namespace ToNStatTool
 
 			// 説明ラベル
 			var labelDescription = new Label();
-			labelDescription.Text = "8ページ・パニッシュド終了後、テラー表示ウィンドウに\n「アイテムを持ち直してください」と表示します。\nサボタージュでキラー側になった時も通知します。";
+			labelDescription.Text = "8ページ・パニッシュ終了後、テラー表示ウィンドウに\n「アイテムを持ち直してください」と表示します。\nサボタージュでキラー側になった時も通知します。";
 			labelDescription.Location = new Point(15, 55);
 			labelDescription.Size = new Size(380, 50);
 			labelDescription.ForeColor = Color.Gray;
@@ -674,6 +691,175 @@ namespace ToNStatTool
 			groupXSO.Controls.Add(labelTestNote);
 		}
 
+		private void CreateOverlaySettingsTab(TabPage tab)
+		{
+			// 表示位置グループ
+			var groupBounds = new GroupBox();
+			groupBounds.Text = "表示位置";
+			groupBounds.Location = new Point(10, 10);
+			groupBounds.Size = new Size(415, 110);
+			tab.Controls.Add(groupBounds);
+
+			checkRememberOverlayBounds = new CheckBox();
+			checkRememberOverlayBounds.Text = "テラー表示ウィンドウの位置とサイズを記憶する";
+			checkRememberOverlayBounds.Location = new Point(15, 25);
+			checkRememberOverlayBounds.Size = new Size(330, 20);
+			groupBounds.Controls.Add(checkRememberOverlayBounds);
+
+			var labelBoundsNote = new Label();
+			labelBoundsNote.Text = "ウィンドウ右下をドラッグするとサイズを変更できます。";
+			labelBoundsNote.Location = new Point(15, 48);
+			labelBoundsNote.Size = new Size(390, 20);
+			labelBoundsNote.ForeColor = Color.Gray;
+			groupBounds.Controls.Add(labelBoundsNote);
+
+			buttonResetOverlayBounds = new Button();
+			buttonResetOverlayBounds.Text = "位置をリセット";
+			buttonResetOverlayBounds.Location = new Point(15, 72);
+			buttonResetOverlayBounds.Size = new Size(120, 26);
+			buttonResetOverlayBounds.Click += (s, e) =>
+			{
+				overlayBoundsResetRequested = true;
+				labelOverlayBoundsState.Text = "保存すると既定位置（右上）に戻ります";
+			};
+			groupBounds.Controls.Add(buttonResetOverlayBounds);
+
+			labelOverlayBoundsState = new Label();
+			labelOverlayBoundsState.Text = "";
+			labelOverlayBoundsState.Location = new Point(145, 76);
+			labelOverlayBoundsState.Size = new Size(260, 20);
+			labelOverlayBoundsState.ForeColor = Color.Gray;
+			groupBounds.Controls.Add(labelOverlayBoundsState);
+
+			// クリックスルーグループ
+			var groupClickThrough = new GroupBox();
+			groupClickThrough.Text = "クリックスルー";
+			groupClickThrough.Location = new Point(10, 128);
+			groupClickThrough.Size = new Size(415, 90);
+			tab.Controls.Add(groupClickThrough);
+
+			checkOverlayClickThrough = new CheckBox();
+			checkOverlayClickThrough.Text = "マウス操作を透過する（クリックスルー）";
+			checkOverlayClickThrough.Location = new Point(15, 25);
+			checkOverlayClickThrough.Size = new Size(330, 20);
+			groupClickThrough.Controls.Add(checkOverlayClickThrough);
+
+			var labelClickThroughNote = new Label();
+			labelClickThroughNote.Text = "有効にすると、オーバーレイの上でクリックしても背後のウィンドウが\n反応します。ドラッグでの移動とリサイズはできなくなります。";
+			labelClickThroughNote.Location = new Point(15, 48);
+			labelClickThroughNote.Size = new Size(390, 35);
+			labelClickThroughNote.ForeColor = Color.Gray;
+			groupClickThrough.Controls.Add(labelClickThroughNote);
+
+			// ホットキーグループ
+			var groupHotkey = new GroupBox();
+			groupHotkey.Text = "ホットキー";
+			groupHotkey.Location = new Point(10, 226);
+			groupHotkey.Size = new Size(415, 175);
+			tab.Controls.Add(groupHotkey);
+
+			checkOverlayHotkeyEnabled = new CheckBox();
+			checkOverlayHotkeyEnabled.Text = "グローバルホットキーを有効にする";
+			checkOverlayHotkeyEnabled.Location = new Point(15, 25);
+			checkOverlayHotkeyEnabled.Size = new Size(330, 20);
+			checkOverlayHotkeyEnabled.CheckedChanged += (s, e) => UpdateOverlayHotkeyControlsState();
+			groupHotkey.Controls.Add(checkOverlayHotkeyEnabled);
+
+			var labelHotkeyNote = new Label();
+			labelHotkeyNote.Text = "他のアプリを操作中でも反応します。入力欄を選んでキーを押すと\n設定できます（Backspaceで解除）。修飾キーとの組み合わせが必要です。";
+			labelHotkeyNote.Location = new Point(15, 48);
+			labelHotkeyNote.Size = new Size(390, 35);
+			labelHotkeyNote.ForeColor = Color.Gray;
+			groupHotkey.Controls.Add(labelHotkeyNote);
+
+			var labelToggleHotkey = new Label();
+			labelToggleHotkey.Text = "表示ON/OFF:";
+			labelToggleHotkey.Location = new Point(15, 95);
+			labelToggleHotkey.Size = new Size(110, 20);
+			groupHotkey.Controls.Add(labelToggleHotkey);
+
+			textOverlayToggleHotkey = CreateHotkeyTextBox(new Point(130, 92));
+			groupHotkey.Controls.Add(textOverlayToggleHotkey);
+
+			var labelClickThroughHotkey = new Label();
+			labelClickThroughHotkey.Text = "クリックスルー:";
+			labelClickThroughHotkey.Location = new Point(15, 130);
+			labelClickThroughHotkey.Size = new Size(110, 20);
+			groupHotkey.Controls.Add(labelClickThroughHotkey);
+
+			textClickThroughHotkey = CreateHotkeyTextBox(new Point(130, 127));
+			groupHotkey.Controls.Add(textClickThroughHotkey);
+		}
+
+		/// <summary>
+		/// キー入力でホットキーを設定する入力欄を作る
+		/// </summary>
+		private TextBox CreateHotkeyTextBox(Point location)
+		{
+			var textBox = new TextBox();
+			textBox.Location = location;
+			textBox.Size = new Size(180, 23);
+			textBox.ReadOnly = true;
+			textBox.Cursor = Cursors.Hand;
+			textBox.KeyDown += HotkeyTextBox_KeyDown;
+			return textBox;
+		}
+
+		private void HotkeyTextBox_KeyDown(object sender, KeyEventArgs e)
+		{
+			var textBox = sender as TextBox;
+			if (textBox == null) return;
+
+			// 入力欄に文字が入らないようにする
+			e.SuppressKeyPress = true;
+			e.Handled = true;
+
+			// BackSpace / Delete で解除
+			if (e.KeyCode == Keys.Back || e.KeyCode == Keys.Delete)
+			{
+				textBox.Text = "";
+				return;
+			}
+
+			// 修飾キー単体は無視（続けて本体キーが押されるのを待つ）
+			if (e.KeyCode == Keys.ControlKey || e.KeyCode == Keys.ShiftKey ||
+				e.KeyCode == Keys.Menu || e.KeyCode == Keys.LWin || e.KeyCode == Keys.RWin)
+			{
+				return;
+			}
+
+			// 修飾キーなしのホットキーは通常のタイピングを奪ってしまうので受け付けない
+			if (!e.Control && !e.Shift && !e.Alt)
+			{
+				labelOverlayBoundsState.Text = "Ctrl / Shift / Alt と組み合わせてください";
+				return;
+			}
+
+			var parts = new System.Collections.Generic.List<string>();
+			if (e.Control) parts.Add("Ctrl");
+			if (e.Shift) parts.Add("Shift");
+			if (e.Alt) parts.Add("Alt");
+			parts.Add(e.KeyCode.ToString());
+
+			string hotkey = string.Join("+", parts);
+
+			if (!Services.HotkeyManager.IsValid(hotkey))
+			{
+				labelOverlayBoundsState.Text = $"このキーは使用できません: {hotkey}";
+				return;
+			}
+
+			textBox.Text = hotkey;
+			labelOverlayBoundsState.Text = "";
+		}
+
+		private void UpdateOverlayHotkeyControlsState()
+		{
+			bool enabled = checkOverlayHotkeyEnabled.Checked;
+			textOverlayToggleHotkey.Enabled = enabled;
+			textClickThroughHotkey.Enabled = enabled;
+		}
+
 		private void BrowseSoundFile(TextBox targetTextBox)
 		{
 			using (var ofd = new OpenFileDialog())
@@ -798,9 +984,17 @@ namespace ToNStatTool
 			checkXSONotifyTerror.Checked = appSettings.XSOverlayNotifyTerror;
 			numXSOverlayPort.Value = Math.Max(1, Math.Min(65535, appSettings.XSOverlayPort));
 
+			// オーバーレイ設定（AppSettingsから読み込み）
+			checkRememberOverlayBounds.Checked = appSettings.RememberTerrorFormBounds;
+			checkOverlayClickThrough.Checked = appSettings.TerrorFormClickThrough;
+			checkOverlayHotkeyEnabled.Checked = appSettings.OverlayHotkeyEnabled;
+			textOverlayToggleHotkey.Text = appSettings.OverlayToggleHotkey;
+			textClickThroughHotkey.Text = appSettings.ClickThroughHotkey;
+
 			UpdateReminderControlsState();
 			UpdateCloudControlsState();
 			UpdateXSOverlayControlsState();
+			UpdateOverlayHotkeyControlsState();
 		}
 
 		private void UpdateReminderControlsState()
@@ -873,6 +1067,39 @@ namespace ToNStatTool
 			appSettings.XSOverlayNotifyTerror = checkXSONotifyTerror.Checked;
 			appSettings.XSOverlayPort = (int)numXSOverlayPort.Value;
 
+			// オーバーレイ設定を更新（AppSettingsに保存）
+			appSettings.RememberTerrorFormBounds = checkRememberOverlayBounds.Checked;
+			appSettings.TerrorFormClickThrough = checkOverlayClickThrough.Checked;
+			appSettings.OverlayHotkeyEnabled = checkOverlayHotkeyEnabled.Checked;
+			appSettings.OverlayToggleHotkey = textOverlayToggleHotkey.Text;
+			appSettings.ClickThroughHotkey = textClickThroughHotkey.Text;
+
+			// この画面で扱わない値（オーバーレイの位置など）は開いている間に
+			// メイン側で更新されている可能性があるため、保存直前に取り込み直す
+			try
+			{
+				var latest = AppSettings.Load();
+				appSettings.TerrorFormX = latest.TerrorFormX;
+				appSettings.TerrorFormY = latest.TerrorFormY;
+				appSettings.TerrorFormWidth = latest.TerrorFormWidth;
+				appSettings.TerrorFormHeight = latest.TerrorFormHeight;
+				appSettings.TerrorFormOpacity = latest.TerrorFormOpacity;
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"設定の再読み込みエラー: {ex.Message}");
+			}
+
+			// 位置リセットが要求されていれば未保存状態に戻す
+			if (overlayBoundsResetRequested)
+			{
+				appSettings.TerrorFormX = int.MinValue;
+				appSettings.TerrorFormY = int.MinValue;
+				appSettings.TerrorFormWidth = 0;
+				appSettings.TerrorFormHeight = 0;
+				OverlayBoundsReset = true;
+			}
+
 			appSettings.Save();
 			VerboseLogEnabled = checkVerboseLog.Checked;
 			CloudSyncEnabled = checkCloudSyncEnabled.Checked;
@@ -884,6 +1111,11 @@ namespace ToNStatTool
 
 			this.DialogResult = DialogResult.OK;
 		}
+
+		/// <summary>
+		/// オーバーレイの位置リセットが要求されたかどうか（開いているウィンドウを戻すために使う）
+		/// </summary>
+		public bool OverlayBoundsReset { get; private set; } = false;
 
 		/// <summary>
 		/// テーマが変更されたかどうか
